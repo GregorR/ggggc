@@ -62,7 +62,7 @@ void GGGGC_init()
 
     for (g = 0; g <= GGGGC_GENERATIONS; g++) {
         /* allocate this generation */
-        struct GGGGC_Generation *gen = (struct GGGGC_Generation *) allocateAligned(GGGGC_GENERATION_SIZE);
+        struct GGGGC_Pool *gen = (struct GGGGC_Pool *) allocateAligned(GGGGC_GENERATION_SIZE);
 
         /* clear out the cards */
         memset(gen->remember, 0, GGGGC_CARDS_PER_GENERATION);

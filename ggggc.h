@@ -111,8 +111,8 @@ void GGGGC_collect(unsigned char gen);
 #define GGC_PTR_WRITE(_obj, _ptr, _val) do { \
     size_t _sobj = (size_t) (_obj); \
     if ((_val) && (_obj)->_ggggc_ptrs._ggggc_header.gen > (_val)->_ggggc_ptrs._ggggc_header.gen) { \
-        struct GGGGC_Generation *_gen = (struct GGGGC_Generation *) (_sobj & ((size_t) -1 << GGGGC_GENERATION_SIZE)); \
-        _gen->remember[(_sobj & ~((size_t) -1 << GGGGC_GENERATION_SIZE)) >> GGGGC_CARD_SIZE] = 1; \
+        struct GGGGC_Pool *_pool = (struct GGGGC_Generation *) (_sobj & ((size_t) -1 << GGGGC_GENERATION_SIZE)); \
+        _pool->remember[(_sobj & ~((size_t) -1 << GGGGC_GENERATION_SIZE)) >> GGGGC_CARD_SIZE] = 1; \
     } \
     (_obj)->_ggggc_ptrs._ptr = (_val); \
 } while (0)
@@ -125,13 +125,13 @@ void GGGGC_collect(unsigned char gen);
 /* Read from a pointer */
 #define GGC_PTR_READ(_obj, _ptr) ((_obj)->_ggggc_ptrs._ptr)
 
-/* A GGGGC generation (header) */
-struct GGGGC_Generation {
+/* A GGGGC pool (header) */
+struct GGGGC_Pool {
     char *top;
     char remember[GGGGC_CARDS_PER_GENERATION];
     char firstobj[GGGGC_CARDS_PER_GENERATION];
 };
-extern struct GGGGC_Generation *ggggc_gens[GGGGC_GENERATIONS+1];
+extern struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS+1];
 
 /* Initialize GGGGC */
 #define GGC_INIT() GGGGC_init();
