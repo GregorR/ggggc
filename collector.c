@@ -109,7 +109,6 @@ retry:
                     (struct GGGGC_Header *) GGGGC_trymalloc_gen(gen+1, objtoch->sz, objtoch->ptrs);
                 if (newobj == NULL) {
                     /* ACK! Out of memory! Need more GC! */
-                    fprintf(stderr, "Need more GC!\n");
                     FREE_BUFFER(tocheck);
                     gen++;
                     if (gen >= GGGGC_GENERATIONS) {
