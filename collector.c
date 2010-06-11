@@ -138,5 +138,11 @@ retry:
     for (i = 0; i <= gen; i++) {
         struct GGGGC_Generation *ggen = ggggc_gens[i];
         ggen->top = (char *) ((size_t) (ggen->remember + cc + GGGGC_CARD_BYTES) & ((size_t) -1 << GGGGC_CARD_SIZE));
+        memset(ggen->remember, 0, cc);
+    }
+
+    /* clear the remember set of the next one */
+    if (gen < GGGGC_GENERATIONS - 1) {
+        memset(ggggc_gens[gen+1]->remember, 0, cc);
     }
 }
