@@ -52,13 +52,11 @@ void GGGGC_pop(int ct)
 void GGGGC_collect(unsigned char gen)
 {
     struct Buffer_voidpp tocheck;
-    int i, j, c, cc;
+    int i, j, c;
     size_t p;
     struct GGGGC_Generation *ggen;
     unsigned char nextgen;
     int nislast;
-
-    cc = 1 << (GGGGC_POOL_SIZE - GGGGC_CARD_SIZE);
 
 retry:
     nextgen = gen+1;
@@ -78,7 +76,7 @@ retry:
         for (p = 0; p < ggen->poolc; p++) {
             struct GGGGC_Pool *gpool = ggen->pools[p];
 
-            for (c = 0; c < cc; c++) {
+            for (c = 0; c < GGGGC_CARDS_PER_POOL; c++) {
                 if (gpool->remember[c]) {
                     /* remembered, add the card */
                     size_t base = (size_t) (((char *) gpool) + (GGGGC_CARD_BYTES * c));
@@ -86,7 +84,7 @@ retry:
                     struct GGGGC_Header *obj = first;
 
                     /* walk through this card */
-                    while (base == ((size_t) obj & ((size_t) -1 << GGGGC_CARD_SIZE)) && (char *) obj < gpool->top) {
+                    while (base == ((size_t) obj & GGGGC_NOCARD_MASK) && (char *) obj < gpool->top) {
                         void **ptr = (void **) (obj + 1);
 
                         /* add all its pointers */
@@ -154,15 +152,15 @@ retry:
         ggen = ggggc_gens[i];
         for (p = 0; p < ggen->poolc; p++) {
             struct GGGGC_Pool *gpool = ggen->pools[p];
-            gpool->top = gpool->firstobj + cc;
-            memset(gpool->remember, 0, cc);
+            gpool->top = gpool->firstobj + GGGGC_CARDS_PER_POOL;
+            memset(gpool->remember, 0, GGGGC_CARDS_PER_POOL);
         }
     }
 
     /* clear the remember set of the next one */
     ggen = ggggc_gens[gen+1];
     for (p = 0; p < ggen->poolc; p++) {
-        memset(ggen->pools[p]->remember, 0, cc);
+        memset(ggen->pools[p]->remember, 0, GGGGC_CARDS_PER_POOL);
     }
 
     /* and if we're doing the last (last+1 really) generation, treat it like two-space copying */
