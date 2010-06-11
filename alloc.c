@@ -91,57 +91,47 @@ struct GGGGC_Generation *GGGGC_alloc_generation(struct GGGGC_Generation *from)
     return ret;
 }
 
-void *GGGGC_trymalloc_gen(unsigned char gen, int noexpand, size_t sz, unsigned char ptrs)
+void *GGGGC_trymalloc_gen(unsigned char gen, int expand, size_t sz, unsigned char ptrs)
 {
-    if (gen <= GGGGC_GENERATIONS) {
-        size_t p;
-        struct GGGGC_Generation *ggen = ggggc_gens[gen];
+    size_t p;
+    struct GGGGC_Generation *ggen = ggggc_gens[gen];
 
-        for (p = 0; p <= ggen->poolc; p++) {
-            struct GGGGC_Pool *gpool;
+    for (p = 0; p <= ggen->poolc; p++) {
+        struct GGGGC_Pool *gpool;
 
-            if (p == ggen->poolc) {
-                if (noexpand)
-                    return NULL;
+        if (p == ggen->poolc) {
+            if (!expand)
+                return NULL;
 
-                /* need to expand */
-                ggggc_gens[gen] = ggen = GGGGC_alloc_generation(ggen);
-            }
-
-            gpool = ggen->pools[p];
-
-            /* perform the actual allocation */
-            if (gpool->top + sz <= ((char *) gpool) + GGGGC_POOL_BYTES - 1) {
-                /* if we allocate at a card boundary, need to mark firstobj */
-                size_t c1 = ((size_t) gpool->top & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE;
-                size_t c2 = (((size_t) gpool->top + sz) & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE;
-
-                /* sufficient room, just give it */
-                struct GGGGC_Header *ret = (struct GGGGC_Header *) gpool->top;
-                gpool->top += sz;
-                memset(ret, 0, sz);
-                ret->sz = sz;
-                ret->gen = gen;
-                ret->ptrs = ptrs;
-
-                if (c1 != c2) {
-                    gpool->firstobj[c2] = (unsigned char) ((size_t) gpool->top & GGGGC_CARD_MASK);
-                }
-
-                return ret;
-            }
+            /* need to expand */
+            ggggc_gens[gen] = ggen = GGGGC_alloc_generation(ggen);
         }
 
-        /* or fail (should be unreachable) */
-        return NULL;
+        gpool = ggen->pools[p];
 
-    } else {
-        /* if we fall off, can't safely give anything */
-        fprintf(stderr, "Memory exhausted.\n");
-        *((int *) 0) = 0;
-        return NULL;
+        /* perform the actual allocation */
+        if (gpool->top + sz < ((char *) gpool) + GGGGC_POOL_BYTES) {
+            /* if we allocate at a card boundary, need to mark firstobj */
+            size_t c1 = ((size_t) gpool->top & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE;
+            size_t c2 = (((size_t) gpool->top + sz) & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE;
 
+            /* sufficient room, just give it */
+            struct GGGGC_Header *ret = (struct GGGGC_Header *) gpool->top;
+            gpool->top += sz;
+            memset(ret, 0, sz);
+            ret->sz = sz;
+            ret->gen = gen;
+            ret->ptrs = ptrs;
+
+            if (c1 != c2)
+                gpool->firstobj[c2] = (unsigned char) ((size_t) gpool->top & GGGGC_CARD_MASK);
+
+            return ret;
+        }
     }
+
+    /* or fail (should be unreachable) */
+    return NULL;
 }
 
 void *GGGGC_malloc(size_t sz, unsigned char ptrs)
@@ -149,7 +139,7 @@ void *GGGGC_malloc(size_t sz, unsigned char ptrs)
     int i;
     void *ret;
     for (i = 0; i <= GGGGC_GENERATIONS; i++) {
-        ret = GGGGC_trymalloc_gen(i, 0, sz, ptrs);
+        ret = GGGGC_trymalloc_gen(i, 1, sz, ptrs);
         if (ret) return ret;
     }
 
@@ -157,7 +147,12 @@ void *GGGGC_malloc(size_t sz, unsigned char ptrs)
     return NULL;
 }
 
-void *GGGGC_malloc_array(size_t sz, size_t nmemb)
+void *GGGGC_malloc_ptr_array(size_t sz, size_t nmemb)
 {
     return GGGGC_malloc(sizeof(struct GGGGC_Header) + sz * nmemb, nmemb);
+}
+
+void *GGGGC_malloc_data_array(size_t sz, size_t nmemb)
+{
+    return GGGGC_malloc(sizeof(struct GGGGC_Header) + sz * nmemb, 0);
 }

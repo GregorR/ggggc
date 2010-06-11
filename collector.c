@@ -118,7 +118,7 @@ retry:
 
                 /* nope, get a new one */
                 struct GGGGC_Header *newobj =
-                    (struct GGGGC_Header *) GGGGC_trymalloc_gen(nextgen, !nislast, objtoch->sz, objtoch->ptrs);
+                    (struct GGGGC_Header *) GGGGC_trymalloc_gen(nextgen, nislast, objtoch->sz, objtoch->ptrs);
                 if (newobj == NULL) {
                     /* ACK! Out of memory! Need more GC! */
                     FREE_BUFFER(tocheck);

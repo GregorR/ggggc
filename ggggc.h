@@ -75,13 +75,27 @@ struct _GGGGC_Array__ ## name { \
     struct _GGGGC_PtrsArray__ ## name _ggggc_ptrs; \
 }
 
-#define NOTHING
+#define GGGGC_NOTHING
 
 /* A struct with only pointers */
-#define GGC_PTR_STRUCT(name, ptrs) GGC_STRUCT(name, ptrs, NOTHING)
+#define GGC_PTR_STRUCT(name, ptrs) GGC_STRUCT(name, ptrs, GGGGC_NOTHING)
 
 /* A struct with only data */
-#define GGC_DATA_STRUCT(name, data) GGC_STRUCT(name, NOTHING, data)
+#define GGC_DATA_STRUCT(name, data) GGC_STRUCT(name, GGGGC_NOTHING, data)
+
+/* Define a GGGGC-able array of non-pointers */
+#define GGC_ARRAY(name, type) \
+tpedef struct _GGGGC_Array__ ## name * name ## Array; \
+sstruct _GGGGC_Ptrs__ ## name ## Array { \
+    struct GGGGC_Header _ggggc_header; \
+}; \
+struct _GGGGC_Elem__ ## name ## Array { \
+    type d; \
+}; \
+struct _GGGGC__ ## name ## Array { \
+    struct _GGGGC_Ptrs__ ## name ## Array _ggggc_ptrs; \
+    type d[1]; \
+}
 
 /* Allocate a fresh object of the given type */
 #define GGC_ALLOC(type) ((type) GGGGC_malloc(sizeof(struct _GGGGC__ ## type), \
@@ -89,11 +103,13 @@ struct _GGGGC_Array__ ## name { \
 void *GGGGC_malloc(size_t sz, unsigned char ptrs);
 
 /* Allocate an array of the given kind of pointers */
-#define GGC_ALLOC_PTR_ARRAY(type, sz) ((type ## Array) GGGGC_malloc_array(sizeof(type), (sz)))
-void *GGGGC_malloc_array(size_t sz, size_t nmemb);
+#define GGC_ALLOC_PTR_ARRAY(type, sz) ((type ## Array) GGGGC_malloc_ptr_array(sizeof(type), (sz)))
+void *GGGGC_malloc_ptr_array(size_t sz, size_t nmemb);
 
-/* Allocate an array of the given kind of data */
-#define GGC_ALLOC_DATA_ARRAY(type, sz) ((type *) GGGGC_malloc((sz) * sizeof(type), 0))
+/* Allocate an array of the given NAME */
+#define GGC_ALLOC_DATA_ARRAY(name, sz) ((name ## Array) GGGGC_malloc_data_array( \
+    sizeof(struct _GGGGC_Elem__ ## name ## Array), (sz)))
+void *GGGGC_malloc_data_array(size_t sz, size_t nmemb);
 
 /* Add this pointer to the "roots" list (used to avoid needing a typed stack generally) */
 #define GGC_PUSH(obj) GGGGC_push((void **) &(obj))
