@@ -22,40 +22,114 @@
  * THE SOFTWARE.
  */
 
+#define _BSD_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 
 #include "ggggc.h"
 #include "helpers.h"
 
+static void *allocateAligned(size_t sz2)
+{
+    void *ret;
+    size_t sz = 1<<sz2;
+
+    /* mmap double */
+    SF(ret, mmap, NULL, (NULL, sz*2, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0));
+
+    /* check for alignment */
+    if (((size_t) ret & ~((size_t) -1 << sz2)) != 0) {
+        /* not aligned, figure out the proper alignment */
+        void *base = (void *) (((size_t) ret + sz) & ((size_t) -1 << sz2));
+        munmap(ret, (char *) base - (char *) ret);
+        munmap((void *) ((char *) base + sz), sz - ((char *) base - (char *) ret));
+        ret = base;
+    } else {
+        /* aligned, just free the excess */
+        munmap((void *) ((char *) ret + sz), sz);
+    }
+
+    return ret;
+}
+
+struct GGGGC_Pool *GGGGC_alloc_pool()
+{
+    size_t c;
+
+    /* allocate this pool */
+    struct GGGGC_Pool *pool = (struct GGGGC_Pool *) allocateAligned(GGGGC_GENERATION_SIZE);
+
+    /* clear out the cards */
+    memset(pool->remember, 0, GGGGC_CARDS_PER_GENERATION);
+
+    /* set up the top pointer */
+    pool->top = pool->firstobj + GGGGC_CARDS_PER_GENERATION;
+    c = (((size_t) pool->top) - (size_t) pool) >> GGGGC_CARD_SIZE;
+    pool->firstobj[c] = ((size_t) pool->top) & ~((size_t) -1 << GGGGC_CARD_SIZE);
+
+    return pool;
+}
+
+struct GGGGC_Generation *GGGGC_alloc_generation(struct GGGGC_Generation *from)
+{
+    struct GGGGC_Generation *ret;
+    size_t sz;
+    if (from) {
+        sz = sizeof(struct GGGGC_Generation) - sizeof(struct GGGGC_Pool *) + ((from->poolc+1) * sizeof(struct GGGGC_Pool *));
+        SF(ret, malloc, NULL, (sz));
+        memcpy(ret, from, sz);
+        free(from);
+        ret->poolc++;
+    } else {
+        SF(ret, malloc, NULL, (sizeof(struct GGGGC_Generation)));
+        ret->poolc = 1;
+    }
+    ret->pools[ret->poolc-1] = GGGGC_alloc_pool();
+    return ret;
+}
+
 void *GGGGC_trymalloc_gen(unsigned char gen, size_t sz, unsigned char ptrs)
 {
     if (gen <= GGGGC_GENERATIONS) {
-        struct GGGGC_Pool *gpool = ggggc_gens[gen];
+        size_t p;
+        struct GGGGC_Generation *ggen = ggggc_gens[gen];
 
-        /* perform the actual allocation */
-        if (gpool->top + sz <= ((char *) gpool) + (1<<GGGGC_GENERATION_SIZE) - 1) {
-            /* if we allocate at a card boundary, need to mark firstobj */
-            size_t c1 = ((size_t) gpool->top & ~((size_t) -1 << GGGGC_GENERATION_SIZE)) >> GGGGC_CARD_SIZE;
-            size_t c2 = (((size_t) gpool->top + sz) & ~((size_t) -1 << GGGGC_GENERATION_SIZE)) >> GGGGC_CARD_SIZE;
+        for (p = 0; p <= ggen->poolc; p++) {
+            struct GGGGC_Pool *gpool;
 
-            /* sufficient room, just give it */
-            struct GGGGC_Header *ret = (struct GGGGC_Header *) gpool->top;
-            gpool->top += sz;
-            memset(ret, 0, sz);
-            ret->sz = sz;
-            ret->gen = gen;
-            ret->ptrs = ptrs;
-
-            if (c1 != c2) {
-                gpool->firstobj[c2] = (unsigned char) ((size_t) gpool->top & ~((size_t) -1 << GGGGC_CARD_SIZE));
+            if (p == ggen->poolc) {
+                /* need to expand */
+                ggggc_gens[gen] = ggen = GGGGC_alloc_generation(ggen);
             }
 
-            return ret;
+            gpool = ggen->pools[p];
+
+            /* perform the actual allocation */
+            if (gpool->top + sz <= ((char *) gpool) + (1<<GGGGC_GENERATION_SIZE) - 1) {
+                /* if we allocate at a card boundary, need to mark firstobj */
+                size_t c1 = ((size_t) gpool->top & ~((size_t) -1 << GGGGC_GENERATION_SIZE)) >> GGGGC_CARD_SIZE;
+                size_t c2 = (((size_t) gpool->top + sz) & ~((size_t) -1 << GGGGC_GENERATION_SIZE)) >> GGGGC_CARD_SIZE;
+
+                /* sufficient room, just give it */
+                struct GGGGC_Header *ret = (struct GGGGC_Header *) gpool->top;
+                gpool->top += sz;
+                memset(ret, 0, sz);
+                ret->sz = sz;
+                ret->gen = gen;
+                ret->ptrs = ptrs;
+
+                if (c1 != c2) {
+                    gpool->firstobj[c2] = (unsigned char) ((size_t) gpool->top & ~((size_t) -1 << GGGGC_CARD_SIZE));
+                }
+
+                return ret;
+            }
         }
 
-        /* or fail */
+        /* or fail (should be unreachable) */
         return NULL;
 
     } else {

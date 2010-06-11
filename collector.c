@@ -53,6 +53,8 @@ void GGGGC_collect(unsigned char gen)
 {
     struct Buffer_voidpp tocheck;
     int i, j, c, cc;
+    size_t p;
+    struct GGGGC_Generation *ggen;
 
     cc = 1 << (GGGGC_GENERATION_SIZE - GGGGC_CARD_SIZE);
 
@@ -64,26 +66,30 @@ retry:
 
     /* get all the remembered cards */
     for (i = gen + 1; i < GGGGC_GENERATIONS; i++) {
-        struct GGGGC_Pool *gpool = ggggc_gens[i];
+        ggen = ggggc_gens[i];
 
-        for (c = 0; c < cc; c++) {
-            if (gpool->remember[c]) {
-                /* remembered, add the card */
-                size_t base = (size_t) (((char *) gpool) + (GGGGC_CARD_BYTES * c));
-                struct GGGGC_Header *first = (struct GGGGC_Header *) ((char *) base + gpool->firstobj[c]);
-                struct GGGGC_Header *obj = first;
+        for (p = 0; p < ggen->poolc; p++) {
+            struct GGGGC_Pool *gpool = ggen->pools[p];
 
-                /* walk through this card */
-                while (base == ((size_t) obj & ((size_t) -1 << GGGGC_CARD_SIZE)) && (char *) obj < gpool->top) {
-                    void **ptr = (void **) (obj + 1);
+            for (c = 0; c < cc; c++) {
+                if (gpool->remember[c]) {
+                    /* remembered, add the card */
+                    size_t base = (size_t) (((char *) gpool) + (GGGGC_CARD_BYTES * c));
+                    struct GGGGC_Header *first = (struct GGGGC_Header *) ((char *) base + gpool->firstobj[c]);
+                    struct GGGGC_Header *obj = first;
 
-                    /* add all its pointers */
-                    for (j = 0; j < obj->ptrs; j++, ptr++)
-                        WRITE_BUFFER(tocheck, &ptr, 1);
+                    /* walk through this card */
+                    while (base == ((size_t) obj & ((size_t) -1 << GGGGC_CARD_SIZE)) && (char *) obj < gpool->top) {
+                        void **ptr = (void **) (obj + 1);
 
-                    obj = (struct GGGGC_Header *) ((char *) obj + obj->sz);
+                        /* add all its pointers */
+                        for (j = 0; j < obj->ptrs; j++, ptr++)
+                            WRITE_BUFFER(tocheck, &ptr, 1);
+
+                        obj = (struct GGGGC_Header *) ((char *) obj + obj->sz);
+                    }
+
                 }
-
             }
         }
     }
@@ -139,18 +145,24 @@ retry:
 
     /* and clear the generations we've done */
     for (i = 0; i <= gen; i++) {
-        struct GGGGC_Pool *gpool = ggggc_gens[i];
-        gpool->top = gpool->firstobj + cc;
-        memset(gpool->remember, 0, cc);
+        ggen = ggggc_gens[i];
+        for (p = 0; p < ggen->poolc; p++) {
+            struct GGGGC_Pool *gpool = ggen->pools[p];
+            gpool->top = gpool->firstobj + cc;
+            memset(gpool->remember, 0, cc);
+        }
     }
 
     /* clear the remember set of the next one */
-    memset(ggggc_gens[gen+1]->remember, 0, cc);
+    ggen = ggggc_gens[gen+1];
+    for (p = 0; p < ggen->poolc; p++) {
+        memset(ggen->pools[p]->remember, 0, cc);
+    }
 
     /* and if we're doing the last (last+1 really) generation, treat it like two-space copying */
     if (gen == GGGGC_GENERATIONS - 1) {
-        struct GGGGC_Pool *gpool = ggggc_gens[gen+1];
+        struct GGGGC_Generation *ggen = ggggc_gens[gen+1];
         ggggc_gens[gen+1] = ggggc_gens[gen];
-        ggggc_gens[gen] = gpool;
+        ggggc_gens[gen] = ggen;
     }
 }

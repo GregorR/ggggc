@@ -101,7 +101,7 @@ void GGGGC_pop(int ct);
 
 /* Yield for possible garbage collection (do frequently) */
 #define GGC_YIELD() do { \
-    if (ggggc_gens[0]->top - (char *) ggggc_gens[0] > GGGGC_GENERATION_BYTES * 3 / 4) { \
+    if (ggggc_pool0->top - (char *) ggggc_pool0 > GGGGC_GENERATION_BYTES * 3 / 4) { \
         GGGGC_collect(0); \
     } \
 } while (0)
@@ -131,7 +131,14 @@ struct GGGGC_Pool {
     char remember[GGGGC_CARDS_PER_GENERATION];
     char firstobj[GGGGC_CARDS_PER_GENERATION];
 };
-extern struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS+1];
+
+/* A GGGGC generation, which is several pools (header) */
+struct GGGGC_Generation {
+    size_t poolc;
+    struct GGGGC_Pool *pools[1];
+};
+extern struct GGGGC_Generation *ggggc_gens[GGGGC_GENERATIONS+1];
+extern struct GGGGC_Pool *ggggc_pool0;
 
 /* Initialize GGGGC */
 #define GGC_INIT() GGGGC_init();
