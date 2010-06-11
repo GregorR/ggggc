@@ -31,29 +31,15 @@
 
 void *GGGGC_trymalloc_gen(unsigned char gen, size_t sz, unsigned char ptrs)
 {
-    if (gen < GGGGC_GENERATIONS && sz <= (1<<GGGGC_CARD_SIZE)) {
+    if (gen <= GGGGC_GENERATIONS) {
         struct GGGGC_Generation *ggen = ggggc_gens[gen];
 
-        /* we can't allocate on a card boundary */
-        size_t c1 = ((size_t) ggen->top) >> GGGGC_CARD_SIZE;
-        size_t c2 = ((size_t) ggen->top + sz - 1) >> GGGGC_CARD_SIZE;
+        /* perform the actual allocation */
+        if (ggen->top + sz <= ((char *) ggen) + (1<<GGGGC_GENERATION_SIZE) - 1) {
+            /* if we allocate at a card boundary, need to mark firstobj */
+            size_t c1 = ((size_t) ggen->top & ~((size_t) -1 << GGGGC_GENERATION_SIZE)) >> GGGGC_CARD_SIZE;
+            size_t c2 = (((size_t) ggen->top + sz) & ~((size_t) -1 << GGGGC_GENERATION_SIZE)) >> GGGGC_CARD_SIZE;
 
-        if (c1 != c2) {
-            /* quick-allocate the intermediate space */
-            size_t isz = (c2 << GGGGC_CARD_SIZE) - (size_t) ggen->top;
-            GGGGC_trymalloc_gen(gen, isz, 0);
-        }
-
-        /* if there's not enough room to write another header, just take the rest */
-        c1 = ((size_t) ggen->top) >> GGGGC_CARD_SIZE;
-        c2 = ((size_t) ggen->top + sz + sizeof(struct GGGGC_Header) - 1) >> GGGGC_CARD_SIZE;
-
-        if (c1 != c2) {
-            sz = (c2 << GGGGC_CARD_SIZE) - (size_t) ggen->top;
-        }
-
-        /* finally, allocate */
-        if (ggen->top + sz <= ((char *) ggen) + (1<<GGGGC_GENERATION_SIZE)) {
             /* sufficient room, just give it */
             struct GGGGC_Header *ret = (struct GGGGC_Header *) ggen->top;
             ggen->top += sz;
@@ -61,6 +47,11 @@ void *GGGGC_trymalloc_gen(unsigned char gen, size_t sz, unsigned char ptrs)
             ret->sz = sz;
             ret->gen = gen;
             ret->ptrs = ptrs;
+
+            if (c1 != c2) {
+                ggen->firstobj[c2] = (unsigned char) ((size_t) ggen->top & ~((size_t) -1 << GGGGC_CARD_SIZE));
+            }
+
             return ret;
         }
 
@@ -87,4 +78,9 @@ void *GGGGC_malloc(size_t sz, unsigned char ptrs)
 
     /* SHOULD NEVER HAPPEN */
     return NULL;
+}
+
+void *GGGGC_malloc_array(size_t sz, size_t nmemb)
+{
+    return GGGGC_malloc(sizeof(struct GGGGC_Header) + sz * nmemb, nmemb);
 }

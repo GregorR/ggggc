@@ -56,36 +56,24 @@ static void *allocateAligned(size_t sz2)
     return ret;
 }
 
-static int generationCmp(const void *g1p, const void *g2p)
-{
-    ssize_t off = ((char *) g1p - (char *) g2p);
-
-    /* int is smaller than ptrdiff_t, so can't just return it */
-    if (off < 0) return -1;
-    else if (off == 0) return 0;
-    return 1;
-}
-
 void GGGGC_init()
 {
-    int g, cc;
-    cc = 1 << (GGGGC_GENERATION_SIZE - GGGGC_CARD_SIZE);
+    int g, c;
 
-    for (g = 0; g < GGGGC_GENERATIONS; g++) {
+    for (g = 0; g <= GGGGC_GENERATIONS; g++) {
         /* allocate this generation */
         struct GGGGC_Generation *gen = (struct GGGGC_Generation *) allocateAligned(GGGGC_GENERATION_SIZE);
 
         /* clear out the cards */
-        memset(gen->remember, 0, cc);
+        memset(gen->remember, 0, GGGGC_CARDS_PER_GENERATION);
 
         /* set up the top pointer */
-        gen->top = (char *) ((size_t) (gen->remember + cc + GGGGC_CARD_BYTES) & ((size_t) -1 << GGGGC_CARD_SIZE));
+        gen->top = gen->firstobj + GGGGC_CARDS_PER_GENERATION;
+        c = (((size_t) gen->top) - (size_t) gen) >> GGGGC_CARD_SIZE;
+        gen->firstobj[c] = ((size_t) gen->top) & ~((size_t) -1 << GGGGC_CARD_SIZE);
 
         ggggc_gens[g] = gen;
     }
-
-    /* quicksort the generations for easy age checks */
-    qsort(ggggc_gens, GGGGC_GENERATIONS, sizeof(struct GGGGC_Generation *), generationCmp);
 
     /* other inits */
     GGGGC_collector_init();

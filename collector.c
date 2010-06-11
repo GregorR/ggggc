@@ -69,11 +69,12 @@ retry:
         for (c = 0; c < cc; c++) {
             if (ggen->remember[c]) {
                 /* remembered, add the card */
-                struct GGGGC_Header *first = (struct GGGGC_Header *) (((char *) ggen) + (GGGGC_CARD_BYTES * c));
+                size_t base = (size_t) (((char *) ggen) + (GGGGC_CARD_BYTES * c));
+                struct GGGGC_Header *first = (struct GGGGC_Header *) ((char *) base + ggen->firstobj[c]);
                 struct GGGGC_Header *obj = first;
 
                 /* walk through this card */
-                while (((size_t) first) == ((size_t) obj & ((size_t) -1 << GGGGC_CARD_SIZE)) && (char *) obj < ggen->top) {
+                while (base == ((size_t) obj & ((size_t) -1 << GGGGC_CARD_SIZE)) && (char *) obj < ggen->top) {
                     void **ptr = (void **) (obj + 1);
 
                     /* add all its pointers */
@@ -120,7 +121,9 @@ retry:
 
                 /* copy it in */
                 memcpy((void *) newobj, (void *) objtoch, objtoch->sz);
-                newobj->gen = gen+1;
+                if (gen < GGGGC_GENERATIONS - 1) {
+                    newobj->gen = gen+1;
+                }
                 objtoch->sz = ((size_t) newobj) | 1; /* forwarding pointer */
 
                 /* and check its pointers */
@@ -137,12 +140,17 @@ retry:
     /* and clear the generations we've done */
     for (i = 0; i <= gen; i++) {
         struct GGGGC_Generation *ggen = ggggc_gens[i];
-        ggen->top = (char *) ((size_t) (ggen->remember + cc + GGGGC_CARD_BYTES) & ((size_t) -1 << GGGGC_CARD_SIZE));
+        ggen->top = ggen->firstobj + cc;
         memset(ggen->remember, 0, cc);
     }
 
     /* clear the remember set of the next one */
-    if (gen < GGGGC_GENERATIONS - 1) {
-        memset(ggggc_gens[gen+1]->remember, 0, cc);
+    memset(ggggc_gens[gen+1]->remember, 0, cc);
+
+    /* and if we're doing the last (last+1 really) generation, treat it like two-space copying */
+    if (gen == GGGGC_GENERATIONS - 1) {
+        struct GGGGC_Generation *ggen = ggggc_gens[gen+1];
+        ggggc_gens[gen+1] = ggggc_gens[gen];
+        ggggc_gens[gen] = ggen;
     }
 }

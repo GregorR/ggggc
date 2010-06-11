@@ -41,6 +41,8 @@
 #define GGGGC_CARD_BYTES (1<<GGGGC_CARD_SIZE)
 #endif
 
+#define GGGGC_CARDS_PER_GENERATION (1<<(GGGGC_GENERATION_SIZE-GGGGC_CARD_SIZE))
+
 /* The GGGGC header */
 struct GGGGC_Header {
     size_t sz;
@@ -51,13 +53,22 @@ struct GGGGC_Header {
 #define GGC_STRUCT(name, ptrs, data) \
 struct _GGGGC__ ## name; \
 typedef struct _GGGGC__ ## name * name; \
-struct _GGGGC_Ptrs_ ## name { \
+struct _GGGGC_Ptrs__ ## name { \
     struct GGGGC_Header _ggggc_header; \
     ptrs \
 }; \
 struct _GGGGC__ ## name { \
-    struct _GGGGC_Ptrs_ ## name _ggggc_ptrs; \
+    struct _GGGGC_Ptrs__ ## name _ggggc_ptrs; \
     data \
+}; \
+struct _GGGGC_Array__ ## name; \
+typedef struct _GGGGC_Array__ ## name * name ## Array; \
+struct _GGGGC_PtrsArray__ ## name { \
+    struct GGGGC_Header _ggggc_header; \
+    struct _GGGGC__ ## name d[1]; \
+}; \
+struct _GGGGC_Array__ ## name { \
+    struct _GGGGC_PtrsArray__ ## name _ggggc_ptrs; \
 }
 
 #define NOTHING
@@ -70,11 +81,12 @@ struct _GGGGC__ ## name { \
 
 /* Allocate a fresh object of the given type */
 #define GGC_ALLOC(type) ((type) GGGGC_malloc(sizeof(struct _GGGGC__ ## type), \
-    (sizeof(struct _GGGGC_Ptrs_ ## type) - sizeof(struct GGGGC_Header)) / sizeof(void *)))
+    (sizeof(struct _GGGGC_Ptrs__ ## type) - sizeof(struct GGGGC_Header)) / sizeof(void *)))
 void *GGGGC_malloc(size_t sz, unsigned char ptrs);
 
 /* Allocate an array of the given kind of pointers */
-#define GGC_ALLOC_PTR_ARRAY(type, sz) ((type *) GGGGC_malloc((sz) * sizeof(type), (sz)))
+#define GGC_ALLOC_PTR_ARRAY(type, sz) ((type ## Array) GGGGC_malloc_array(sizeof(type), (sz)))
+void *GGGGC_malloc_array(size_t sz, size_t nmemb);
 
 /* Allocate an array of the given kind of data */
 #define GGC_ALLOC_DATA_ARRAY(type, sz) ((type *) GGGGC_malloc((sz) * sizeof(type), 0))
@@ -116,9 +128,10 @@ void GGGGC_collect(unsigned char gen);
 /* A GGGGC generation (header) */
 struct GGGGC_Generation {
     char *top;
-    char remember[1];
+    char remember[GGGGC_CARDS_PER_GENERATION];
+    char firstobj[GGGGC_CARDS_PER_GENERATION];
 };
-extern struct GGGGC_Generation *ggggc_gens[GGGGC_GENERATIONS];
+extern struct GGGGC_Generation *ggggc_gens[GGGGC_GENERATIONS+1];
 
 /* Initialize GGGGC */
 #define GGC_INIT() GGGGC_init();
