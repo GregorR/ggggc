@@ -55,10 +55,19 @@ void GGGGC_collect(unsigned char gen)
     int i, j, c, cc;
     size_t p;
     struct GGGGC_Generation *ggen;
+    unsigned char nextgen;
+    int nislast;
 
     cc = 1 << (GGGGC_GENERATION_SIZE - GGGGC_CARD_SIZE);
 
 retry:
+if (gen > 0) fprintf(stderr, "Collecting %d\n", gen);
+
+    nextgen = gen+1;
+    nislast = 0;
+    if (nextgen == GGGGC_GENERATIONS) {
+        nislast = 1;
+    }
 
     /* first add the roots */
     INIT_BUFFER(tocheck);
@@ -113,7 +122,7 @@ retry:
 
                 /* nope, get a new one */
                 struct GGGGC_Header *newobj =
-                    (struct GGGGC_Header *) GGGGC_trymalloc_gen(gen+1, objtoch->sz, objtoch->ptrs);
+                    (struct GGGGC_Header *) GGGGC_trymalloc_gen(nextgen, !nislast, objtoch->sz, objtoch->ptrs);
                 if (newobj == NULL) {
                     /* ACK! Out of memory! Need more GC! */
                     FREE_BUFFER(tocheck);
@@ -160,7 +169,7 @@ retry:
     }
 
     /* and if we're doing the last (last+1 really) generation, treat it like two-space copying */
-    if (gen == GGGGC_GENERATIONS - 1) {
+    if (nislast) {
         struct GGGGC_Generation *ggen = ggggc_gens[gen+1];
         ggggc_gens[gen+1] = ggggc_gens[gen];
         ggggc_gens[gen] = ggen;

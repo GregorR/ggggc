@@ -91,7 +91,7 @@ struct GGGGC_Generation *GGGGC_alloc_generation(struct GGGGC_Generation *from)
     return ret;
 }
 
-void *GGGGC_trymalloc_gen(unsigned char gen, size_t sz, unsigned char ptrs)
+void *GGGGC_trymalloc_gen(unsigned char gen, int noexpand, size_t sz, unsigned char ptrs)
 {
     if (gen <= GGGGC_GENERATIONS) {
         size_t p;
@@ -101,6 +101,9 @@ void *GGGGC_trymalloc_gen(unsigned char gen, size_t sz, unsigned char ptrs)
             struct GGGGC_Pool *gpool;
 
             if (p == ggen->poolc) {
+                if (noexpand)
+                    return NULL;
+
                 /* need to expand */
                 ggggc_gens[gen] = ggen = GGGGC_alloc_generation(ggen);
             }
@@ -146,7 +149,7 @@ void *GGGGC_malloc(size_t sz, unsigned char ptrs)
     int i;
     void *ret;
     for (i = 0; i <= GGGGC_GENERATIONS; i++) {
-        ret = GGGGC_trymalloc_gen(i, sz, ptrs);
+        ret = GGGGC_trymalloc_gen(i, 0, sz, ptrs);
         if (ret) return ret;
     }
 
