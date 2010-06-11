@@ -31,17 +31,17 @@
 #define GGGGC_GENERATIONS 2
 #endif
 
-#ifndef GGGGC_GENERATION_SIZE
-#define GGGGC_GENERATION_SIZE 27 /* generation size as a power of 2 */
-#define GGGGC_GENERATION_BYTES (1<<GGGGC_GENERATION_SIZE)
+#ifndef GGGGC_POOL_SIZE
+#define GGGGC_POOL_SIZE 27 /* generation size as a power of 2 */
 #endif
 
 #ifndef GGGGC_CARD_SIZE
 #define GGGGC_CARD_SIZE 7 /* also a power of 2 */
-#define GGGGC_CARD_BYTES (1<<GGGGC_CARD_SIZE)
 #endif
 
-#define GGGGC_CARDS_PER_GENERATION (1<<(GGGGC_GENERATION_SIZE-GGGGC_CARD_SIZE))
+#define GGGGC_POOL_BYTES (1<<GGGGC_POOL_SIZE)
+#define GGGGC_CARD_BYTES (1<<GGGGC_CARD_SIZE)
+#define GGGGC_CARDS_PER_POOL (1<<(GGGGC_POOL_SIZE-GGGGC_CARD_SIZE))
 
 /* The GGGGC header */
 struct GGGGC_Header {
@@ -101,7 +101,7 @@ void GGGGC_pop(int ct);
 
 /* Yield for possible garbage collection (do frequently) */
 #define GGC_YIELD() do { \
-    if (ggggc_pool0->top - (char *) ggggc_pool0 > GGGGC_GENERATION_BYTES * 3 / 4) { \
+    if (ggggc_pool0->top - (char *) ggggc_pool0 > GGGGC_POOL_BYTES * 3 / 4) { \
         GGGGC_collect(0); \
     } \
 } while (0)
@@ -111,8 +111,8 @@ void GGGGC_collect(unsigned char gen);
 #define GGC_PTR_WRITE(_obj, _ptr, _val) do { \
     size_t _sobj = (size_t) (_obj); \
     if ((_val) && (_obj)->_ggggc_ptrs._ggggc_header.gen > (_val)->_ggggc_ptrs._ggggc_header.gen) { \
-        struct GGGGC_Pool *_pool = (struct GGGGC_Generation *) (_sobj & ((size_t) -1 << GGGGC_GENERATION_SIZE)); \
-        _pool->remember[(_sobj & ~((size_t) -1 << GGGGC_GENERATION_SIZE)) >> GGGGC_CARD_SIZE] = 1; \
+        struct GGGGC_Pool *_pool = (struct GGGGC_Generation *) (_sobj & ((size_t) -1 << GGGGC_POOL_SIZE)); \
+        _pool->remember[(_sobj & ~((size_t) -1 << GGGGC_POOL_SIZE)) >> GGGGC_CARD_SIZE] = 1; \
     } \
     (_obj)->_ggggc_ptrs._ptr = (_val); \
 } while (0)
@@ -128,8 +128,8 @@ void GGGGC_collect(unsigned char gen);
 /* A GGGGC pool (header) */
 struct GGGGC_Pool {
     char *top;
-    char remember[GGGGC_CARDS_PER_GENERATION];
-    char firstobj[GGGGC_CARDS_PER_GENERATION];
+    char remember[GGGGC_CARDS_PER_POOL];
+    char firstobj[GGGGC_CARDS_PER_POOL];
 };
 
 /* A GGGGC generation, which is several pools (header) */

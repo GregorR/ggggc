@@ -58,7 +58,7 @@ void GGGGC_collect(unsigned char gen)
     unsigned char nextgen;
     int nislast;
 
-    cc = 1 << (GGGGC_GENERATION_SIZE - GGGGC_CARD_SIZE);
+    cc = 1 << (GGGGC_POOL_SIZE - GGGGC_CARD_SIZE);
 
 retry:
     nextgen = gen+1;
@@ -134,9 +134,8 @@ retry:
 
                 /* copy it in */
                 memcpy((void *) newobj, (void *) objtoch, objtoch->sz);
-                if (gen < GGGGC_GENERATIONS - 1) {
-                    newobj->gen = gen+1;
-                }
+                if (!nislast)
+                    newobj->gen = nextgen;
                 objtoch->sz = ((size_t) newobj) | 1; /* forwarding pointer */
 
                 /* and check its pointers */
