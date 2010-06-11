@@ -61,8 +61,6 @@ void GGGGC_collect(unsigned char gen)
     cc = 1 << (GGGGC_GENERATION_SIZE - GGGGC_CARD_SIZE);
 
 retry:
-if (gen > 0) fprintf(stderr, "Collecting %d\n", gen);
-
     nextgen = gen+1;
     nislast = 0;
     if (nextgen == GGGGC_GENERATIONS) {
