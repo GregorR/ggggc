@@ -6,6 +6,7 @@
 #include <sys/mman.h>
 
 #include "ggggc.h"
+#include "ggggc_internal.h"
 #include "helpers.h"
 
 static void *allocateAligned(size_t sz2)
@@ -31,18 +32,37 @@ static void *allocateAligned(size_t sz2)
     return ret;
 }
 
+static int generationCmp(const void *g1p, const void *g2p)
+{
+    ssize_t off = ((char *) g1p - (char *) g2p);
+
+    /* int is smaller than ptrdiff_t, so can't just return it */
+    if (off < 0) return -1;
+    else if (off == 0) return 0;
+    return 1;
+}
+
 void GGGGC_init()
 {
     int g, cc;
+    cc = 1 << (GGGGC_GENERATION_SIZE - GGGGC_CARD_SIZE);
+
     for (g = 0; g < GGGGC_GENERATIONS; g++) {
         /* allocate this generation */
         struct GGGGC_Generation *gen = (struct GGGGC_Generation *) allocateAligned(GGGGC_GENERATION_SIZE);
 
         /* clear out the cards */
-        cc = 1 << (GGGGC_GENERATION_SIZE - GGGGC_CARD_SIZE);
         memset(gen->remember, 0, cc);
 
         /* set up the top pointer */
-        gen->top = (void *) (gen->remember + cc);
+        gen->top = (char *) ((size_t) (gen->remember + cc + GGGGC_CARD_BYTES) & ((size_t) -1 << GGGGC_CARD_SIZE));
+
+        ggggc_gens[g] = gen;
     }
+
+    /* quicksort the generations for easy age checks */
+    qsort(ggggc_gens, GGGGC_GENERATIONS, sizeof(struct GGGGC_Generation *), generationCmp);
+
+    /* other inits */
+    GGGGC_collector_init();
 }

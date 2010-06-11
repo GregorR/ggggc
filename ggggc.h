@@ -14,12 +14,13 @@
 
 #ifndef GGGGC_CARD_SIZE
 #define GGGGC_CARD_SIZE 7 /* also a power of 2 */
+#define GGGGC_CARD_BYTES (1<<GGGGC_CARD_SIZE)
 #endif
 
 /* The GGGGC header */
 struct GGGGC_Header {
     size_t sz;
-    unsigned char ptrs;
+    unsigned char gen, ptrs;
 };
 
 /* Create a traceable struct */
@@ -27,44 +28,66 @@ struct GGGGC_Header {
 struct _GGGGC__ ## name; \
 typedef struct _GGGGC__ ## name * name; \
 struct _GGGGC_Ptrs_ ## name { \
+    struct GGGGC_Header _ggggc_header; \
     ptrs \
 }; \
 struct _GGGGC__ ## name { \
-    struct GGGGC_Header _ggggc_header; \
     struct _GGGGC_Ptrs_ ## name _ggggc_ptrs; \
     data \
 }
 
+#define NOTHING
+
+/* A struct with only pointers */
+#define GGC_PTR_STRUCT(name, ptrs) GGC_STRUCT(name, ptrs, NOTHING)
+
+/* A struct with only data */
+#define GGC_DATA_STRUCT(name, data) GGC_STRUCT(name, NOTHING, data)
+
 /* Allocate a fresh object of the given type */
-#define GGC_ALLOC(type) (type *) GGGGC_malloc(sizeof(struct _GGGGC__ ## type), sizeof(_GGGGC_Ptrs_ ## type) / sizeof(void *))
+#define GGC_ALLOC(type) ((type) GGGGC_malloc(sizeof(struct _GGGGC__ ## type), \
+    (sizeof(struct _GGGGC_Ptrs_ ## type) - sizeof(struct GGGGC_Header)) / sizeof(void *)))
 void *GGGGC_malloc(size_t sz, unsigned char ptrs);
 
+/* Allocate an array of the given kind of pointers */
+#define GGC_ALLOC_PTR_ARRAY(type, sz) ((type *) GGGGC_malloc((sz) * sizeof(type), (sz)))
+
+/* Allocate an array of the given kind of data */
+#define GGC_ALLOC_DATA_ARRAY(type, sz) ((type *) GGGGC_malloc((sz) * sizeof(type), 0))
+
 /* Add this pointer to the "roots" list (used to avoid needing a typed stack generally) */
-#define GGC_PUSH(obj) GGGGC_push(&(obj))
+#define GGC_PUSH(obj) GGGGC_push((void **) &(obj))
 void GGGGC_push(void **ptr);
 
-/* Remove a pointer from the "roots" list, MUST strictly be a pop */
-#define GGC_POP() GGGGC_pop()
-void GGGGC_pop();
+/* Remove pointers from the "roots" list, MUST strictly be a pop */
+#define GGC_POP(ct) GGGGC_pop(ct)
+void GGGGC_pop(int ct);
 
 /* Yield for possible garbage collection (do frequently) */
 #define GGC_YIELD() do { \
-    if (ggggc_gens[0]->top - ggggc_gens[0] > GGGGC_GENERATION_BYTES * 3 / 4) { \
+    if (ggggc_gens[0]->top - (char *) ggggc_gens[0] > GGGGC_GENERATION_BYTES * 3 / 4) { \
         GGGGC_collect(0); \
     } \
 } while (0)
-void GGGGC_collect(char gen);
+void GGGGC_collect(unsigned char gen);
 
 /* Write to a pointer */
 #define GGC_PTR_WRITE(_obj, _ptr, _val) do { \
     size_t _sobj = (size_t) (_obj); \
-    struct GGGGC_Generation *_gen = (struct GGGGC_Generation *) (_sobj & ((size_t) -1 << GGGGC_GENERATION_SIZE)); \
-    _gen->remember[_sobj & ~((size_t) -1 << GGGGC_CARD_SIZE)] = 1; \
-    (_obj)->_ggggc_ptrs. ## _ptr = (_val); \
+    if ((_val) && (_obj)->_ggggc_ptrs._ggggc_header.gen > (_val)->_ggggc_ptrs._ggggc_header.gen) { \
+        struct GGGGC_Generation *_gen = (struct GGGGC_Generation *) (_sobj & ((size_t) -1 << GGGGC_GENERATION_SIZE)); \
+        _gen->remember[(_sobj & ~((size_t) -1 << GGGGC_GENERATION_SIZE)) >> GGGGC_CARD_SIZE] = 1; \
+    } \
+    (_obj)->_ggggc_ptrs._ptr = (_val); \
+} while (0)
+#undef GGC_PTR_WRITE
+#define GGC_PTR_WRITE(_obj, _ptr, _val) do { \
+    (_obj)->_ggggc_ptrs._ptr = (_val); \
 } while (0)
 
+
 /* Read from a pointer */
-#define GGC_PTR_READ(_obj, _ptr) ((_obj)->_ggggc_ptrs. ## _ptr)
+#define GGC_PTR_READ(_obj, _ptr) ((_obj)->_ggggc_ptrs._ptr)
 
 /* A GGGGC generation (header) */
 struct GGGGC_Generation {
