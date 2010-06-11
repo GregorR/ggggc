@@ -18,3 +18,8 @@ ggggc: $(OBJS)
 
 clean:
 	rm -f $(OBJS) ggggc
+
+include deps
+
+deps:
+	$(CC) -MM *.c > deps

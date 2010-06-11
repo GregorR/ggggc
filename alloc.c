@@ -37,11 +37,22 @@ void *GGGGC_trymalloc_gen(unsigned char gen, size_t sz, unsigned char ptrs)
         /* we can't allocate on a card boundary */
         size_t c1 = ((size_t) ggen->top) >> GGGGC_CARD_SIZE;
         size_t c2 = ((size_t) ggen->top + sz - 1) >> GGGGC_CARD_SIZE;
+
         if (c1 != c2) {
             /* quick-allocate the intermediate space */
             size_t isz = (c2 << GGGGC_CARD_SIZE) - (size_t) ggen->top;
             GGGGC_trymalloc_gen(gen, isz, 0);
         }
+
+        /* if there's not enough room to write another header, just take the rest */
+        c1 = ((size_t) ggen->top) >> GGGGC_CARD_SIZE;
+        c2 = ((size_t) ggen->top + sz + sizeof(struct GGGGC_Header) - 1) >> GGGGC_CARD_SIZE;
+
+        if (c1 != c2) {
+            sz = (c2 << GGGGC_CARD_SIZE) - (size_t) ggen->top;
+        }
+
+        /* finally, allocate */
         if (ggen->top + sz <= ((char *) ggen) + (1<<GGGGC_GENERATION_SIZE)) {
             /* sufficient room, just give it */
             struct GGGGC_Header *ret = (struct GGGGC_Header *) ggen->top;
