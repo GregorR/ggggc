@@ -95,7 +95,7 @@ retry:
             struct GGGGC_Header *objtoch = (struct GGGGC_Header *) *ptoch;
 
             /* OK, we have the object to check, has it already moved? */
-            if (objtoch->sz & 1) {
+            while (objtoch->sz & 1) {
                 /* move it */
                 *ptoch = (void *) (objtoch->sz & ((size_t) -1 << 1));
                 objtoch = (struct GGGGC_Header *) *ptoch;
