@@ -27,6 +27,7 @@
 
 #include <stdlib.h>
 
+/* These can only be changed if they're changed while compiling, so be careful! */
 #ifndef GGGGC_GENERATIONS
 #define GGGGC_GENERATIONS 2
 #endif
@@ -39,6 +40,7 @@
 #define GGGGC_CARD_SIZE 7 /* also a power of 2 */
 #endif
 
+/* Various sizes and masks */
 #define GGGGC_POOL_BYTES (1<<GGGGC_POOL_SIZE)
 #define GGGGC_NOPOOL_MASK ((size_t) -1 << GGGGC_POOL_SIZE)
 #define GGGGC_POOL_MASK (~GGGGC_NOPOOL_MASK)
@@ -53,7 +55,9 @@ struct GGGGC_Header {
     unsigned char gen, ptrs;
 };
 
-/* Create a traceable struct */
+/* Use this macro to create a traceable struct. Make sure all GGGGC pointers
+ * are in the 'ptrs' part. Due to how C macros work, you can't have comma-lists
+ * of elements in these structs, which is really annoying, sorry */
 #define GGC_STRUCT(name, ptrs, data) \
 struct _GGGGC__ ## name; \
 typedef struct _GGGGC__ ## name * name; \
@@ -75,6 +79,7 @@ struct _GGGGC_Array__ ## name { \
     struct _GGGGC_PtrsArray__ ## name _ggggc_ptrs; \
 }
 
+/* Working around some bad C preprocessors */
 #define GGGGC_NOTHING
 
 /* A struct with only pointers */
@@ -83,10 +88,11 @@ struct _GGGGC_Array__ ## name { \
 /* A struct with only data */
 #define GGC_DATA_STRUCT(name, data) GGC_STRUCT(name, GGGGC_NOTHING, data)
 
-/* Define a GGGGC-able array of non-pointers */
-#define GGC_ARRAY(name, type) \
-tpedef struct _GGGGC_Array__ ## name * name ## Array; \
-sstruct _GGGGC_Ptrs__ ## name ## Array { \
+/* Use this macro to define a data array; that is, an array without pointers.
+ * GGC_STRUCT will define pointer arrays automatically */
+#define GGC_DATA_ARRAY(name, type) \
+typedef struct _GGGGC_Array__ ## name * name ## Array; \
+struct _GGGGC_Ptrs__ ## name ## Array { \
     struct GGGGC_Header _ggggc_header; \
 }; \
 struct _GGGGC_Elem__ ## name ## Array { \
@@ -97,6 +103,11 @@ struct _GGGGC__ ## name ## Array { \
     type d[1]; \
 }
 
+/* Some common data arrays */
+GGC_DATA_ARRAY(char, char);
+GGC_DATA_ARRAY(charp, char *);
+GGC_DATA_ARRAY(voidp, void *);
+
 /* Allocate a fresh object of the given type */
 #define GGC_ALLOC(type) ((type) GGGGC_malloc(sizeof(struct _GGGGC__ ## type), \
     (sizeof(struct _GGGGC_Ptrs__ ## type) - sizeof(struct GGGGC_Header)) / sizeof(void *)))
@@ -106,20 +117,22 @@ void *GGGGC_malloc(size_t sz, unsigned char ptrs);
 #define GGC_ALLOC_PTR_ARRAY(type, sz) ((type ## Array) GGGGC_malloc_ptr_array(sizeof(type), (sz)))
 void *GGGGC_malloc_ptr_array(size_t sz, size_t nmemb);
 
-/* Allocate an array of the given NAME */
+/* Allocate an array of the given NAME (not type) */
 #define GGC_ALLOC_DATA_ARRAY(name, sz) ((name ## Array) GGGGC_malloc_data_array( \
     sizeof(struct _GGGGC_Elem__ ## name ## Array), (sz)))
 void *GGGGC_malloc_data_array(size_t sz, size_t nmemb);
 
-/* Add this pointer to the "roots" list (used to avoid needing a typed stack generally) */
+/* Every time you enter a function with pointers in the stack, you MUST push
+ * those pointers. Also use this (BEFORE any temporaries) to push global
+ * pointers */
 #define GGC_PUSH(obj) GGGGC_push((void **) &(obj))
 void GGGGC_push(void **ptr);
 
-/* Remove pointers from the "roots" list, MUST strictly be a pop */
+/* And when you leave the function, remove them */
 #define GGC_POP(ct) GGGGC_pop(ct)
 void GGGGC_pop(int ct);
 
-/* Yield for possible garbage collection (do frequently) */
+/* Yield for possible garbage collection (do this frequently) */
 #define GGC_YIELD() do { \
     if (ggggc_pool0->top - (char *) ggggc_pool0 > GGGGC_POOL_BYTES * 3 / 4) { \
         GGGGC_collect(0); \
@@ -127,23 +140,25 @@ void GGGGC_pop(int ct);
 } while (0)
 void GGGGC_collect(unsigned char gen);
 
-/* Write to a pointer */
+/* The write barrier (for pointers) */
 #define GGC_PTR_WRITE(_obj, _ptr, _val) do { \
     size_t _sobj = (size_t) (_obj); \
     if ((_val) && (_obj)->_ggggc_ptrs._ggggc_header.gen > (_val)->_ggggc_ptrs._ggggc_header.gen) { \
-        struct GGGGC_Pool *_pool = (struct GGGGC_Generation *) (_sobj & ((size_t) -1 << GGGGC_POOL_SIZE)); \
-        _pool->remember[(_sobj & ~((size_t) -1 << GGGGC_POOL_SIZE)) >> GGGGC_CARD_SIZE] = 1; \
+        struct GGGGC_Pool *_pool = (struct GGGGC_Pool *) (_sobj & GGGGC_NOPOOL_MASK); \
+        _pool->remember[(_sobj & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE] = 1; \
     } \
     (_obj)->_ggggc_ptrs._ptr = (_val); \
 } while (0)
-#undef GGC_PTR_WRITE
-#define GGC_PTR_WRITE(_obj, _ptr, _val) do { \
-    (_obj)->_ggggc_ptrs._ptr = (_val); \
-} while (0)
 
-
-/* Read from a pointer */
+/* There is no read barrier, but since ptrs are hidden, use this */
 #define GGC_PTR_READ(_obj, _ptr) ((_obj)->_ggggc_ptrs._ptr)
+
+/* Initialize GGGGC */
+#define GGC_INIT() GGGGC_init();
+void GGGGC_init();
+
+
+/* The following is mostly internal, but needed for public macros */
 
 /* A GGGGC pool (header) */
 struct GGGGC_Pool {
@@ -159,9 +174,5 @@ struct GGGGC_Generation {
 };
 extern struct GGGGC_Generation *ggggc_gens[GGGGC_GENERATIONS+1];
 extern struct GGGGC_Pool *ggggc_pool0;
-
-/* Initialize GGGGC */
-#define GGC_INIT() GGGGC_init();
-void GGGGC_init();
 
 #endif
