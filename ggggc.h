@@ -55,12 +55,16 @@ struct GGGGC_Header {
     unsigned char gen, ptrs;
 };
 
-/* Use this macro to create a traceable struct. Make sure all GGGGC pointers
- * are in the 'ptrs' part. Due to how C macros work, you can't have comma-lists
- * of elements in these structs, which is really annoying, sorry */
-#define GGC_STRUCT(name, ptrs, data) \
+
+/* Use this macro to make a declaration for a traceable struct */
+#define GGC_DECL_STRUCT(name) \
 struct _GGGGC__ ## name; \
 typedef struct _GGGGC__ ## name * name; \
+struct _GGGGC_Array__ ## name; \
+typedef struct _GGGGC_Array__ ## name * name ## Array
+
+/* Use this macro to make a definition for a traceable struct */
+#define GGC_DEFN_STRUCT(name, ptrs, data) \
 struct _GGGGC_Ptrs__ ## name { \
     struct GGGGC_Header _ggggc_header; \
     ptrs \
@@ -69,8 +73,6 @@ struct _GGGGC__ ## name { \
     struct _GGGGC_Ptrs__ ## name _ggggc_ptrs; \
     data \
 }; \
-struct _GGGGC_Array__ ## name; \
-typedef struct _GGGGC_Array__ ## name * name ## Array; \
 struct _GGGGC_PtrsArray__ ## name { \
     struct GGGGC_Header _ggggc_header; \
     struct _GGGGC__ ## name d[1]; \
@@ -78,6 +80,13 @@ struct _GGGGC_PtrsArray__ ## name { \
 struct _GGGGC_Array__ ## name { \
     struct _GGGGC_PtrsArray__ ## name _ggggc_ptrs; \
 }
+
+/* Use this macro to create a traceable struct. Make sure all GGGGC pointers
+ * are in the 'ptrs' part. Due to how C macros work, you can't have comma-lists
+ * of elements in these structs, which is really annoying, sorry */
+#define GGC_STRUCT(name, ptrs, data) \
+GGC_DECL_STRUCT(name); \
+GGC_DEFN_STRUCT(name, ptrs, data)
 
 /* Working around some bad C preprocessors */
 #define GGGGC_NOTHING
@@ -105,8 +114,7 @@ struct _GGGGC__ ## name ## Array { \
 
 /* Some common data arrays */
 GGC_DATA_ARRAY(char, char);
-GGC_DATA_ARRAY(charp, char *);
-GGC_DATA_ARRAY(voidp, void *);
+GGC_DATA_ARRAY(int, int);
 
 /* Allocate a fresh object of the given type */
 #define GGC_ALLOC(type) ((type) GGGGC_malloc(sizeof(struct _GGGGC__ ## type), \
@@ -134,7 +142,7 @@ void GGGGC_pop(int ct);
 
 /* Yield for possible garbage collection (do this frequently) */
 #define GGC_YIELD() do { \
-    if (ggggc_pool0->top - (char *) ggggc_pool0 > GGGGC_POOL_BYTES * 3 / 4) { \
+    if (ggggc_pool0->top - (char *) ggggc_pool0 > GGGGC_POOL_BYTES * 9 / 10) { \
         GGGGC_collect(0); \
     } \
 } while (0)
