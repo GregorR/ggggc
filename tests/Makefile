@@ -7,16 +7,20 @@ GGGGC_LIBS=../libggggc.a
 LIBS=-lm
 
 BTGOBJS=binary_trees_ggggc_td.o
-
 BTOBJS=binary_trees_td.o
 
-all: btg bt
+BADLLLOBJS=badlll.o
+
+all: btg bt badlll
 
 btg: $(BTGOBJS)
 	$(LD) $(LDFLAGS) $(BTGOBJS) $(GGGGC_LIBS) $(LIBS) -o btg
 
 bt: $(BTOBJS)
 	$(LD) $(LDFLAGS) $(BTOBJS) $(LIBS) -o bt
+
+badlll: $(BADLLLOBJS)
+	$(LD) $(LDFLAGS) $(BADLLLOBJS) $(GGGGC_LIBS) $(LIBS) -o badlll
 
 .SUFFIXES: .c .o
 
@@ -26,3 +30,4 @@ bt: $(BTOBJS)
 clean:
 	rm -f $(BTGOBJS) btg
 	rm -f $(BTOBJS) bt
+	rm -f $(BADLLLOBJS) badlll

@@ -48,6 +48,7 @@ next:
         lll = GGC_PTR_READ(lll, next);
         goto next;
     }
+    printf("\n");
 }
 
 int main()
