@@ -11,7 +11,9 @@ BTOBJS=binary_trees_td.o
 
 BADLLLOBJS=badlll.o
 
-all: btg bt badlll
+REMEMBEROBJS=remember.o
+
+all: btg bt badlll remember
 
 btg: $(BTGOBJS)
 	$(LD) $(LDFLAGS) $(BTGOBJS) $(GGGGC_LIBS) $(LIBS) -o btg
@@ -22,6 +24,9 @@ bt: $(BTOBJS)
 badlll: $(BADLLLOBJS)
 	$(LD) $(LDFLAGS) $(BADLLLOBJS) $(GGGGC_LIBS) $(LIBS) -o badlll
 
+remember: $(REMEMBEROBJS)
+	$(LD) $(LDFLAGS) $(REMEMBEROBJS) $(GGGGC_LIBS) $(LIBS) -o remember
+
 .SUFFIXES: .c .o
 
 .c.o:
@@ -31,3 +36,4 @@ clean:
 	rm -f $(BTGOBJS) btg
 	rm -f $(BTOBJS) bt
 	rm -f $(BADLLLOBJS) badlll
+	rm -f $(REMEMBEROBJS) remember
