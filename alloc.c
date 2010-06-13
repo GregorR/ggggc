@@ -105,12 +105,15 @@ static void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, s
 {
     /* perform the actual allocation */
     if (sz < gpool->remaining) {
+        size_t c1, c2;
+        struct GGGGC_Header *ret;
+
         /* if we allocate at a card boundary, need to mark firstobj */
-        size_t c1 = ((size_t) gpool->top & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE;
-        size_t c2 = (((size_t) gpool->top + sz) & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE;
+        c1 = ((size_t) gpool->top & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE;
+        c2 = (((size_t) gpool->top + sz) & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE;
 
         /* sufficient room, just give it */
-        struct GGGGC_Header *ret = (struct GGGGC_Header *) gpool->top;
+        ret = (struct GGGGC_Header *) gpool->top;
         gpool->top += sz;
         gpool->remaining -= sz;
         memset(ret, 0, sz);
