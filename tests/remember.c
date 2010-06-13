@@ -23,7 +23,7 @@ int main()
     old->val = 0;
 
     /* allocate but do not push */
-    test = GGC_ALLOC(Test);
+    test = GGC_NEW(Test);
     test->val = 1;
 
     /* now point to it from the old one */
@@ -35,7 +35,7 @@ int main()
     test = GGC_PTR_READ(old, next);
 
     /* get another new one */
-    test2 = GGC_ALLOC(Test);
+    test2 = GGC_NEW(Test);
     test2->val = 2;
     fprintf(stderr, "%p %p %p\n", old, test, test2);
 

@@ -22,7 +22,7 @@ LLL buildLLL(int sz)
     }
 
     for (i = 0; i < sz; i++) {
-        lll[i] = GGC_ALLOC(LLL);
+        lll[i] = GGC_NEW(LLL);
         lll[i]->val = i;
         GGC_YIELD();
     }

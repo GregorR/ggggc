@@ -25,7 +25,7 @@ treeNode NewTreeNode(treeNode left, treeNode right, long item)
 {
     treeNode    new;
 
-    new = GGC_ALLOC(treeNode);
+    new = GGC_NEW(treeNode);
 
     GGC_PTR_WRITE(new, left, left);
     GGC_PTR_WRITE(new, right, right);
