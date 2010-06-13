@@ -107,6 +107,7 @@ static void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, s
     if (sz < gpool->remaining) {
         size_t c1, c2;
         struct GGGGC_Header *ret;
+        void **pt;
 
         /* if we allocate at a card boundary, need to mark firstobj */
         c1 = ((size_t) gpool->top & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE;
@@ -116,10 +117,13 @@ static void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, s
         ret = (struct GGGGC_Header *) gpool->top;
         gpool->top += sz;
         gpool->remaining -= sz;
-        memset(ret, 0, sz);
         ret->sz = sz;
         ret->gen = gen;
         ret->ptrs = ptrs;
+
+        /* clear out pointers */
+        pt = (void *) (ret + 1);
+        while (ptrs--) *pt++ = NULL;
 
         if (c1 != c2)
             gpool->firstobj[c2] = (unsigned char) ((size_t) gpool->top & GGGGC_CARD_MASK);
