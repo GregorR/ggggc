@@ -53,12 +53,13 @@ void GGGGC_collect(unsigned char gen)
 {
     struct Buffer_voidpp tocheck;
     int i, j, c;
-    size_t p;
+    size_t p, survivors, heapsz;
     struct GGGGC_Generation *ggen;
     unsigned char nextgen;
     int nislast;
 
 retry:
+    survivors = heapsz = 0;
     nextgen = gen+1;
     nislast = 0;
     if (nextgen == GGGGC_GENERATIONS) {
@@ -131,6 +132,7 @@ retry:
                 }
 
                 /* copy it in */
+                survivors += objtoch->sz;
                 memcpy((void *) newobj, (void *) objtoch, objtoch->sz);
                 if (!nislast)
                     newobj->gen = nextgen;
@@ -151,6 +153,7 @@ retry:
     for (i = 0; i <= gen; i++) {
         ggen = ggggc_gens[i];
         for (p = 0; p < ggen->poolc; p++) {
+            heapsz += GGGGC_POOL_BYTES;
             GGGGC_clear_pool(ggen->pools[p]);
         }
     }
@@ -166,5 +169,13 @@ retry:
         struct GGGGC_Generation *ggen = ggggc_gens[gen+1];
         ggggc_gens[gen+1] = ggggc_gens[gen];
         ggggc_gens[gen] = ggen;
+    }
+
+    /* and finally, heuristically allocate more space */
+    if (survivors > heapsz / 2) {
+        for (i = 0; i <= GGGGC_GENERATIONS; i++) {
+            ggggc_gens[i] = GGGGC_alloc_generation(ggggc_gens[i]);
+        }
+        ggggc_pool0 = ggggc_gens[0]->pools[ggggc_gens[0]->poolc-1];
     }
 }
