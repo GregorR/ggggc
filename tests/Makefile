@@ -7,8 +7,9 @@ GC_LIBS=-lgc
 GGGGC_LIBS=../libggggc.a
 LIBS=-lm
 
-BTGOBJS=binary_trees_ggggc_td.o
 BTOBJS=binary_trees_td.o
+BTGCOBJS=binary_trees_gc_td.o
+BTGGGGCOBJS=binary_trees_ggggc_td.o
 
 BADLLLOBJS=badlll.o
 
@@ -18,13 +19,16 @@ GCBENCHOBJS=../gc_bench/GCBench.o
 
 GGGGCBENCHOBJS=../gc_bench/GCBench.ggggc.o
 
-all: btg bt badlll remember gcbench ggggcbench
-
-btg: $(BTGOBJS)
-	$(LD) $(CFLAGS) $(LDFLAGS) $(BTGOBJS) $(GGGGC_LIBS) $(LIBS) -o btg
+all: bt btgc btggggc badlll remember gcbench ggggcbench
 
 bt: $(BTOBJS)
 	$(LD) $(CFLAGS) $(LDFLAGS) $(BTOBJS) $(LIBS) -o bt
+
+btgc: $(BTGCOBJS)
+	$(LD) $(CFLAGS) $(LDFLAGS) $(BTGCOBJS) $(GC_LIBS) $(LIBS) -o btgc
+
+btggggc: $(BTGGGGCOBJS)
+	$(LD) $(CFLAGS) $(LDFLAGS) $(BTGGGGCOBJS) $(GGGGC_LIBS) $(LIBS) -o btggggc
 
 badlll: $(BADLLLOBJS)
 	$(LD) $(CFLAGS) $(LDFLAGS) $(BADLLLOBJS) $(GGGGC_LIBS) $(LIBS) -o badlll
@@ -44,8 +48,9 @@ ggggcbench: $(GGGGCBENCHOBJS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(BTGOBJS) btg
 	rm -f $(BTOBJS) bt
+	rm -f $(BTGCOBJS) btgc
+	rm -f $(BTGGGGCOBJS) btggggc
 	rm -f $(BADLLLOBJS) badlll
 	rm -f $(REMEMBEROBJS) remember
 	rm -f $(GCBENCHOBJS) gcbench

@@ -25,11 +25,17 @@ treeNode NewTreeNode(treeNode left, treeNode right, long item)
 {
     treeNode    new;
 
+    GGC_PUSH(left);
+    GGC_PUSH(right);
+    GGC_PUSH(new);
+
     new = GGC_NEW(treeNode);
 
     GGC_PTR_WRITE(new, left, left);
     GGC_PTR_WRITE(new, right, right);
     new->item = item;
+
+    GGC_POP(3);
 
     return new;
 } /* NewTreeNode() */
@@ -37,10 +43,14 @@ treeNode NewTreeNode(treeNode left, treeNode right, long item)
 
 long ItemCheck(treeNode tree)
 {
-    if (GGC_PTR_READ(tree, left) == NULL)
+    GGC_PUSH(tree);
+    if (GGC_PTR_READ(tree, left) == NULL) {
+        GGC_POP(1);
         return tree->item;
-    else
+    } else {
+        GGC_POP(1);
         return tree->item + ItemCheck(GGC_PTR_READ(tree, left)) - ItemCheck(GGC_PTR_READ(tree, right));
+    }
 } /* ItemCheck() */
 
 
@@ -59,7 +69,6 @@ treeNode TopDownTree(long item, unsigned depth)
         GGC_PTR_WRITE(ret, left, l);
         GGC_PTR_WRITE(ret, right, r);
 
-        GGC_YIELD();
         GGC_POP(3);
 
         return ret;
