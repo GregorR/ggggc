@@ -32,6 +32,10 @@
 #include "ggggc.h"
 #include "helpers.h"
 
+#ifndef __GNUC__
+#define __inline__
+#endif
+
 static void *allocateAligned(size_t sz2)
 {
     void *ret;
@@ -108,7 +112,7 @@ struct GGGGC_Generation *GGGGC_alloc_generation(struct GGGGC_Generation *from)
     return ret;
 }
 
-static void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, size_t sz, unsigned char ptrs)
+static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, size_t sz, unsigned char ptrs)
 {
     /* perform the actual allocation */
     if (sz < gpool->remaining) {
@@ -169,7 +173,7 @@ retry:
     goto retry;
 }
 
-static void *GGGGC_trymalloc_gen0(size_t sz, unsigned char ptrs)
+static __inline__ void *GGGGC_trymalloc_gen0(size_t sz, unsigned char ptrs)
 {
     size_t p;
     struct GGGGC_Generation *ggen = ggggc_gens[0];
