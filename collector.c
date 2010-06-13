@@ -176,6 +176,6 @@ retry:
         for (i = 0; i <= GGGGC_GENERATIONS; i++) {
             ggggc_gens[i] = GGGGC_alloc_generation(ggggc_gens[i]);
         }
-        ggggc_pool0 = ggggc_gens[0]->pools[ggggc_gens[0]->poolc-1];
+        ggggc_heurpool = ggggc_gens[0]->pools[ggggc_gens[0]->poolc-1];
     }
 }

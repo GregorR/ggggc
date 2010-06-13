@@ -25,4 +25,4 @@
 #include "ggggc.h"
 
 struct GGGGC_Generation *ggggc_gens[GGGGC_GENERATIONS+1];
-struct GGGGC_Pool *ggggc_pool0;
+struct GGGGC_Pool *ggggc_heurpool, *ggggc_allocpool;

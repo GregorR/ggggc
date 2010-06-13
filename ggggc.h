@@ -33,7 +33,7 @@
 #endif
 
 #ifndef GGGGC_POOL_SIZE
-#define GGGGC_POOL_SIZE 27 /* generation size as a power of 2 */
+#define GGGGC_POOL_SIZE 27 /* pool size as a power of 2 */
 #endif
 
 #ifndef GGGGC_CARD_SIZE
@@ -133,7 +133,7 @@ void *GGGGC_malloc_data_array(size_t sz, size_t nmemb);
 
 /* Yield for possible garbage collection (do this frequently) */
 #define GGC_YIELD() do { \
-    if (ggggc_pool0->remaining <= GGGGC_POOL_BYTES / 10) { \
+    if (ggggc_heurpool->remaining <= GGGGC_POOL_BYTES / 10) { \
         GGGGC_collect(0); \
     } \
 } while (0)
@@ -184,6 +184,6 @@ struct GGGGC_Generation {
     struct GGGGC_Pool *pools[1];
 };
 extern struct GGGGC_Generation *ggggc_gens[GGGGC_GENERATIONS+1];
-extern struct GGGGC_Pool *ggggc_pool0;
+extern struct GGGGC_Pool *ggggc_heurpool, *ggggc_allocpool;
 
 #endif

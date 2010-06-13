@@ -86,18 +86,25 @@ struct GGGGC_Pool *GGGGC_alloc_pool()
 struct GGGGC_Generation *GGGGC_alloc_generation(struct GGGGC_Generation *from)
 {
     struct GGGGC_Generation *ret;
-    size_t sz;
+    size_t sz, i;
     if (from) {
-        sz = sizeof(struct GGGGC_Generation) - sizeof(struct GGGGC_Pool *) + ((from->poolc+1) * sizeof(struct GGGGC_Pool *));
+        sz = sizeof(struct GGGGC_Generation) - sizeof(struct GGGGC_Pool *) + ((from->poolc*2) * sizeof(struct GGGGC_Pool *));
         SF(ret, malloc, NULL, (sz));
         memcpy(ret, from, sz);
         free(from);
-        ret->poolc++;
+
+        /* double the number of pools */
+        for (i = ret->poolc; i < ret->poolc*2; i++) {
+            ret->pools[i] = GGGGC_alloc_pool();
+        }
+        ret->poolc *= 2;
+
     } else {
         SF(ret, malloc, NULL, (sizeof(struct GGGGC_Generation)));
         ret->poolc = 1;
+        ret->pools[ret->poolc-1] = GGGGC_alloc_pool();
+
     }
-    ret->pools[ret->poolc-1] = GGGGC_alloc_pool();
     return ret;
 }
 
@@ -164,7 +171,7 @@ void *GGGGC_trymalloc_gen(unsigned char gen, int expand, size_t sz, unsigned cha
 void *GGGGC_malloc(size_t sz, unsigned char ptrs)
 {
     void *ret;
-    if ((ret = GGGGC_trymalloc_pool(0, ggggc_pool0, sz, ptrs))) return ret;
+    if ((ret = GGGGC_trymalloc_pool(0, ggggc_allocpool, sz, ptrs))) return ret;
     return GGGGC_trymalloc_gen(0, 1, sz, ptrs);
 }
 
