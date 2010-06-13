@@ -39,11 +39,18 @@ void GGGGC_collector_init()
     INIT_BUFFER(gcRoots);
 }
 
-void GGGGC_push(void **ptr)
-{
-    WRITE_BUFFER(gcRoots, &ptr, 1);
-}
+/* push N variables onto our roots stack (this code is ugly but auto-generated) */
+void GGGGC_push(void **ptr) { WRITE_BUFFER(gcRoots, &ptr, 1); }
+void GGGGC_push2(void **ptr, void **ptr2) { WRITE_BUFFER(gcRoots, &ptr, 1); WRITE_BUFFER(gcRoots, &ptr2, 1); }
+void GGGGC_push3(void **ptr, void **ptr2, void **ptr3) { WRITE_BUFFER(gcRoots, &ptr, 1); WRITE_BUFFER(gcRoots, &ptr2, 1); WRITE_BUFFER(gcRoots, &ptr3, 1); }
+void GGGGC_push4(void **ptr, void **ptr2, void **ptr3, void **ptr4) { WRITE_BUFFER(gcRoots, &ptr, 1); WRITE_BUFFER(gcRoots, &ptr2, 1); WRITE_BUFFER(gcRoots, &ptr3, 1); WRITE_BUFFER(gcRoots, &ptr4, 1); }
+void GGGGC_push5(void **ptr, void **ptr2, void **ptr3, void **ptr4, void **ptr5) { WRITE_BUFFER(gcRoots, &ptr, 1); WRITE_BUFFER(gcRoots, &ptr2, 1); WRITE_BUFFER(gcRoots, &ptr3, 1); WRITE_BUFFER(gcRoots, &ptr4, 1); WRITE_BUFFER(gcRoots, &ptr5, 1); }
+void GGGGC_push6(void **ptr, void **ptr2, void **ptr3, void **ptr4, void **ptr5, void **ptr6) { WRITE_BUFFER(gcRoots, &ptr, 1); WRITE_BUFFER(gcRoots, &ptr2, 1); WRITE_BUFFER(gcRoots, &ptr3, 1); WRITE_BUFFER(gcRoots, &ptr4, 1); WRITE_BUFFER(gcRoots, &ptr5, 1); WRITE_BUFFER(gcRoots, &ptr6, 1); }
+void GGGGC_push7(void **ptr, void **ptr2, void **ptr3, void **ptr4, void **ptr5, void **ptr6, void **ptr7) { WRITE_BUFFER(gcRoots, &ptr, 1); WRITE_BUFFER(gcRoots, &ptr2, 1); WRITE_BUFFER(gcRoots, &ptr3, 1); WRITE_BUFFER(gcRoots, &ptr4, 1); WRITE_BUFFER(gcRoots, &ptr5, 1); WRITE_BUFFER(gcRoots, &ptr6, 1); WRITE_BUFFER(gcRoots, &ptr7, 1); }
+void GGGGC_push8(void **ptr, void **ptr2, void **ptr3, void **ptr4, void **ptr5, void **ptr6, void **ptr7, void **ptr8) { WRITE_BUFFER(gcRoots, &ptr, 1); WRITE_BUFFER(gcRoots, &ptr2, 1); WRITE_BUFFER(gcRoots, &ptr3, 1); WRITE_BUFFER(gcRoots, &ptr4, 1); WRITE_BUFFER(gcRoots, &ptr5, 1); WRITE_BUFFER(gcRoots, &ptr6, 1); WRITE_BUFFER(gcRoots, &ptr7, 1); WRITE_BUFFER(gcRoots, &ptr8, 1); }
+void GGGGC_push9(void **ptr, void **ptr2, void **ptr3, void **ptr4, void **ptr5, void **ptr6, void **ptr7, void **ptr8, void **ptr9) { WRITE_BUFFER(gcRoots, &ptr, 1); WRITE_BUFFER(gcRoots, &ptr2, 1); WRITE_BUFFER(gcRoots, &ptr3, 1); WRITE_BUFFER(gcRoots, &ptr4, 1); WRITE_BUFFER(gcRoots, &ptr5, 1); WRITE_BUFFER(gcRoots, &ptr6, 1); WRITE_BUFFER(gcRoots, &ptr7, 1); WRITE_BUFFER(gcRoots, &ptr8, 1); WRITE_BUFFER(gcRoots, &ptr9, 1); }
 
+/* pop from our roots stack */
 void GGGGC_pop(int ct)
 {
     gcRoots.bufused -= ct;

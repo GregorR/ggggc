@@ -143,7 +143,23 @@ void GGGGC_collect(unsigned char gen);
  * those pointers. Also use this (BEFORE any temporaries) to push global
  * pointers */
 #define GGC_PUSH(obj) GGGGC_push((void **) &(obj))
-void GGGGC_push(void **ptr);
+#define GGC_PUSH2(obj, obj2) GGGGC_push2((void **) &(obj), (void **) &(obj2))
+#define GGC_PUSH3(obj, obj2, obj3) GGGGC_push3((void **) &(obj), (void **) &(obj2), (void **) &(obj3))
+#define GGC_PUSH4(obj, obj2, obj3, obj4) GGGGC_push4((void **) &(obj), (void **) &(obj2), (void **) &(obj3), (void **) &(obj4))
+#define GGC_PUSH5(obj, obj2, obj3, obj4, obj5) GGGGC_push5((void **) &(obj), (void **) &(obj2), (void **) &(obj3), (void **) &(obj4), (void **) &(obj5))
+#define GGC_PUSH6(obj, obj2, obj3, obj4, obj5, obj6) GGGGC_push6((void **) &(obj), (void **) &(obj2), (void **) &(obj3), (void **) &(obj4), (void **) &(obj5), (void **) &(obj6))
+#define GGC_PUSH7(obj, obj2, obj3, obj4, obj5, obj6, obj7) GGGGC_push7((void **) &(obj), (void **) &(obj2), (void **) &(obj3), (void **) &(obj4), (void **) &(obj5), (void **) &(obj6), (void **) &(obj7))
+#define GGC_PUSH8(obj, obj2, obj3, obj4, obj5, obj6, obj7, obj8) GGGGC_push8((void **) &(obj), (void **) &(obj2), (void **) &(obj3), (void **) &(obj4), (void **) &(obj5), (void **) &(obj6), (void **) &(obj7), (void **) &(obj8))
+#define GGC_PUSH9(obj, obj2, obj3, obj4, obj5, obj6, obj7, obj8, obj9) GGGGC_push9((void **) &(obj), (void **) &(obj2), (void **) &(obj3), (void **) &(obj4), (void **) &(obj5), (void **) &(obj6), (void **) &(obj7), (void **) &(obj8), (void **) &(obj9))
+void GGGGC_push(void **);
+void GGGGC_push2(void **, void **);
+void GGGGC_push3(void **, void **, void **);
+void GGGGC_push4(void **, void **, void **, void **);
+void GGGGC_push5(void **, void **, void **, void **, void **);
+void GGGGC_push6(void **, void **, void **, void **, void **, void **);
+void GGGGC_push7(void **, void **, void **, void **, void **, void **, void **);
+void GGGGC_push8(void **, void **, void **, void **, void **, void **, void **, void **);
+void GGGGC_push9(void **, void **, void **, void **, void **, void **, void **, void **, void **);
 
 /* And when you leave the function, remove them */
 #define GGC_POP(ct) GGC_YIELD(); GGGGC_pop(ct)
