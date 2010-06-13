@@ -152,11 +152,12 @@ void GGGGC_pop(int ct);
 /* The write barrier (for pointers) */
 #define GGC_PTR_WRITE(_obj, _ptr, _val) do { \
     size_t _sobj = (size_t) (_obj); \
-    if ((_val) && (_obj)->_ggggc_ptrs._ggggc_header.gen > (_val)->_ggggc_ptrs._ggggc_header.gen) { \
+    struct GGGGC_Header *_gval = (void *) (_val); \
+    if ((_gval) && (_obj)->_ggggc_ptrs._ggggc_header.gen > (_gval)->gen) { \
         struct GGGGC_Pool *_pool = (struct GGGGC_Pool *) (_sobj & GGGGC_NOPOOL_MASK); \
         _pool->remember[(_sobj & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE] = 1; \
     } \
-    (_obj)->_ggggc_ptrs._ptr = (_val); \
+    (_obj)->_ggggc_ptrs._ptr = (void *) (_gval); \
 } while (0)
 
 /* There is no read barrier, but since ptrs are hidden, use this */
