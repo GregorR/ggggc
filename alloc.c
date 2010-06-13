@@ -66,8 +66,8 @@ void GGGGC_clear_pool(struct GGGGC_Pool *pool)
     pool->top = pool->firstobj + GGGGC_CARDS_PER_POOL;
 
     /* remaining amount */
-    pool->remaining = GGGGC_POOL_BYTES - (pool->top - (char *) pool);
-    pool->remc = GGGGC_CARD_BYTES - ((size_t) pool->top & GGGGC_CARD_MASK);
+    /*pool->remaining = GGGGC_POOL_BYTES - (pool->top - (char *) pool);
+    pool->remc = GGGGC_CARD_BYTES - ((size_t) pool->top & GGGGC_CARD_MASK);*/
 
     /* first object in the first card */
     c = (((size_t) pool->top) - (size_t) pool) >> GGGGC_CARD_SIZE;
@@ -76,8 +76,6 @@ void GGGGC_clear_pool(struct GGGGC_Pool *pool)
 
 struct GGGGC_Pool *GGGGC_alloc_pool()
 {
-    size_t c;
-
     /* allocate this pool */
     struct GGGGC_Pool *pool = (struct GGGGC_Pool *) allocateAligned(GGGGC_POOL_SIZE);
     GGGGC_clear_pool(pool);
@@ -124,6 +122,8 @@ static void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, s
 
         return ret;
     }
+
+    return NULL;
 }
 
 void *GGGGC_trymalloc_gen(unsigned char gen, int expand, size_t sz, unsigned char ptrs)
@@ -143,7 +143,7 @@ void *GGGGC_trymalloc_gen(unsigned char gen, int expand, size_t sz, unsigned cha
             ggggc_gens[gen] = ggen = GGGGC_alloc_generation(ggen);
         }
 
-        if (ret = GGGGC_trymalloc_pool(gen, ggen->pools[p], sz, ptrs)) return ret;
+        if ((ret = GGGGC_trymalloc_pool(gen, ggen->pools[p], sz, ptrs))) return ret;
     }
 
     /* or fail (should be unreachable) */
