@@ -178,4 +178,5 @@ retry:
         }
         ggggc_heurpool = ggggc_gens[0]->pools[ggggc_gens[0]->poolc-1];
     }
+    ggggc_allocpool = ggggc_gens[0]->pools[0];
 }

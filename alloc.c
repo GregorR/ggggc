@@ -152,27 +152,57 @@ void *GGGGC_trymalloc_gen(unsigned char gen, int expand, size_t sz, unsigned cha
 
     if ((ret = GGGGC_trymalloc_pool(gen, ggen->pools[0], sz, ptrs))) return ret;
 
-    for (p = 1; p <= ggen->poolc; p++) {
-        if (p == ggen->poolc) {
-            if (!expand)
-                return NULL;
+    /* crazy loops to avoid overchecking */
+    p = 1;
 
-            /* need to expand */
-            ggggc_gens[gen] = ggen = GGGGC_alloc_generation(ggen);
-        }
-
+retry:
+    for (p = 1; p < ggen->poolc; p++) {
         if ((ret = GGGGC_trymalloc_pool(gen, ggen->pools[p], sz, ptrs))) return ret;
     }
 
-    /* or fail (should be unreachable) */
-    return NULL;
+    /* failed to find, must expand */
+    if (!expand)
+        return NULL;
+
+    /* need to expand */
+    ggggc_gens[gen] = ggen = GGGGC_alloc_generation(ggen);
+    goto retry;
+}
+
+static void *GGGGC_trymalloc_gen0(size_t sz, unsigned char ptrs)
+{
+    size_t p;
+    struct GGGGC_Generation *ggen = ggggc_gens[0];
+    struct GGGGC_Pool *gpool;
+    void *ret;
+
+    /* call this only after trying ggggc_allocpool, so probably pool[0] */
+    p = 1;
+
+retry:
+    for (p = 1; p < ggen->poolc; p++) {
+        gpool = ggen->pools[p];
+        if ((ret = GGGGC_trymalloc_pool(0, gpool, sz, ptrs))) {
+            ggggc_allocpool = gpool;
+            return ret;
+        }
+    }
+
+    /* need to expand */
+    ggggc_gens[0] = ggen = GGGGC_alloc_generation(ggen);
+    if (sz >= ggen->pools[p]->remaining) {
+        /* there will never be enough room! */
+        fprintf(stderr, "Allocation of a too-large object: %d > %d\n", (int) sz, (int) ggen->pools[p]->remaining);
+        return NULL;
+    }
+    goto retry;
 }
 
 void *GGGGC_malloc(size_t sz, unsigned char ptrs)
 {
     void *ret;
     if ((ret = GGGGC_trymalloc_pool(0, ggggc_allocpool, sz, ptrs))) return ret;
-    return GGGGC_trymalloc_gen(0, 1, sz, ptrs);
+    return GGGGC_trymalloc_gen0(sz, ptrs);
 }
 
 void *GGGGC_malloc_ptr_array(size_t sz, size_t nmemb)
