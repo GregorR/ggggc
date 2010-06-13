@@ -64,7 +64,6 @@ void GGGGC_clear_pool(struct GGGGC_Pool *pool)
 
     /* set up the top pointer */
     pool->top = pool->firstobj + GGGGC_CARDS_PER_POOL;
-    pool->topc = GGGGC_CARD_OF(pool->top);
 
     /* remaining amount */
     pool->remaining = GGGGC_POOL_BYTES - ((size_t) pool->top - (size_t) pool);
@@ -129,10 +128,8 @@ static void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, s
 
         /* if we allocate at a card boundary, need to mark firstobj */
         c2 = GGGGC_CARD_OF(top);
-        if (c1 != c2) {
+        if (c1 != c2)
             gpool->firstobj[c2] = (unsigned char) ((size_t) top & GGGGC_CARD_MASK);
-            gpool->topc = c2;
-        }
 
         return ret;
     }
