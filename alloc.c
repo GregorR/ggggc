@@ -55,20 +55,32 @@ static void *allocateAligned(size_t sz2)
     return ret;
 }
 
+void GGGGC_clear_pool(struct GGGGC_Pool *pool)
+{
+    size_t c;
+
+    /* clear it out */
+    memset(pool->remember, 0, GGGGC_CARDS_PER_POOL);
+
+    /* set up the top pointer */
+    pool->top = pool->firstobj + GGGGC_CARDS_PER_POOL;
+
+    /* remaining amount */
+    pool->remaining = GGGGC_POOL_BYTES - (pool->top - (char *) pool);
+    pool->remc = GGGGC_CARD_BYTES - ((size_t) pool->top & GGGGC_CARD_MASK);
+
+    /* first object in the first card */
+    c = (((size_t) pool->top) - (size_t) pool) >> GGGGC_CARD_SIZE;
+    pool->firstobj[c] = ((size_t) pool->top) & GGGGC_CARD_MASK;
+}
+
 struct GGGGC_Pool *GGGGC_alloc_pool()
 {
     size_t c;
 
     /* allocate this pool */
     struct GGGGC_Pool *pool = (struct GGGGC_Pool *) allocateAligned(GGGGC_POOL_SIZE);
-
-    /* clear out the cards */
-    memset(pool->remember, 0, GGGGC_CARDS_PER_POOL);
-
-    /* set up the top pointer */
-    pool->top = pool->firstobj + GGGGC_CARDS_PER_POOL;
-    c = (((size_t) pool->top) - (size_t) pool) >> GGGGC_CARD_SIZE;
-    pool->firstobj[c] = ((size_t) pool->top) & GGGGC_CARD_MASK;
+    GGGGC_clear_pool(pool);
 
     return pool;
 }

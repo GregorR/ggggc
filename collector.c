@@ -151,9 +151,7 @@ retry:
     for (i = 0; i <= gen; i++) {
         ggen = ggggc_gens[i];
         for (p = 0; p < ggen->poolc; p++) {
-            struct GGGGC_Pool *gpool = ggen->pools[p];
-            gpool->top = gpool->firstobj + GGGGC_CARDS_PER_POOL;
-            memset(gpool->remember, 0, GGGGC_CARDS_PER_POOL);
+            GGGGC_clear_pool(ggen->pools[p]);
         }
     }
 

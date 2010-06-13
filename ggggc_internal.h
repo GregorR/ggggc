@@ -27,6 +27,7 @@
 
 void GGGGC_collector_init();
 void *GGGGC_trymalloc_gen(unsigned char gen, int expand, size_t sz, unsigned char ptrs);
+void GGGGC_clear_pool(struct GGGGC_Pool *pool);
 struct GGGGC_Generation *GGGGC_alloc_generation(struct GGGGC_Generation *from);
 
 #endif
