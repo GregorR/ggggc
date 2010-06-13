@@ -49,5 +49,5 @@ clean:
 	rm -f $(BTOBJS) bt
 	rm -f $(BADLLLOBJS) badlll
 	rm -f $(REMEMBEROBJS) remember
-	rm -f $(GCBENCH) gcbench
-	rm -f $(GGGGCBENCH) ggggcbench
+	rm -f $(GCBENCHOBJS) gcbench
+	rm -f $(GGGGCBENCHOBJS) ggggcbench
