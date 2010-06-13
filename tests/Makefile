@@ -1,6 +1,5 @@
 CC=gcc
-#ECFLAGS=-O2 -g -DGC
-ECFLAGS=-O2 -g -pg -DGC
+ECFLAGS=-O2 -g -DGC
 CFLAGS=$(ECFLAGS) -I..
 LD=$(CC)
 LDFLAGS=
