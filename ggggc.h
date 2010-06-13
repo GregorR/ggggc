@@ -133,8 +133,7 @@ void *GGGGC_malloc_data_array(size_t sz, size_t nmemb);
 
 /* Yield for possible garbage collection (do this frequently) */
 #define GGC_YIELD() do { \
-    /*if (ggggc_pool0->remaining <= GGGGC_POOL_BYTES / 10) {*/ \
-    if ((size_t) ggggc_pool0->top - (size_t) ggggc_pool0 > GGGGC_POOL_BYTES * 9 / 10) { \
+    if (ggggc_pool0->remaining <= GGGGC_POOL_BYTES / 10) { \
         GGGGC_collect(0); \
     } \
 } while (0)
@@ -173,6 +172,7 @@ void GGGGC_init();
 /* A GGGGC pool (header) */
 struct GGGGC_Pool {
     char *top;
+    size_t remaining; /* bytes remaining in the pool */
     char remember[GGGGC_CARDS_PER_POOL];
     char firstobj[GGGGC_CARDS_PER_POOL];
 };

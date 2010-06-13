@@ -66,8 +66,8 @@ void GGGGC_clear_pool(struct GGGGC_Pool *pool)
     pool->top = pool->firstobj + GGGGC_CARDS_PER_POOL;
 
     /* remaining amount */
-    /*pool->remaining = GGGGC_POOL_BYTES - (pool->top - (char *) pool);
-    pool->remc = GGGGC_CARD_BYTES - ((size_t) pool->top & GGGGC_CARD_MASK);*/
+    pool->remaining = GGGGC_POOL_BYTES - ((size_t) pool->top - (size_t) pool);
+    /*pool->remc = GGGGC_CARD_BYTES - ((size_t) pool->top & GGGGC_CARD_MASK);*/
 
     /* first object in the first card */
     c = (((size_t) pool->top) - (size_t) pool) >> GGGGC_CARD_SIZE;
@@ -104,7 +104,7 @@ struct GGGGC_Generation *GGGGC_alloc_generation(struct GGGGC_Generation *from)
 static void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, size_t sz, unsigned char ptrs)
 {
     /* perform the actual allocation */
-    if (gpool->top + sz < ((char *) gpool) + GGGGC_POOL_BYTES) {
+    if (sz < gpool->remaining) {
         /* if we allocate at a card boundary, need to mark firstobj */
         size_t c1 = ((size_t) gpool->top & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE;
         size_t c2 = (((size_t) gpool->top + sz) & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE;
@@ -112,6 +112,7 @@ static void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, s
         /* sufficient room, just give it */
         struct GGGGC_Header *ret = (struct GGGGC_Header *) gpool->top;
         gpool->top += sz;
+        gpool->remaining -= sz;
         memset(ret, 0, sz);
         ret->sz = sz;
         ret->gen = gen;
