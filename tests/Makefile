@@ -1,8 +1,10 @@
 CC=gcc
-ECFLAGS=-O2 -g -ansi -pedantic
+#ECFLAGS=-O2 -g -DGC
+ECFLAGS=-O2 -g -pg -DGC
 CFLAGS=$(ECFLAGS) -I..
 LD=$(CC)
 LDFLAGS=
+GC_LIBS=-lgc
 GGGGC_LIBS=../libggggc.a
 LIBS=-lm
 
@@ -13,19 +15,29 @@ BADLLLOBJS=badlll.o
 
 REMEMBEROBJS=remember.o
 
-all: btg bt badlll remember
+GCBENCHOBJS=../gc_bench/GCBench.o
+
+GGGGCBENCHOBJS=../gc_bench/GCBench.ggggc.o
+
+all: btg bt badlll remember gcbench ggggcbench
 
 btg: $(BTGOBJS)
-	$(LD) $(LDFLAGS) $(BTGOBJS) $(GGGGC_LIBS) $(LIBS) -o btg
+	$(LD) $(CFLAGS) $(LDFLAGS) $(BTGOBJS) $(GGGGC_LIBS) $(LIBS) -o btg
 
 bt: $(BTOBJS)
-	$(LD) $(LDFLAGS) $(BTOBJS) $(LIBS) -o bt
+	$(LD) $(CFLAGS) $(LDFLAGS) $(BTOBJS) $(LIBS) -o bt
 
 badlll: $(BADLLLOBJS)
-	$(LD) $(LDFLAGS) $(BADLLLOBJS) $(GGGGC_LIBS) $(LIBS) -o badlll
+	$(LD) $(CFLAGS) $(LDFLAGS) $(BADLLLOBJS) $(GGGGC_LIBS) $(LIBS) -o badlll
 
 remember: $(REMEMBEROBJS)
-	$(LD) $(LDFLAGS) $(REMEMBEROBJS) $(GGGGC_LIBS) $(LIBS) -o remember
+	$(LD) $(CFLAGS) $(LDFLAGS) $(REMEMBEROBJS) $(GGGGC_LIBS) $(LIBS) -o remember
+
+gcbench: $(GCBENCHOBJS)
+	$(LD) $(CFLAGS) $(LDFLAGS) $(GCBENCHOBJS) $(GC_LIBS) $(LIBS) -o gcbench
+
+ggggcbench: $(GGGGCBENCHOBJS)
+	$(LD) $(CFLAGS) $(LDFLAGS) $(GGGGCBENCHOBJS) $(GGGGC_LIBS) $(LIBS) -o ggggcbench
 
 .SUFFIXES: .c .o
 
@@ -37,3 +49,5 @@ clean:
 	rm -f $(BTOBJS) bt
 	rm -f $(BADLLLOBJS) badlll
 	rm -f $(REMEMBEROBJS) remember
+	rm -f $(GCBENCH) gcbench
+	rm -f $(GGGGCBENCH) ggggcbench

@@ -48,6 +48,7 @@
 #define GGGGC_NOCARD_MASK ((size_t ) -1 << GGGGC_CARD_SIZE)
 #define GGGGC_CARD_MASK (~GGGGC_NOCARD_MASK)
 #define GGGGC_CARDS_PER_POOL (1<<(GGGGC_POOL_SIZE-GGGGC_CARD_SIZE))
+#define GGGGC_CARD_OF(ptr) (((size_t) (ptr) & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE)
 
 /* The GGGGC header */
 struct GGGGC_Header {
@@ -100,7 +101,7 @@ GGC_DEFN_STRUCT(name, ptrs, data)
 /* Use this macro to define a data array; that is, an array without pointers.
  * GGC_STRUCT will define pointer arrays automatically */
 #define GGC_DATA_ARRAY(name, type) \
-typedef struct _GGGGC_Array__ ## name * name ## Array; \
+typedef struct _GGGGC__ ## name ## Array * name ## Array; \
 struct _GGGGC_Ptrs__ ## name ## Array { \
     struct GGGGC_Header _ggggc_header; \
 }; \
@@ -117,18 +118,27 @@ GGC_DATA_ARRAY(char, char);
 GGC_DATA_ARRAY(int, int);
 
 /* Allocate a fresh object of the given type */
-#define GGC_ALLOC(type) ((type) GGGGC_malloc(sizeof(struct _GGGGC__ ## type), \
+#define GGC_NEW(type) ((type) GGGGC_malloc(sizeof(struct _GGGGC__ ## type), \
     (sizeof(struct _GGGGC_Ptrs__ ## type) - sizeof(struct GGGGC_Header)) / sizeof(void *)))
 void *GGGGC_malloc(size_t sz, unsigned char ptrs);
 
 /* Allocate an array of the given kind of pointers */
-#define GGC_ALLOC_PTR_ARRAY(type, sz) ((type ## Array) GGGGC_malloc_ptr_array(sizeof(type), (sz)))
+#define GGC_NEW_PTR_ARRAY(type, sz) ((type ## Array) GGGGC_malloc_ptr_array(sizeof(type), (sz)))
 void *GGGGC_malloc_ptr_array(size_t sz, size_t nmemb);
 
 /* Allocate an array of the given NAME (not type) */
-#define GGC_ALLOC_DATA_ARRAY(name, sz) ((name ## Array) GGGGC_malloc_data_array( \
+#define GGC_NEW_DATA_ARRAY(name, sz) ((name ## Array) GGGGC_malloc_data_array( \
     sizeof(struct _GGGGC_Elem__ ## name ## Array), (sz)))
 void *GGGGC_malloc_data_array(size_t sz, size_t nmemb);
+
+/* Yield for possible garbage collection (do this frequently) */
+#define GGC_YIELD() do { \
+    /*if (ggggc_pool0->remaining <= GGGGC_POOL_BYTES / 10) {*/ \
+    if ((size_t) ggggc_pool0->top - (size_t) ggggc_pool0 > GGGGC_POOL_BYTES * 9 / 10) { \
+        GGGGC_collect(0); \
+    } \
+} while (0)
+void GGGGC_collect(unsigned char gen);
 
 /* Every time you enter a function with pointers in the stack, you MUST push
  * those pointers. Also use this (BEFORE any temporaries) to push global
@@ -137,16 +147,8 @@ void *GGGGC_malloc_data_array(size_t sz, size_t nmemb);
 void GGGGC_push(void **ptr);
 
 /* And when you leave the function, remove them */
-#define GGC_POP(ct) GGGGC_pop(ct)
+#define GGC_POP(ct) GGC_YIELD(); GGGGC_pop(ct)
 void GGGGC_pop(int ct);
-
-/* Yield for possible garbage collection (do this frequently) */
-#define GGC_YIELD() do { \
-    if (ggggc_pool0->top - (char *) ggggc_pool0 > GGGGC_POOL_BYTES * 9 / 10) { \
-        GGGGC_collect(0); \
-    } \
-} while (0)
-void GGGGC_collect(unsigned char gen);
 
 /* The write barrier (for pointers) */
 #define GGC_PTR_WRITE(_obj, _ptr, _val) do { \
