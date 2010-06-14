@@ -93,7 +93,7 @@ struct _GGGGC_Array__ ## name { \
 GGC_DECL_STRUCT(name); \
 GGC_DEFN_STRUCT(name, ptrs, data)
 
-/* Working around some bad C preprocessors */
+/* Working around some bad C preprocessors, feel free to use this with GGC_DEFN_STRUCT */
 #define GGGGC_NOTHING
 
 /* A struct with only pointers */
@@ -120,6 +120,18 @@ struct _GGGGC__ ## name ## Array { \
 /* Some common data arrays */
 GGC_DATA_ARRAY(char, char);
 GGC_DATA_ARRAY(int, int);
+
+/* As well as generic pointer arrays */
+typedef void *GGC_voidp;
+struct _GGGGC_Array__GGC_voidp;
+typedef struct _GGGGC_Array__GGC_voidp *GGC_voidpArray;
+struct _GGGGC_PtrsArray__GGC_voidp {
+    struct GGGGC_Header _ggggc_header;
+    void *d[1];
+};
+struct _GGGGC_Array__GGC_voidp {
+    struct _GGGGC_PtrsArray__GGC_voidp _ggggc_ptrs;
+};
 
 /* Allocate a fresh object of the given type */
 #define GGC_NEW(type) ((type) GGGGC_malloc(sizeof(struct _GGGGC__ ## type), \

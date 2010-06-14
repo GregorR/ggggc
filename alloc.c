@@ -216,5 +216,11 @@ void *GGGGC_malloc_ptr_array(size_t sz, size_t nmemb)
 
 void *GGGGC_malloc_data_array(size_t sz, size_t nmemb)
 {
-    return GGGGC_malloc(sizeof(struct GGGGC_Header) + sz * nmemb, 0);
+    /* in this case, we could try to allocate unaligned. Yuck! */
+    size_t tot = sizeof(struct GGGGC_Header) + sz * nmemb;
+    if (tot % sizeof(void *) != 0) {
+        tot += sizeof(void *);
+        tot -= tot % sizeof(void *);
+    }
+    return GGGGC_malloc(tot, 0);
 }
