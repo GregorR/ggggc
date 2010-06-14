@@ -1,5 +1,5 @@
 /*
- * Global variables (all one of them)
+ * Used to generate the incredibly-cumbersome ggggcpush.h
  *
  * Copyright (C) 2010 Gregor Richards
  * 
@@ -22,8 +22,18 @@
  * THE SOFTWARE.
  */
 
-#include "ggggc.h"
+#include <stdio.h>
 
-struct GGGGC_Generation *ggggc_gens[GGGGC_GENERATIONS+1];
-struct GGGGC_Pool *ggggc_heurpool, *ggggc_allocpool;
-struct GGGGC_PStack *ggggc_pstack;
+int main()
+{
+    int i, j;
+    for (i = 1; i <= 20; i++) {
+        printf("#define GGC_PUSH%d(_obj1", i);
+        for (j = 2; j <= i; j++)
+            printf(", _obj%d", j);
+        printf(") do { if (ggggc_pstack->rem < %d) GGGGC_pstackExpand(%d);", i, i);
+        for (j = 1; j <= i; j++)
+            printf(" *(ggggc_pstack->cur++) = (void **) &(_obj%d);", j);
+        printf("} while(0)\n");
+    }
+}

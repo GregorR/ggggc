@@ -32,28 +32,24 @@
 
 BUFFER(voidpp, void **);
 
-static struct Buffer_voidpp gcRoots;
-
 void GGGGC_collector_init()
 {
-    INIT_BUFFER(gcRoots);
+    size_t sz = GGGGC_PSTACK_SIZE;
+    ggggc_pstack = (struct GGGGC_PStack *) malloc(sizeof(struct GGGGC_PStack) - sizeof(void *) + sz * sizeof(void *));
+    ggggc_pstack->rem = sz;
+    ggggc_pstack->cur = ggggc_pstack->ptrs;
 }
 
-/* push N variables onto our roots stack (this code is ugly but auto-generated) */
-void GGGGC_push(void **ptr) { WRITE_BUFFER(gcRoots, &ptr, 1); }
-void GGGGC_push2(void **ptr, void **ptr2) { WRITE_BUFFER(gcRoots, &ptr, 1); WRITE_BUFFER(gcRoots, &ptr2, 1); }
-void GGGGC_push3(void **ptr, void **ptr2, void **ptr3) { WRITE_BUFFER(gcRoots, &ptr, 1); WRITE_BUFFER(gcRoots, &ptr2, 1); WRITE_BUFFER(gcRoots, &ptr3, 1); }
-void GGGGC_push4(void **ptr, void **ptr2, void **ptr3, void **ptr4) { WRITE_BUFFER(gcRoots, &ptr, 1); WRITE_BUFFER(gcRoots, &ptr2, 1); WRITE_BUFFER(gcRoots, &ptr3, 1); WRITE_BUFFER(gcRoots, &ptr4, 1); }
-void GGGGC_push5(void **ptr, void **ptr2, void **ptr3, void **ptr4, void **ptr5) { WRITE_BUFFER(gcRoots, &ptr, 1); WRITE_BUFFER(gcRoots, &ptr2, 1); WRITE_BUFFER(gcRoots, &ptr3, 1); WRITE_BUFFER(gcRoots, &ptr4, 1); WRITE_BUFFER(gcRoots, &ptr5, 1); }
-void GGGGC_push6(void **ptr, void **ptr2, void **ptr3, void **ptr4, void **ptr5, void **ptr6) { WRITE_BUFFER(gcRoots, &ptr, 1); WRITE_BUFFER(gcRoots, &ptr2, 1); WRITE_BUFFER(gcRoots, &ptr3, 1); WRITE_BUFFER(gcRoots, &ptr4, 1); WRITE_BUFFER(gcRoots, &ptr5, 1); WRITE_BUFFER(gcRoots, &ptr6, 1); }
-void GGGGC_push7(void **ptr, void **ptr2, void **ptr3, void **ptr4, void **ptr5, void **ptr6, void **ptr7) { WRITE_BUFFER(gcRoots, &ptr, 1); WRITE_BUFFER(gcRoots, &ptr2, 1); WRITE_BUFFER(gcRoots, &ptr3, 1); WRITE_BUFFER(gcRoots, &ptr4, 1); WRITE_BUFFER(gcRoots, &ptr5, 1); WRITE_BUFFER(gcRoots, &ptr6, 1); WRITE_BUFFER(gcRoots, &ptr7, 1); }
-void GGGGC_push8(void **ptr, void **ptr2, void **ptr3, void **ptr4, void **ptr5, void **ptr6, void **ptr7, void **ptr8) { WRITE_BUFFER(gcRoots, &ptr, 1); WRITE_BUFFER(gcRoots, &ptr2, 1); WRITE_BUFFER(gcRoots, &ptr3, 1); WRITE_BUFFER(gcRoots, &ptr4, 1); WRITE_BUFFER(gcRoots, &ptr5, 1); WRITE_BUFFER(gcRoots, &ptr6, 1); WRITE_BUFFER(gcRoots, &ptr7, 1); WRITE_BUFFER(gcRoots, &ptr8, 1); }
-void GGGGC_push9(void **ptr, void **ptr2, void **ptr3, void **ptr4, void **ptr5, void **ptr6, void **ptr7, void **ptr8, void **ptr9) { WRITE_BUFFER(gcRoots, &ptr, 1); WRITE_BUFFER(gcRoots, &ptr2, 1); WRITE_BUFFER(gcRoots, &ptr3, 1); WRITE_BUFFER(gcRoots, &ptr4, 1); WRITE_BUFFER(gcRoots, &ptr5, 1); WRITE_BUFFER(gcRoots, &ptr6, 1); WRITE_BUFFER(gcRoots, &ptr7, 1); WRITE_BUFFER(gcRoots, &ptr8, 1); WRITE_BUFFER(gcRoots, &ptr9, 1); }
-
-/* pop from our roots stack */
-void GGGGC_pop(int ct)
+/* expand the root stack to support N more variables */
+void GGGGC_pstackExpand(size_t by)
 {
-    gcRoots.bufused -= ct;
+    size_t cur = (ggggc_pstack->cur - ggggc_pstack->ptrs);
+    size_t sz = cur + ggggc_pstack->rem;
+    size_t newsz = sz;
+    while (newsz < cur + by)
+        newsz *= 2;
+    ggggc_pstack = (struct GGGGC_PStack *) realloc(ggggc_pstack, sizeof(struct GGGGC_PStack) - sizeof(void *) + newsz * sizeof(void *));
+    ggggc_pstack->cur = ggggc_pstack->ptrs + cur;
 }
 
 void GGGGC_collect(unsigned char gen)
@@ -75,7 +71,8 @@ retry:
 
     /* first add the roots */
     INIT_BUFFER(tocheck);
-    WRITE_BUFFER(tocheck, gcRoots.buf, gcRoots.bufused);
+    p = ggggc_pstack->cur - ggggc_pstack->ptrs;
+    WRITE_BUFFER(tocheck, ggggc_pstack->ptrs, p);
 
     /* get all the remembered cards */
     for (i = gen + 1; i < GGGGC_GENERATIONS; i++) {
