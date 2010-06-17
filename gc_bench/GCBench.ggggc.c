@@ -83,8 +83,6 @@ GGC_STRUCT(Node,
     int j;
 );
 
-GGC_DATA_ARRAY(Double, double);
-
 #ifdef HOLES
 #   define HOLE() GGC_NEW(Node);
 #else
@@ -163,7 +161,7 @@ static void PrintDiagnostics() {
 static void TimeConstruction(int depth) {
         long    tStart, tFinish;
         int     iNumIters = NumIters(depth);
-        Node    tempTree;
+        Node    tempTree = NULL;
 	int 	i;
 
         GGC_PUSH(tempTree);
@@ -195,13 +193,13 @@ static void TimeConstruction(int depth) {
 }
 
 int main() {
-        Node    root;
-        Node    longLivedTree;
-        Node    tempTree;
+        Node    root = NULL;
+        Node    longLivedTree = NULL;
+        Node    tempTree = NULL;
         long    tStart, tFinish;
         long    tElapsed;
   	int	i, d;
-	DoubleArray array;
+	double *array = NULL;
 
         GGC_INIT();
 
@@ -232,9 +230,9 @@ int main() {
 
         // Create long-lived array, filling half of it
 	printf(" Creating a long-lived array of %d doubles\n", kArraySize);
-            array = GGC_NEW_DATA_ARRAY(Double, kArraySize);
+            array = GGC_NEW_DATA_ARRAY(double, kArraySize);
         for (i = 0; i < kArraySize/2; ++i) {
-                array->d[i] = 1.0/i;
+                array[i] = 1.0/i;
         }
         PrintDiagnostics();
 
@@ -242,7 +240,7 @@ int main() {
                 TimeConstruction(d);
         }
 
-        if (longLivedTree == 0 || array->d[1000] != 1.0/1000)
+        if (longLivedTree == 0 || array[1000] != 1.0/1000)
 		fprintf(stderr, "Failed\n");
                                 // fake reference to LongLivedTree
                                 // and array

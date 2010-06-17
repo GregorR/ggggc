@@ -108,13 +108,13 @@ retry:
     for (i = 0; i < tocheck.bufused; i++) {
         void **ptoch = tocheck.buf[i];
         if (*ptoch) {
-            struct GGGGC_Header *objtoch = (struct GGGGC_Header *) *ptoch;
+            struct GGGGC_Header *objtoch = (struct GGGGC_Header *) *ptoch - 1;
 
             /* OK, we have the object to check, has it already moved? */
             while (objtoch->sz & 1) {
                 /* move it */
-                *ptoch = (void *) (objtoch->sz & ((size_t) -1 << 1));
-                objtoch = (struct GGGGC_Header *) *ptoch;
+                objtoch = (struct GGGGC_Header *) (objtoch->sz & ((size_t) -1 << 1));
+                *ptoch = (void *) (objtoch + 1);
             }
 
             /* Do we need to reclaim? */
@@ -134,6 +134,7 @@ retry:
                     }
                     goto retry;
                 }
+                newobj -= 1; /* get back to the header */
 
                 /* copy it in */
                 survivors += objtoch->sz;
@@ -148,7 +149,7 @@ retry:
                     WRITE_BUFFER(tocheck, &ptr, 1);
 
                 /* finally, update the pointer we're looking at */
-                *ptoch = (void *) newobj;
+                *ptoch = (void *) (newobj + 1);
             }
         }
     }

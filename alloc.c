@@ -142,7 +142,7 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
         if (c1 != c2)
             gpool->firstobj[c2] = (unsigned char) ((size_t) top & GGGGC_CARD_MASK);
 
-        return ret;
+        return (void *) (ret + 1);
     }
 
     return NULL;
@@ -209,18 +209,17 @@ void *GGGGC_malloc(size_t sz, unsigned char ptrs)
     return GGGGC_trymalloc_gen0(sz, ptrs);
 }
 
-void *GGGGC_malloc_ptr_array(size_t sz, size_t nmemb)
+void *GGGGC_malloc_ptr_array(size_t sz)
 {
-    return GGGGC_malloc(sizeof(struct GGGGC_Header) + sz * nmemb, nmemb);
+    return GGGGC_malloc(sizeof(struct GGGGC_Header) + sz * sizeof(void *), sz);
 }
 
-void *GGGGC_malloc_data_array(size_t sz, size_t nmemb)
+void *GGGGC_malloc_data_array(size_t sz)
 {
     /* in this case, we could try to allocate unaligned. Yuck! */
-    size_t tot = sizeof(struct GGGGC_Header) + sz * nmemb;
-    if (tot % sizeof(void *) != 0) {
-        tot += sizeof(void *);
-        tot -= tot % sizeof(void *);
+    if (sz % sizeof(void *) != 0) {
+        sz += sizeof(void *);
+        sz -= sz % sizeof(void *);
     }
-    return GGGGC_malloc(tot, 0);
+    return GGGGC_malloc(sz, 0);
 }

@@ -71,19 +71,13 @@ typedef struct _GGGGC_Array__ ## name * name ## Array
 /* Use this macro to make a definition for a traceable struct */
 #define GGC_DEFN_STRUCT(name, ptrs, data) \
 struct _GGGGC_Ptrs__ ## name { \
-    struct GGGGC_Header _ggggc_header; \
     ptrs \
 }; \
+static const size_t _ggggc_ptrs_ct__ ## name = sizeof(struct _GGGGC_Ptrs__ ## name) / sizeof(void *); \
 struct _GGGGC__ ## name { \
     struct _GGGGC_Ptrs__ ## name _ggggc_ptrs; \
     data \
-}; \
-struct _GGGGC_PtrsArray__ ## name { \
-    struct GGGGC_Header _ggggc_header; \
-    struct _GGGGC__ ## name d[1]; \
-}; \
-struct _GGGGC_Array__ ## name { \
-    struct _GGGGC_PtrsArray__ ## name _ggggc_ptrs; \
+    void *_ggggc_align; /* not part of the actual allocated memory */ \
 }
 
 /* Use this macro to create a traceable struct. Make sure all GGGGC pointers
@@ -97,55 +91,35 @@ GGC_DEFN_STRUCT(name, ptrs, data)
 #define GGGGC_NOTHING
 
 /* A struct with only pointers */
-#define GGC_PTR_STRUCT(name, ptrs) GGC_STRUCT(name, ptrs, GGGGC_NOTHING)
+#define GGC_DEFN_PTR_STRUCT(name, ptrs) GGC_DEFN_STRUCT(name, ptrs, GGGGC_NOTHING)
+#define GGC_PTR_STRUCT(name, ptrs) \
+GGC_DECL_STRUCT(name); \
+GGC_DEFN_PTR_STRUCT(name, ptrs)
 
 /* A struct with only data */
-#define GGC_DATA_STRUCT(name, data) GGC_STRUCT(name, GGGGC_NOTHING, data)
-
-/* Use this macro to define a data array; that is, an array without pointers.
- * GGC_STRUCT will define pointer arrays automatically */
-#define GGC_DATA_ARRAY(name, type) \
-typedef struct _GGGGC__ ## name ## Array * name ## Array; \
-struct _GGGGC_Ptrs__ ## name ## Array { \
-    struct GGGGC_Header _ggggc_header; \
-}; \
-struct _GGGGC_Elem__ ## name ## Array { \
-    type d; \
-}; \
-struct _GGGGC__ ## name ## Array { \
-    struct _GGGGC_Ptrs__ ## name ## Array _ggggc_ptrs; \
-    type d[1]; \
+#define GGC_DEFN_DATA_STRUCT(name, data) \
+static const size_t _ggggc_ptrs_ct__ ## name = 0; \
+struct _GGGGC__ ## name { \
+    data \
+    void *_ggggc_align; \
 }
-
-/* Some common data arrays */
-GGC_DATA_ARRAY(char, char);
-GGC_DATA_ARRAY(int, int);
-
-/* As well as generic pointer arrays */
-typedef void *GGC_voidp;
-struct _GGGGC_Array__GGC_voidp;
-typedef struct _GGGGC_Array__GGC_voidp *GGC_voidpArray;
-struct _GGGGC_PtrsArray__GGC_voidp {
-    struct GGGGC_Header _ggggc_header;
-    void *d[1];
-};
-struct _GGGGC_Array__GGC_voidp {
-    struct _GGGGC_PtrsArray__GGC_voidp _ggggc_ptrs;
-};
+#define GGC_DATA_STRUCT(name, data) \
+GGC_DECL_STRUCT(name); \
+GGC_DEFN_DATA_STRUCT(name, data)
 
 /* Allocate a fresh object of the given type */
-#define GGC_NEW(type) ((type) GGGGC_malloc(sizeof(struct _GGGGC__ ## type), \
-    (sizeof(struct _GGGGC_Ptrs__ ## type) - sizeof(struct GGGGC_Header)) / sizeof(void *)))
+#define GGC_NEW(type) ((type) GGGGC_malloc( \
+    sizeof(struct _GGGGC__ ## type) + sizeof(struct GGGGC_Header) - sizeof(void *), \
+    _ggggc_ptrs_ct__ ## type))
 void *GGGGC_malloc(size_t sz, unsigned char ptrs);
 
 /* Allocate an array of the given kind of pointers */
-#define GGC_NEW_PTR_ARRAY(type, sz) ((type ## Array) GGGGC_malloc_ptr_array(sizeof(type), (sz)))
-void *GGGGC_malloc_ptr_array(size_t sz, size_t nmemb);
+#define GGC_NEW_PTR_ARRAY(type, sz) ((type *) GGGGC_malloc_ptr_array(sz))
+void *GGGGC_malloc_ptr_array(size_t sz);
 
-/* Allocate an array of the given NAME (not type) */
-#define GGC_NEW_DATA_ARRAY(name, sz) ((name ## Array) GGGGC_malloc_data_array( \
-    sizeof(struct _GGGGC_Elem__ ## name ## Array), (sz)))
-void *GGGGC_malloc_data_array(size_t sz, size_t nmemb);
+/* Allocate a data array of the given type */
+#define GGC_NEW_DATA_ARRAY(type, sz) ((type *) GGGGC_malloc_data_array(sizeof(type) * (sz) + sizeof(struct GGGGC_Header)))
+void *GGGGC_malloc_data_array(size_t sz);
 
 /* Yield for possible garbage collection (do this frequently) */
 #define GGC_YIELD() do { \
@@ -168,8 +142,8 @@ void GGGGC_pstackExpand(size_t by);
 /* The write barrier (for pointers) */
 #define GGC_PTR_WRITE(_obj, _ptr, _val) do { \
     size_t _sobj = (size_t) (_obj); \
-    struct GGGGC_Header *_gval = (void *) (_val); \
-    if ((_gval) && (_obj)->_ggggc_ptrs._ggggc_header.gen > (_gval)->gen) { \
+    struct GGGGC_Header *_gval = (struct GGGGC_Header *) _val; \
+    if ((_gval) && ((struct GGGGC_Header *) (_obj))[-1].gen > (_gval)[-1].gen) { \
         struct GGGGC_Pool *_pool = (struct GGGGC_Pool *) (_sobj & GGGGC_NOPOOL_MASK); \
         _pool->remember[(_sobj & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE] = 1; \
     } \
