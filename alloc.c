@@ -214,6 +214,23 @@ void *GGGGC_malloc_ptr_array(size_t sz)
     return GGGGC_malloc(sizeof(struct GGGGC_Header) + sz * sizeof(void *), sz);
 }
 
+void *GGGGC_realloc_ptr_array(void *orig, size_t sz)
+{
+    struct GGGGC_Header *header = (struct GGGGC_Header *) orig - 1;
+    void *ret;
+
+    /* just allocate and copy out the original */
+    ret = GGGGC_malloc_ptr_array(sz);
+    sz = sz * sizeof(void *);
+    if (header->sz - sizeof(struct GGGGC_Header) < sz) {
+        memcpy(ret, orig, header->sz - sizeof(struct GGGGC_Header));
+    } else {
+        memcpy(ret, orig, sz);
+    }
+
+    return ret;
+}
+
 void *GGGGC_malloc_data_array(size_t sz)
 {
     /* in this case, we could try to allocate unaligned. Yuck! */
@@ -222,4 +239,20 @@ void *GGGGC_malloc_data_array(size_t sz)
         sz -= sz % sizeof(void *);
     }
     return GGGGC_malloc(sz, 0);
+}
+
+void *GGGGC_realloc_data_array(void *orig, size_t sz)
+{
+    struct GGGGC_Header *header = (struct GGGGC_Header *) orig - 1;
+    void *ret;
+
+    /* allocate and copy */
+    ret = GGGGC_malloc_data_array(sz);
+    if (header->sz - sizeof(struct GGGGC_Header) < sz) {
+        memcpy(ret, orig, header->sz - sizeof(struct GGGGC_Header));
+    } else {
+        memcpy(ret, orig, sz);
+    }
+
+    return ret;
 }
