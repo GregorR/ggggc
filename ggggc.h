@@ -78,6 +78,12 @@ struct _GGGGC__ ## name { \
     struct _GGGGC_Ptrs__ ## name _ggggc_ptrs; \
     data \
     void *_ggggc_align; /* not part of the actual allocated memory */ \
+}; \
+struct _GGGGC_ArrayPtrs__ ## name { \
+    name d[1]; \
+}; \
+struct _GGGGC_Array__ ## name { \
+    struct _GGGGC_ArrayPtrs__ ## name _ggggc_ptrs; \
 }
 
 /* Use this macro to create a traceable struct. Make sure all GGGGC pointers
@@ -114,11 +120,11 @@ GGC_DEFN_DATA_STRUCT(name, data)
 void *GGGGC_malloc(size_t sz, unsigned char ptrs);
 
 /* Allocate an array of the given kind of pointers */
-#define GGC_NEW_PTR_ARRAY(type, sz) ((type *) GGGGC_malloc_ptr_array(sz))
+#define GGC_NEW_PTR_ARRAY(type, sz) ((type ## Array) GGGGC_malloc_ptr_array(sz))
 void *GGGGC_malloc_ptr_array(size_t sz);
 
 /* The ever-unpopular realloc for pointer arrays */
-#define GGC_REALLOC_PTR_ARRAY(type, orig, sz) ((type *) GGGGC_realloc_ptr_array((orig), (sz)))
+#define GGC_REALLOC_PTR_ARRAY(type, orig, sz) ((type ## Array) GGGGC_realloc_ptr_array((orig), (sz)))
 void *GGGGC_realloc_ptr_array(void *orig, size_t sz);
 
 /* Allocate a data array of the given type */
