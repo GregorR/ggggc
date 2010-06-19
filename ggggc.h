@@ -57,7 +57,8 @@
 /* The GGGGC header */
 struct GGGGC_Header {
     size_t sz;
-    unsigned char gen, ptrs;
+    unsigned char gen; /* room for another char here */
+    unsigned short ptrs;
 };
 
 
@@ -121,18 +122,22 @@ void *GGGGC_malloc(size_t sz, unsigned char ptrs);
 
 /* Allocate an array of the given kind of pointers */
 #define GGC_NEW_PTR_ARRAY(type, sz) ((type ## Array) GGGGC_malloc_ptr_array(sz))
+#define GGC_NEW_PTR_ARRAY_VOIDP(sz) (GGGGC_malloc_ptr_array(sz))
 void *GGGGC_malloc_ptr_array(size_t sz);
 
 /* The ever-unpopular realloc for pointer arrays */
 #define GGC_REALLOC_PTR_ARRAY(type, orig, sz) ((type ## Array) GGGGC_realloc_ptr_array((orig), (sz)))
+#define GGC_REALLOC_PTR_ARRAY_VOIDP(orig, sz) (GGGGC_realloc_ptr_array((orig), (sz)))
 void *GGGGC_realloc_ptr_array(void *orig, size_t sz);
 
 /* Allocate a data array of the given type */
 #define GGC_NEW_DATA_ARRAY(type, sz) ((type *) GGGGC_malloc_data_array(sizeof(type) * (sz) + sizeof(struct GGGGC_Header)))
+#define GGC_NEW_DATA_ARRAY_VOIDP(type, sz) (GGGGC_malloc_data_array(sizeof(type) * (sz) + sizeof(struct GGGGC_Header)))
 void *GGGGC_malloc_data_array(size_t sz);
 
 /* The ever-unpopular realloc for data arrays */
 #define GGC_REALLOC_DATA_ARRAY(type, orig, sz) ((type *) GGGGC_realloc_data_array((orig), sizeof(type) * (sz) + sizeof(struct GGGGC_Header)))
+#define GGC_REALLOC_DATA_ARRAY_VOIDP(type, orig, sz) (GGGGC_realloc_data_array((orig), sizeof(type) * (sz) + sizeof(struct GGGGC_Header)))
 void *GGGGC_realloc_data_array(void *orig, size_t sz);
 
 /* Yield for possible garbage collection (do this frequently) */
