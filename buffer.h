@@ -147,6 +147,16 @@ BUFFER(int, int);
     STEP_BUFFER(buffer, _len); \
 }
 
+/* write a single element into a buffer */
+#define WRITE_ONE_BUFFER(buffer, elem) \
+{ \
+    if ((buffer).bufused == (buffer).bufsz) { \
+        EXPAND_BUFFER(buffer); \
+    } \
+    *BUFFER_END(buffer) = (elem); \
+    STEP_BUFFER(buffer, 1); \
+}
+
 /* read a file into a buffer */
 #define READ_FILE_BUFFER(buffer, fh) \
 { \

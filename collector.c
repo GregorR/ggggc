@@ -72,7 +72,15 @@ retry:
     /* first add the roots */
     INIT_BUFFER(tocheck);
     p = ggggc_pstack->cur - ggggc_pstack->ptrs;
-    WRITE_BUFFER(tocheck, ggggc_pstack->ptrs, p);
+
+    while (BUFFER_SPACE(tocheck) < p) {
+        EXPAND_BUFFER(tocheck);
+    }
+
+    for (i = 0; i < p; i++) {
+        if (*ggggc_pstack->ptrs[i])
+            WRITE_ONE_BUFFER(tocheck, ggggc_pstack->ptrs[i]);
+    }
 
     /* get all the remembered cards */
     for (i = gen + 1; i < GGGGC_GENERATIONS; i++) {
@@ -93,8 +101,10 @@ retry:
                         void **ptr = (void **) (obj + 1);
 
                         /* add all its pointers */
-                        for (j = 0; j < obj->ptrs; j++, ptr++)
-                            WRITE_BUFFER(tocheck, &ptr, 1);
+                        for (j = 0; j < obj->ptrs; j++, ptr++) {
+                            if (*ptr)
+                                WRITE_ONE_BUFFER(tocheck, ptr);
+                        }
 
                         obj = (struct GGGGC_Header *) ((char *) obj + obj->sz);
                     }
@@ -107,50 +117,50 @@ retry:
     /* now just iterate while we have things to check */
     for (i = 0; i < tocheck.bufused; i++) {
         void **ptoch = tocheck.buf[i];
-        if (*ptoch) {
-            struct GGGGC_Header *objtoch = (struct GGGGC_Header *) *ptoch - 1;
+        struct GGGGC_Header *objtoch = (struct GGGGC_Header *) *ptoch - 1;
 
-            /* OK, we have the object to check, has it already moved? */
-            while (objtoch->sz & 1) {
-                /* move it */
-                objtoch = (struct GGGGC_Header *) (objtoch->sz & ((size_t) -1 << 1));
-                *ptoch = (void *) (objtoch + 1);
-            }
+        /* OK, we have the object to check, has it already moved? */
+        while (objtoch->sz & 1) {
+            /* move it */
+            objtoch = (struct GGGGC_Header *) (objtoch->sz & ((size_t) -1 << 1));
+            *ptoch = (void *) (objtoch + 1);
+        }
 
-            /* Do we need to reclaim? */
-            if (objtoch->gen <= gen) {
-                void **ptr;
+        /* Do we need to reclaim? */
+        if (objtoch->gen <= gen) {
+            void **ptr;
 
-                /* nope, get a new one */
-                struct GGGGC_Header *newobj =
-                    (struct GGGGC_Header *) GGGGC_trymalloc_gen(nextgen, nislast, objtoch->sz, objtoch->ptrs);
-                if (newobj == NULL) {
-                    /* ACK! Out of memory! Need more GC! */
-                    FREE_BUFFER(tocheck);
-                    gen++;
-                    if (gen >= GGGGC_GENERATIONS) {
-                        fprintf(stderr, "Memory exhausted during GC???\n");
-                        *((int *) 0) = 0;
-                    }
-                    goto retry;
+            /* nope, get a new one */
+            struct GGGGC_Header *newobj =
+                (struct GGGGC_Header *) GGGGC_trymalloc_gen(nextgen, nislast, objtoch->sz, objtoch->ptrs);
+            if (newobj == NULL) {
+                /* ACK! Out of memory! Need more GC! */
+                FREE_BUFFER(tocheck);
+                gen++;
+                if (gen >= GGGGC_GENERATIONS) {
+                    fprintf(stderr, "Memory exhausted during GC???\n");
+                    *((int *) 0) = 0;
                 }
-                newobj -= 1; /* get back to the header */
-
-                /* copy it in */
-                survivors += objtoch->sz;
-                memcpy((void *) newobj, (void *) objtoch, objtoch->sz);
-                if (!nislast)
-                    newobj->gen = nextgen;
-                objtoch->sz = ((size_t) newobj) | 1; /* forwarding pointer */
-
-                /* and check its pointers */
-                ptr = (void **) (newobj + 1);
-                for (j = 0; j < newobj->ptrs; j++, ptr++)
-                    WRITE_BUFFER(tocheck, &ptr, 1);
-
-                /* finally, update the pointer we're looking at */
-                *ptoch = (void *) (newobj + 1);
+                goto retry;
             }
+            newobj -= 1; /* get back to the header */
+
+            /* copy it in */
+            survivors += objtoch->sz;
+            memcpy((void *) newobj, (void *) objtoch, objtoch->sz);
+            if (!nislast)
+                newobj->gen = nextgen;
+            objtoch->sz = ((size_t) newobj) | 1; /* forwarding pointer */
+
+            /* and check its pointers */
+            ptr = (void **) (newobj + 1);
+            for (j = 0; j < newobj->ptrs; j++, ptr++) {
+                if (*ptr)
+                    WRITE_ONE_BUFFER(tocheck, ptr);
+            }
+
+            /* finally, update the pointer we're looking at */
+            *ptoch = (void *) (newobj + 1);
         }
     }
 
