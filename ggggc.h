@@ -169,12 +169,11 @@ void GGGGC_pstackExpand(size_t by);
 /* The write barrier (for pointers) */
 #define GGC_PTR_WRITE(_obj, _ptr, _val) do { \
     size_t _sobj = (size_t) (_obj); \
-    struct GGGGC_Header *_gval = (struct GGGGC_Header *) _val; \
-    if ((_gval) && ((struct GGGGC_Header *) (_obj))[-1].gen > (_gval)[-1].gen) { \
+    if (((struct GGGGC_Header *) (_obj))[-1].gen > 0) { \
         struct GGGGC_Pool *_pool = (struct GGGGC_Pool *) (_sobj & GGGGC_NOPOOL_MASK); \
         _pool->remember[(_sobj & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE] = 1; \
     } \
-    (_obj)->_ggggc_ptrs._ptr = (void *) (_gval); \
+    (_obj)->_ggggc_ptrs._ptr = (void *) (_val); \
 } while (0)
 
 /* There is no read barrier, but since ptrs are hidden, use this */
