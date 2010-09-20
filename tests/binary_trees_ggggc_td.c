@@ -31,8 +31,8 @@ treeNode NewTreeNode(treeNode left, treeNode right, long item)
 
     new = GGC_NEW(treeNode);
 
-    GGC_PTR_WRITE(new, left, left);
-    GGC_PTR_WRITE(new, right, right);
+    GGC_PTR_WRITE_UNTAGGED_PTR(new, left, left);
+    GGC_PTR_WRITE_UNTAGGED_PTR(new, right, right);
     new->item = item;
 
     GGC_POP(3);
@@ -44,12 +44,12 @@ treeNode NewTreeNode(treeNode left, treeNode right, long item)
 long ItemCheck(treeNode tree)
 {
     GGC_PUSH(tree);
-    if (GGC_PTR_READ(tree, left) == NULL) {
+    if (GGC_PTR_READ_UNTAGGING_PTR(tree, left) == NULL) {
         GGC_POP(1);
         return tree->item;
     } else {
         GGC_POP(1);
-        return tree->item + ItemCheck(GGC_PTR_READ(tree, left)) - ItemCheck(GGC_PTR_READ(tree, right));
+        return tree->item + ItemCheck(GGC_PTR_READ_UNTAGGING_PTR(tree, left)) - ItemCheck(GGC_PTR_READ_UNTAGGING_PTR(tree, right));
     }
 } /* ItemCheck() */
 
@@ -66,8 +66,8 @@ treeNode TopDownTree(long item, unsigned depth)
         ret = NewTreeNode(NULL, NULL, item);
         l = TopDownTree(2 * item - 1, depth - 1);
         r = TopDownTree(2 * item, depth - 1);
-        GGC_PTR_WRITE(ret, left, l);
-        GGC_PTR_WRITE(ret, right, r);
+        GGC_PTR_WRITE_UNTAGGED_PTR(ret, left, l);
+        GGC_PTR_WRITE_UNTAGGED_PTR(ret, right, r);
 
         GGC_POP(3);
 

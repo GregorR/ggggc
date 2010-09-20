@@ -91,8 +91,8 @@ GGC_STRUCT(Node,
 
 void init_Node(Node me, Node l, Node r) {
     GGC_PUSH3(me, l, r);
-    GGC_PTR_WRITE(me, left, l);
-    GGC_PTR_WRITE(me, right, r);
+    GGC_PTR_WRITE_UNTAGGED_PTR(me, left, l);
+    GGC_PTR_WRITE_UNTAGGED_PTR(me, right, r);
     GGC_POP(3);
 }
 
@@ -114,10 +114,10 @@ static void Populate(int iDepth, Node thisNode) {
                 return;
         } else {
                 iDepth--;
-                  GGC_PTR_WRITE(thisNode, left, GGC_NEW(Node)); HOLE();
-                  GGC_PTR_WRITE(thisNode, right, GGC_NEW(Node)); HOLE();
-                Populate (iDepth, GGC_PTR_READ(thisNode, left));
-                Populate (iDepth, GGC_PTR_READ(thisNode, right));
+                  GGC_PTR_WRITE_UNTAGGED_PTR(thisNode, left, GGC_NEW(Node)); HOLE();
+                  GGC_PTR_WRITE_UNTAGGED_PTR(thisNode, right, GGC_NEW(Node)); HOLE();
+                Populate (iDepth, GGC_PTR_READ_UNTAGGING_PTR(thisNode, left));
+                Populate (iDepth, GGC_PTR_READ_UNTAGGING_PTR(thisNode, right));
         }
         GGC_POP(1);
 }

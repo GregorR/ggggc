@@ -28,7 +28,7 @@ LLL buildLLL(int sz)
     }
 
     for (i = sz - 2; i >= 0; i--) {
-        GGC_PTR_WRITE(lll[i], next, lll[i+1]);
+        GGC_PTR_WRITE_UNTAGGED_PTR(lll[i], next, lll[i+1]);
         GGC_POP(1);
         GGC_YIELD();
     }
@@ -45,7 +45,7 @@ void dumpLLL(LLL lll)
 next:
     if (lll) {
         printf("%d ", lll->val);
-        lll = GGC_PTR_READ(lll, next);
+        lll = GGC_PTR_READ_UNTAGGING_PTR(lll, next);
         goto next;
     }
     printf("\n");

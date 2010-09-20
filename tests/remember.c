@@ -27,12 +27,12 @@ int main()
     test->val = 1;
 
     /* now point to it from the old one */
-    GGC_PTR_WRITE(old, next, test);
+    GGC_PTR_WRITE_UNTAGGED_PTR(old, next, test);
 
     /* and force a collection */
     fprintf(stderr, "%p %p\n", old, test);
     GGGGC_collect(0);
-    test = GGC_PTR_READ(old, next);
+    test = GGC_PTR_READ_UNTAGGING_PTR(old, next);
 
     /* get another new one */
     test2 = GGC_NEW(Test);

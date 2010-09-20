@@ -101,11 +101,20 @@ retry:
                     /* walk through this card */
                     while (base == ((size_t) obj & GGGGC_NOCARD_MASK) && (char *) obj < gpool->top) {
                         void **ptr = (void **) (obj + 1);
+                        int skip;
 
                         /* add all its pointers */
+                        skip = 0;
                         for (j = 0; j < obj->ptrs; j++, ptr++) {
-                            if (*ptr)
-                                WRITE_ONE_BUFFER(tocheck, ptr);
+                            void *pval = *ptr;
+                            if (!skip) {
+                                if (GGC_UNTAG(pval))
+                                    WRITE_ONE_BUFFER(tocheck, ptr);
+                                if ((size_t) pval & 0x1)
+                                    skip = 1;
+                            } else {
+                                skip = 0;
+                            }
                         }
 
                         obj = (struct GGGGC_Header *) ((char *) obj + obj->sz);
