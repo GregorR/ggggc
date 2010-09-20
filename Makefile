@@ -1,5 +1,7 @@
 CC=gcc
-CFLAGS=-O2 -g -Wall -Werror -ansi -pedantic
+ECFLAGS=
+OCFLAGS=$(ECFLAGS) -O2
+CFLAGS=$(OCFLAGS) -g -Wall -Werror -ansi -pedantic
 AR=ar
 ARFLAGS=rc
 RANLIB=ranlib

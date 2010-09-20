@@ -43,7 +43,7 @@
 #include <sys/time.h>
 
 #ifdef GC
-#  include "gc.h"
+#  include "gc/gc.h"
 #endif
 
 #ifdef PROFIL

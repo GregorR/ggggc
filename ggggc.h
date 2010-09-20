@@ -145,11 +145,15 @@ void *GGGGC_malloc_data_array(size_t sz);
 void *GGGGC_realloc_data_array(void *orig, size_t sz);
 
 /* Yield for possible garbage collection (do this frequently) */
+#if defined(GGGGC_FREQUENT_COLLECTIONS)
+#define GGC_YIELD() GGGGC_collect(0)
+#else
 #define GGC_YIELD() do { \
     if (ggggc_heurpool->remaining <= GGGGC_POOL_BYTES / 10) { \
         GGGGC_collect(0); \
     } \
 } while (0)
+#endif
 void GGGGC_collect(unsigned char gen);
 
 /* Every time you enter a function with pointers in the stack, you MUST push
