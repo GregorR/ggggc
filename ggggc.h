@@ -197,16 +197,16 @@ void GGGGC_pstackExpand(size_t by);
 #define GGC_PTR_WRITE_TAGGED_PTR(_obj, _ptr, _val) do { \
     size_t _sobj = (size_t) (_obj); \
     size_t _sval = (size_t) (_val); \
-    void *_wptr = &((_obj)->_ggggc_ptrs._ptr); \
+    void **_wptr = (void **) &((_obj)->_ggggc_ptrs._ptr); \
     GGGGC_REMEMBER(_sobj, _sval); \
-    _wptr[-1] &= ((size_t) -1)<<1; \
+    ((size_t *) _wptr)[-1] &= ((size_t) -1)<<1; \
     *_wptr = (void *) _sval; \
 } while (0)
 
 /* Use this write barrier to write a data value into a pointer field, tagged */
 #define GGC_PTR_WRITE_DATA(_obj, _ptr, _val) do { \
-    void *_wptr = &((_obj)->_ggggc_ptrs._ptr); \
-    _wptr[-1] |= 0x1; \
+    void **_wptr = (void **) &((_obj)->_ggggc_ptrs._ptr); \
+    ((size_t *) _wptr)[-1] |= 0x1; \
     *_wptr = (void *) (_val); \
 } while (0)
 
