@@ -23,11 +23,9 @@ GGC_STRUCT(treeNode,
 
 treeNode NewTreeNode(treeNode left, treeNode right, long item)
 {
-    treeNode    new;
+    treeNode    new = NULL;
 
-    GGC_PUSH(left);
-    GGC_PUSH(right);
-    GGC_PUSH(new);
+    GGC_PUSH3(left, right, new);
 
     new = GGC_NEW(treeNode);
 
@@ -59,9 +57,7 @@ treeNode TopDownTree(long item, unsigned depth)
     if (depth > 0) {
         treeNode ret, l, r;
         ret = l = r = NULL;
-        GGC_PUSH(ret);
-        GGC_PUSH(l);
-        GGC_PUSH(r);
+        GGC_PUSH3(ret, l, r);
 
         ret = NewTreeNode(NULL, NULL, item);
         l = TopDownTree(2 * item - 1, depth - 1);
@@ -95,11 +91,8 @@ int main(int argc, char* argv[])
 
     stretchDepth = maxDepth + 1;
 
-    tempTree = NULL;
-    GGC_PUSH(tempTree);
-
-    stretchTree = NULL;
-    GGC_PUSH(stretchTree);
+    tempTree = stretchTree = longLivedTree = NULL;
+    GGC_PUSH3(tempTree, stretchTree, longLivedTree);
 
     stretchTree = TopDownTree(0, stretchDepth);
     printf
@@ -109,8 +102,6 @@ int main(int argc, char* argv[])
         ItemCheck(stretchTree)
     );
 
-    longLivedTree = NULL;
-    GGC_PUSH(longLivedTree);
     longLivedTree = TopDownTree(0, maxDepth);
 
     for (depth = minDepth; depth <= maxDepth; depth += 2)
