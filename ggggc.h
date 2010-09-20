@@ -174,8 +174,8 @@ void GGGGC_pstackExpand(size_t by);
 
 /* This is used to determine whether a pointer relationship needs to be added
  * to the remembered set */
-#define GGGGC_REMEMBER(_from, _to) do { \
-    if ((_to) && ((struct GGGGC_Header *) (_from))[-1].gen > ((struct GGGGC_Header *) (_to))[-1].gen) { \
+#define GGGGC_REMEMBER(_from) do { \
+    if (((struct GGGGC_Header *) (_from))[-1].gen > 0) { \
         struct GGGGC_Pool *_pool = (struct GGGGC_Pool *) ((_from) & GGGGC_NOPOOL_MASK); \
         _pool->remember[(_from & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE] = 1; \
     } \
@@ -185,10 +185,9 @@ void GGGGC_pstackExpand(size_t by);
  * unconcerned about its tag */
 #define GGC_PTR_WRITE_UNTAGGED_PTR(_obj, _ptr, _val) do { \
     size_t _sobj = (size_t) (_obj); \
-    size_t _sval = (size_t) (_val); \
     size_t _origptr = (size_t) ((_obj)->_ggggc_ptrs._ptr); \
-    GGGGC_REMEMBER(_sobj, _sval); \
-    (_obj)->_ggggc_ptrs._ptr = (void *) (GGC_TAGS((void *) _origptr) | _sval); \
+    GGGGC_REMEMBER(_sobj); \
+    (_obj)->_ggggc_ptrs._ptr = (void *) (GGC_TAGS((void *) _origptr) | (size_t) (_val)); \
 } while (0)
 
 /* Use this write barrier to write a true pointer into a pointer field, and tag
@@ -196,11 +195,10 @@ void GGGGC_pstackExpand(size_t by);
  * */
 #define GGC_PTR_WRITE_TAGGED_PTR(_obj, _ptr, _val) do { \
     size_t _sobj = (size_t) (_obj); \
-    size_t _sval = (size_t) (_val); \
     void **_wptr = (void **) &((_obj)->_ggggc_ptrs._ptr); \
-    GGGGC_REMEMBER(_sobj, _sval); \
+    GGGGC_REMEMBER(_sobj); \
     ((size_t *) _wptr)[-1] &= ((size_t) -1)<<1; \
-    *_wptr = (void *) _sval; \
+    *_wptr = (void *) (_val); \
 } while (0)
 
 /* Use this write barrier to write a data value into a pointer field, tagged */
