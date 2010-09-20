@@ -114,6 +114,10 @@ struct _GGGGC__ ## name { \
 GGC_DECL_STRUCT(name); \
 GGC_DEFN_DATA_STRUCT(name, data)
 
+/* Try not to use this macro. It will give you the header from any object
+ * reference */
+#define GGC_HEADER(obj) (((struct GGGGC_Header *) (obj))[-1])
+
 /* Allocate a fresh object of the given type */
 #define GGC_NEW(type) ((type) GGGGC_malloc( \
     sizeof(struct _GGGGC__ ## type) + sizeof(struct GGGGC_Header) - sizeof(void *), \
