@@ -162,19 +162,58 @@ void GGGGC_pstackExpand(size_t by);
 /* And when you leave the function, remove them */
 #define GGC_POP(ct) GGC_YIELD(); ggggc_pstack->rem += (ct); ggggc_pstack->cur -= (ct)
 
-/* The write barrier (for pointers) */
-#define GGC_PTR_WRITE(_obj, _ptr, _val) do { \
-    size_t _sobj = (size_t) (_obj); \
-    struct GGGGC_Header *_gval = (struct GGGGC_Header *) _val; \
-    if ((_gval) && ((struct GGGGC_Header *) (_obj))[-1].gen > (_gval)[-1].gen) { \
-        struct GGGGC_Pool *_pool = (struct GGGGC_Pool *) (_sobj & GGGGC_NOPOOL_MASK); \
-        _pool->remember[(_sobj & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE] = 1; \
+/* Get just the tags out of a pointer */
+#define GGC_TAGS(_ptr) ((size_t) (_ptr) & 0x3)
+
+/* Untag a tagged pointer (shouldn't often need to use directly) */
+#define GGC_UNTAG(_ptr) ((void *) ((size_t) (_ptr) | (((size_t) -1)<<2)))
+
+/* This is used to determine whether a pointer relationship needs to be added
+ * to the remembered set */
+#define GGGGC_REMEMBER(_from, _to) do { \
+    if ((_to) && ((struct GGGGC_Header *) (_from))[-1].gen > ((struct GGGGC_Header *) (_to))[-1].gen) { \
+        struct GGGGC_Pool *_pool = (struct GGGGC_Pool *) ((_from) & GGGGC_NOPOOL_MASK); \
+        _pool->remember[(_from & GGGGC_POOL_MASK) > GGGGC_CARD_SIZE] = 1; \
     } \
-    (_obj)->_ggggc_ptrs._ptr = (void *) (_gval); \
 } while (0)
 
-/* There is no read barrier, but since ptrs are hidden, use this */
-#define GGC_PTR_READ(_obj, _ptr) ((_obj)->_ggggc_ptrs._ptr)
+/* Use this write barrier to write a true pointer into a pointer field,
+ * unconcerned about its tag */
+#define GGC_PTR_WRITE_UNTAGGED_PTR(_obj, _ptr, _val) do { \
+    size_t _sobj = (size_t) (_obj); \
+    size_t _sval = (size_t) (_val); \
+    size_t _origptr = (_obj)->_ggggc_ptrs._ptr; \
+    GGGGC_REMEMBER(_sobj, _sval); \
+    (_obj)->_ggggc_ptrs._ptr = GGC_TAGS((void *) _origptr) | _sval; \
+} while (0)
+
+/* Use this write barrier to write a true pointer into a pointer field, and tag
+ * the previous pointer such that the collector knows this is a pointer value
+ * */
+#define GGC_PTR_WRITE_TAGGED_PTR(_obj, _ptr, _val) do { \
+    size_t _sobj = (size_t) (_obj); \
+    size_t _sval = (size_t) (_val); \
+    void *_wptr = &((_obj)->_ggggc_ptrs._ptr); \
+    GGGGC_REMEMBER(_sobj, _sval); \
+    _wptr[-1] |= ((size_t) -1)<<1; \
+    *_wptr = (void *) _sval; \
+} while (0)
+
+/* Use this write barrier to write a data value into a pointer field, tagged */
+#define GGC_PTR_WRITE_DATA(_obj, _ptr, _val) do { \
+    void *_wptr = &((_obj)->_ggggc_ptrs._ptr); \
+    _wptr[-1] &= 0x1; \
+    *_wptr = (void *) (_val); \
+} while (0)
+
+/* The read barrier to read a pointer known not to be used for tagging */
+#define GGC_PTR_READ_UNTAGGING_PTR(_obj, _ptr) ((_obj)->_ggggc_ptrs._ptr)
+
+/* The read barrier to read a pointer which may be used for tagging */
+#define GGC_PTR_READ_TAGGING_PTR(_obj, _ptr) (GGC_PTR_READ_UNTAGGING_PTR(_obj, _ptr) | (((size_t) -1)<<2))
+
+/* The read barrier to read a data value from a pointer field */
+#define GGC_PTR_READ_DATA(_obj, _ptr) GGC_PTR_READ_UNTAGGING_PTR(_obj, _ptr)
 
 /* Initialize GGGGC */
 #define GGC_INIT() GGGGC_init();

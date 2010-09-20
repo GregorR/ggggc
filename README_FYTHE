@@ -1,0 +1,5 @@
+The modifications to GGGGC for Fythe are to allow storing data in "pointer"
+fields. This is accomplished by tagging a field as data on the PREVIOUS field.
+That is, to tag that d[1] is data, I mark d[0]'s low-order bit as 1. This way,
+I have a full word size for data, but can only use it in every other field
+(since data itself is untagged).

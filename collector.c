@@ -82,6 +82,8 @@ retry:
             WRITE_ONE_BUFFER(tocheck, ggggc_pstack->ptrs[i]);
     }
 
+    /* FIXME: Add the Fythe stack */
+
     /* get all the remembered cards */
     for (i = gen + 1; i < GGGGC_GENERATIONS; i++) {
         ggen = ggggc_gens[i];
@@ -117,18 +119,19 @@ retry:
     /* now just iterate while we have things to check */
     for (i = 0; i < tocheck.bufused; i++) {
         void **ptoch = tocheck.buf[i];
-        struct GGGGC_Header *objtoch = (struct GGGGC_Header *) *ptoch - 1;
+        struct GGGGC_Header *objtoch = (struct GGGGC_Header *) GGC_UNTAG(*ptoch) - 1;
 
         /* OK, we have the object to check, has it already moved? */
         while (objtoch->sz & 1) {
             /* move it */
             objtoch = (struct GGGGC_Header *) (objtoch->sz & ((size_t) -1 << 1));
-            *ptoch = (void *) (objtoch + 1);
+            *ptoch = (void *) (GGC_TAGS(*ptoch) | (size_t) (objtoch + 1));
         }
 
         /* Do we need to reclaim? */
         if (objtoch->gen <= gen) {
             void **ptr;
+            int skip;
 
             /* nope, get a new one */
             struct GGGGC_Header *newobj =
@@ -154,13 +157,21 @@ retry:
 
             /* and check its pointers */
             ptr = (void **) (newobj + 1);
+            skip = 0;
             for (j = 0; j < newobj->ptrs; j++, ptr++) {
-                if (*ptr)
-                    WRITE_ONE_BUFFER(tocheck, ptr);
+                void *pval = *ptr;
+                if (!skip) {
+                    if (GGC_UNTAG(pval))
+                        WRITE_ONE_BUFFER(tocheck, ptr);
+                    if ((size_t) pval & 0x1)
+                        skip = 1;
+                } else {
+                    skip = 0;
+                }
             }
 
             /* finally, update the pointer we're looking at */
-            *ptoch = (void *) (newobj + 1);
+            *ptoch = (void *) (GGC_TAGS(*ptoch) | (size_t) (newobj + 1));
         }
     }
 
