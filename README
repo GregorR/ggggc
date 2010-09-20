@@ -1,0 +1,9 @@
+GGGGC is a non-conservative generational copying garbage collector. Because
+it's non-conservative, it is necessary to inform the garbage collector of every
+pointer. This also means you must be very careful in C to not store pointers to
+GC'd objects in temporary locations through function calls; in particular, do
+not allow function calls within function arguments, as those function calls may
+yield and destroy your pointers.
+
+There is basically no documentation right now, read ggggc.h and the tests in
+tests/.
