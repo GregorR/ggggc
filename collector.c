@@ -59,7 +59,7 @@ void GGGGC_collect(unsigned char gen)
     size_t p, survivors, heapsz;
     struct GGGGC_Generation *ggen;
     unsigned char nextgen;
-    int nislast;
+    int nislast, skip;
 
 retry:
     survivors = heapsz = 0;
@@ -82,7 +82,39 @@ retry:
             WRITE_ONE_BUFFER(tocheck, ggggc_pstack->ptrs[i]);
     }
 
-    /* FIXME: Add the Fythe stack */
+    /* get the Fythe register bank */
+    {
+        void **ptr = (void **) GGGGC_fytheRegBank;
+        skip = 0;
+        for (i = 0; i < GGGGC_fytheRegBankPtrs; i++, ptr++) {
+            void *pval = *ptr;
+            if (!skip) {
+                if (GGC_UNTAG(pval))
+                    WRITE_ONE_BUFFER(tocheck, ptr);
+                if ((size_t) pval & 0x1)
+                    skip = 1;
+            } else {
+                skip = 0;
+            }
+        }
+    }
+
+    /* and the Fythe stack */
+    {
+        void **ptr = (void **) GGGGC_fytheStackBase;
+        skip = 0;
+        for (; ptr < (void **) GGGGC_fytheStackTop; ptr++) {
+            void *pval = *ptr;
+            if (!skip) {
+                if (GGC_UNTAG(pval))
+                    WRITE_ONE_BUFFER(tocheck, ptr);
+                if ((size_t) pval & 0x1)
+                    skip = 1;
+            } else {
+                skip = 0;
+            }
+        }
+    }
 
     /* get all the remembered cards */
     for (i = gen + 1; i < GGGGC_GENERATIONS; i++) {
@@ -101,7 +133,6 @@ retry:
                     /* walk through this card */
                     while (base == ((size_t) obj & GGGGC_NOCARD_MASK) && (char *) obj < gpool->top) {
                         void **ptr = (void **) (obj + 1);
-                        int skip;
 
                         /* add all its pointers */
                         skip = 0;
@@ -140,7 +171,6 @@ retry:
         /* Do we need to reclaim? */
         if (objtoch->gen <= gen) {
             void **ptr;
-            int skip;
 
             /* nope, get a new one */
             struct GGGGC_Header *newobj =
