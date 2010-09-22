@@ -212,7 +212,10 @@ void GGGGC_pstackExpand(size_t by);
 #define GGC_PTR_READ_UNTAGGING_PTR(_obj, _ptr) ((_obj)->_ggggc_ptrs._ptr)
 
 /* The read barrier to read a pointer which may be used for tagging */
-#define GGC_PTR_READ_TAGGING_PTR(_obj, _ptr) ((void *) ((size_t) GGC_PTR_READ_UNTAGGING_PTR(_obj, _ptr) & (((size_t) -1)<<2)))
+#define GGC_PTR_READ_TAGGING_PTR(_obj, _ptr) (GGC_UNTAG(GGC_PTR_READ_UNTAGGING_PTR(_obj, _ptr)))
+
+/* Read the tags of a pointer which may be used for tagging */
+#define GGC_PTR_READ_PTR_TAGS(_obj, _ptr) (GGC_TAGS(GGC_PTR_READ_UNTAGGING_PTR(_obj, _ptr)))
 
 /* The read barrier to read a data value from a pointer field */
 #define GGC_PTR_READ_DATA(_obj, _ptr) GGC_PTR_READ_UNTAGGING_PTR(_obj, _ptr)
