@@ -27,7 +27,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifndef __WIN32
 #include <sys/mman.h>
+#else
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
 
 #include "ggggc.h"
 #include "helpers.h"
@@ -41,19 +49,32 @@ static void *allocateAligned(size_t sz2)
     void *ret;
     size_t sz = 1<<sz2;
 
+#ifndef __WIN32
     /* mmap double */
     SF(ret, mmap, NULL, (NULL, sz*2, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0));
+#else
+    SF(ret, VirtualAlloc, NULL, (NULL, sz*2, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE));
+#endif
 
     /* check for alignment */
     if (((size_t) ret & ~((size_t) -1 << sz2)) != 0) {
         /* not aligned, figure out the proper alignment */
         void *base = (void *) (((size_t) ret + sz) & ((size_t) -1 << sz2));
+#ifndef __WIN32
         munmap(ret, (char *) base - (char *) ret);
         munmap((void *) ((char *) base + sz), sz - ((char *) base - (char *) ret));
+#else
+        VirtualFree(ret, (char *) base - (char *) ret, MEM_RELEASE);
+        VirtualFree((void *) ((char *) base + sz), sz - ((char *) base - (char *) ret), MEM_RELEASE);
+#endif
         ret = base;
     } else {
         /* aligned, just free the excess */
+#ifndef __WIN32
         munmap((void *) ((char *) ret + sz), sz);
+#else
+        VirtualFree((void *) ((char *) ret + sz), sz, MEM_RELEASE);
+#endif
     }
 
     return ret;
