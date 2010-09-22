@@ -32,12 +32,16 @@
 
 BUFFER(voidpp, void **);
 
+/* one global tocheck, so we don't have to re-init and re-free it */
+static struct Buffer_voidpp tocheck;
+
 void GGGGC_collector_init()
 {
     size_t sz = GGGGC_PSTACK_SIZE;
     ggggc_pstack = (struct GGGGC_PStack *) malloc(sizeof(struct GGGGC_PStack) - sizeof(void *) + sz * sizeof(void *));
     ggggc_pstack->rem = sz;
     ggggc_pstack->cur = ggggc_pstack->ptrs;
+    INIT_BUFFER(tocheck);
 }
 
 /* expand the root stack to support N more variables */
@@ -54,7 +58,6 @@ void GGGGC_pstackExpand(size_t by)
 
 void GGGGC_collect(unsigned char gen)
 {
-    struct Buffer_voidpp tocheck;
     int i, j, c;
     size_t p, survivors, heapsz;
     struct GGGGC_Generation *ggen;
@@ -70,7 +73,7 @@ retry:
     }
 
     /* first add the roots */
-    INIT_BUFFER(tocheck);
+    tocheck.bufused = 0;
     p = ggggc_pstack->cur - ggggc_pstack->ptrs;
 
     while (BUFFER_SPACE(tocheck) < p) {
@@ -135,7 +138,6 @@ retry:
                 (struct GGGGC_Header *) GGGGC_trymalloc_gen(nextgen, nislast, objtoch->sz, objtoch->ptrs);
             if (newobj == NULL) {
                 /* ACK! Out of memory! Need more GC! */
-                FREE_BUFFER(tocheck);
                 gen++;
                 if (gen >= GGGGC_GENERATIONS) {
                     fprintf(stderr, "Memory exhausted during GC???\n");
