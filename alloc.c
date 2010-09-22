@@ -92,7 +92,6 @@ void GGGGC_clear_pool(struct GGGGC_Pool *pool)
 
     /* remaining amount */
     pool->remaining = GGGGC_POOL_BYTES - ((size_t) pool->top - (size_t) pool);
-    memset(pool->top, 0, pool->remaining);
     /*pool->remc = GGGGC_CARD_BYTES - ((size_t) pool->top & GGGGC_CARD_MASK);*/
 
     /* first object in the first card */
