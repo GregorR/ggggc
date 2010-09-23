@@ -28,7 +28,7 @@ struct GGGGC_Generation *ggggc_gens[GGGGC_GENERATIONS+1];
 struct GGGGC_Pool *ggggc_heurpool, *ggggc_allocpool;
 struct GGGGC_PStack *ggggc_pstack;
 
-size_t GGGGC_fytheRegBankPtrs;
-void *GGGGC_fytheRegBank;
+size_t GGGGC_fytheConstBankPtrs;
+void *GGGGC_fytheConstBank;
 void *GGGGC_fytheStackBase;
 void *GGGGC_fytheStackTop;

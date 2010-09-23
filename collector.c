@@ -87,9 +87,9 @@ retry:
 
     /* get the Fythe register bank */
     {
-        void **ptr = (void **) GGGGC_fytheRegBank;
+        void **ptr = (void **) GGGGC_fytheConstBank;
         skip = 0;
-        for (i = 0; i < GGGGC_fytheRegBankPtrs; i++, ptr++) {
+        for (i = 0; i < GGGGC_fytheConstBankPtrs; i++, ptr++) {
             void *pval = *ptr;
             if (!skip) {
                 if (GGC_UNTAG(pval))

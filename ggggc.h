@@ -252,8 +252,8 @@ struct GGGGC_PStack {
 extern struct GGGGC_PStack *ggggc_pstack;
 
 /* Purely Fythe-specific stuff: The Fythe registers and stack */
-extern size_t GGGGC_fytheRegBankPtrs;
-extern void *GGGGC_fytheRegBank;
+extern size_t GGGGC_fytheConstBankPtrs;
+extern void *GGGGC_fytheConstBank;
 extern void *GGGGC_fytheStackBase;
 extern void *GGGGC_fytheStackTop;
 
