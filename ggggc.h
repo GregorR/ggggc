@@ -109,6 +109,12 @@ static const size_t _ggggc_ptrs_ct__ ## name = 0; \
 struct _GGGGC__ ## name { \
     data \
     void *_ggggc_align; \
+}; \
+struct _GGGGC_ArrayPtrs__ ## name { \
+    name d[1]; \
+}; \
+struct _GGGGC_Array__ ## name { \
+    struct _GGGGC_ArrayPtrs__ ## name _ggggc_ptrs; \
 }
 #define GGC_DATA_STRUCT(name, data) \
 GGC_DECL_STRUCT(name); \
