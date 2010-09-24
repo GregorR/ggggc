@@ -189,6 +189,14 @@ void GGGGC_pstackExpand(size_t by);
 } while (0)
 
 /* Use this write barrier to write a true pointer into a pointer field,
+ * clearing the tag (when the next field is irrelevant) */
+#define GGC_PTR_WRITE_CLEAR_PTR(_obj, _ptr, _val) do { \
+    size_t _sobj = (size_t) (_obj); \
+    GGGGC_REMEMBER(_sobj); \
+    (_obj)->_ggggc_ptrs._ptr = (_val); \
+} while (0)
+
+/* Use this write barrier to write a true pointer into a pointer field,
  * unconcerned about its tag */
 #define GGC_PTR_WRITE_UNTAGGED_PTR(_obj, _ptr, _val) do { \
     size_t _sobj = (size_t) (_obj); \
