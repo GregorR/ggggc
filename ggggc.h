@@ -57,7 +57,8 @@
 /* The GGGGC header */
 struct GGGGC_Header {
     size_t sz;
-    unsigned char gen; /* room for another char here */
+    unsigned char gen;
+    unsigned char type; /* not used by GGGGC, free for end-users */
     unsigned short ptrs;
 };
 
