@@ -30,14 +30,14 @@ int main()
     GGC_PTR_WRITE(old, next, test);
 
     /* and force a collection */
-    fprintf(stderr, "%p %p\n", old, test);
+    fprintf(stderr, "%p %p\n", (void *) old, (void *) test);
     GGGGC_collect(0);
     test = GGC_PTR_READ(old, next);
 
     /* get another new one */
     test2 = GGC_NEW(Test);
     test2->val = 2;
-    fprintf(stderr, "%p %p %p\n", old, test, test2);
+    fprintf(stderr, "%p %p %p\n", (void *) old, (void *) test, (void *) test2);
 
     /* assert that all is well */
     printf("%d == 1\n", test->val);
