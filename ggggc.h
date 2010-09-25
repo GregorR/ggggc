@@ -123,7 +123,7 @@ GGC_DEFN_DATA_STRUCT(name, data)
 #define GGC_NEW(type) ((type) GGGGC_malloc( \
     sizeof(struct _GGGGC__ ## type) + sizeof(struct GGGGC_Header) - sizeof(void *), \
     _ggggc_ptrs_ct__ ## type))
-void *GGGGC_malloc(size_t sz, unsigned char ptrs);
+void *GGGGC_malloc(size_t sz, unsigned short ptrs);
 
 /* Allocate an array of the given kind of pointers */
 #define GGC_NEW_PTR_ARRAY(type, sz) ((type ## Array) GGGGC_malloc_ptr_array(sz))
