@@ -152,7 +152,7 @@ void *GGGGC_malloc_data_array(size_t sz);
 void *GGGGC_realloc_data_array(void *orig, size_t sz);
 
 /* Yield for possible garbage collection (do this frequently) */
-#if defined(GGGGC_FREQUENT_COLLECTIONS)
+#if defined(GGGGC_DEBUG) || defined(GGGGC_FREQUENT_COLLECTIONS)
 #define GGC_YIELD() GGGGC_collect(0)
 #else
 #define GGC_YIELD() do { \
