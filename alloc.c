@@ -133,7 +133,7 @@ struct GGGGC_Generation *GGGGC_alloc_generation(struct GGGGC_Generation *from)
     return ret;
 }
 
-static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, size_t sz, unsigned char ptrs)
+static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, size_t sz, unsigned short ptrs)
 {
     /* perform the actual allocation */
     if (sz < gpool->remaining) {
@@ -169,7 +169,7 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
     return NULL;
 }
 
-void *GGGGC_trymalloc_gen(unsigned char gen, int expand, size_t sz, unsigned char ptrs)
+void *GGGGC_trymalloc_gen(unsigned char gen, int expand, size_t sz, unsigned short ptrs)
 {
     size_t p;
     struct GGGGC_Generation *ggen = ggggc_gens[gen];
@@ -194,7 +194,7 @@ retry:
     goto retry;
 }
 
-static __inline__ void *GGGGC_trymalloc_gen0(size_t sz, unsigned char ptrs)
+static __inline__ void *GGGGC_trymalloc_gen0(size_t sz, unsigned short ptrs)
 {
     size_t p;
     struct GGGGC_Generation *ggen = ggggc_gens[0];
@@ -223,7 +223,7 @@ retry:
     goto retry;
 }
 
-void *GGGGC_malloc(size_t sz, unsigned char ptrs)
+void *GGGGC_malloc(size_t sz, unsigned short ptrs)
 {
     void *ret;
     if ((ret = GGGGC_trymalloc_pool(0, ggggc_allocpool, sz, ptrs))) return ret;
