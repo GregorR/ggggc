@@ -182,9 +182,10 @@ void GGGGC_pstackExpand(size_t by);
 /* This is used to determine whether a pointer relationship needs to be added
  * to the remembered set */
 #define GGGGC_REMEMBER(_from) do { \
-    if (((struct GGGGC_Header *) (_from))[-1].gen > 0) { \
-        struct GGGGC_Pool *_pool = (struct GGGGC_Pool *) ((_from) & GGGGC_NOPOOL_MASK); \
-        _pool->remember[(_from & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE] = 1; \
+    struct GGGGC_Header *_fromhdr = (struct GGGGC_Header *) (_from) - 1; \
+    if (_fromhdr->gen > 0) { \
+        struct GGGGC_Pool *_pool = (struct GGGGC_Pool *) ((size_t) (_fromhdr) & GGGGC_NOPOOL_MASK); \
+        _pool->remember[GGGGC_CARD_OF(_fromhdr)] = 1; \
     } \
 } while (0)
 

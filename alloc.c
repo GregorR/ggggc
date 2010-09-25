@@ -38,6 +38,7 @@
 #endif
 
 #include "ggggc.h"
+#include "ggggc_internal.h"
 #include "helpers.h"
 
 #ifndef __GNUC__
@@ -152,6 +153,7 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
         gpool->remaining -= sz;
         ret->sz = sz;
         ret->gen = gen;
+        ret->type = 0;
         ret->ptrs = ptrs;
 
         /* clear out pointers */
