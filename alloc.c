@@ -41,10 +41,6 @@
 #include "ggggc_internal.h"
 #include "helpers.h"
 
-#ifndef __GNUC__
-#define __inline__
-#endif
-
 static void *allocateAligned(size_t sz2)
 {
     void *ret;

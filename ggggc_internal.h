@@ -25,6 +25,10 @@
 #ifndef GGGGC_INTERNAL
 #define GGGGC_INTERNAL
 
+#ifndef __GNUC__
+#define __inline__
+#endif
+
 void GGGGC_collector_init();
 void *GGGGC_trymalloc_gen(unsigned char gen, int expand, size_t sz, unsigned short ptrs);
 void GGGGC_clear_pool(struct GGGGC_Pool *pool);
