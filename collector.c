@@ -56,13 +56,29 @@ void GGGGC_pstackExpand(size_t by)
     ggggc_pstack->cur = ggggc_pstack->ptrs + cur;
 }
 
+static __inline__ void scan(void **ptr, int ct)
+{
+    int i, skip = 0;
+    for (i = 0; i < ct; i++, ptr++) {
+        void *pval = *ptr;
+        if (!skip) {
+            if (GGC_UNTAG(pval))
+                WRITE_ONE_BUFFER(tocheck, ptr);
+            if ((size_t) pval & 0x1)
+                skip = 1;
+        } else {
+            skip = 0;
+        }
+    }
+}
+
 void GGGGC_collect(unsigned char gen)
 {
-    int i, j, c;
+    int i, c;
     size_t p, survivors, heapsz;
     struct GGGGC_Generation *ggen;
     unsigned char nextgen;
-    int nislast, skip;
+    int nislast;
 
 retry:
     survivors = heapsz = 0;
@@ -86,38 +102,10 @@ retry:
     }
 
     /* get the Fythe register bank */
-    {
-        void **ptr = (void **) GGGGC_fytheConstBank;
-        skip = 0;
-        for (i = 0; i < GGGGC_fytheConstBankPtrs; i++, ptr++) {
-            void *pval = *ptr;
-            if (!skip) {
-                if (GGC_UNTAG(pval))
-                    WRITE_ONE_BUFFER(tocheck, ptr);
-                if ((size_t) pval & 0x1)
-                    skip = 1;
-            } else {
-                skip = 0;
-            }
-        }
-    }
+    scan((void **) GGGGC_fytheConstBank, GGGGC_fytheConstBankPtrs);
 
     /* and the Fythe stack */
-    {
-        void **ptr = (void **) GGGGC_fytheStackBase;
-        skip = 0;
-        for (; ptr < (void **) GGGGC_fytheStackTop; ptr++) {
-            void *pval = *ptr;
-            if (!skip) {
-                if (GGC_UNTAG(pval))
-                    WRITE_ONE_BUFFER(tocheck, ptr);
-                if ((size_t) pval & 0x1)
-                    skip = 1;
-            } else {
-                skip = 0;
-            }
-        }
-    }
+    scan((void **) GGGGC_fytheStackBase, (void **) GGGGC_fytheStackTop - (void **) GGGGC_fytheStackBase);
 
     /* get all the remembered cards */
     for (i = gen + 1; i < GGGGC_GENERATIONS; i++) {
@@ -135,22 +123,10 @@ retry:
 
                     /* walk through this card */
                     while (base == ((size_t) obj & GGGGC_NOCARD_MASK) && (char *) obj < gpool->top) {
-                        void **ptr = (void **) (obj + 1);
-
                         /* add all its pointers */
-                        skip = 0;
-                        for (j = 0; j < obj->ptrs; j++, ptr++) {
-                            void *pval = *ptr;
-                            if (!skip) {
-                                if (GGC_UNTAG(pval))
-                                    WRITE_ONE_BUFFER(tocheck, ptr);
-                                if ((size_t) pval & 0x1)
-                                    skip = 1;
-                            } else {
-                                skip = 0;
-                            }
-                        }
+                        scan((void **) (obj + 1), obj->ptrs);
 
+                        /* and step */
                         obj = (struct GGGGC_Header *) ((char *) obj + obj->sz);
                     }
 
@@ -173,8 +149,6 @@ retry:
 
         /* Do we need to reclaim? */
         if (objtoch->gen <= gen) {
-            void **ptr;
-
             /* nope, get a new one */
             struct GGGGC_Header *newobj =
                 (struct GGGGC_Header *) GGGGC_trymalloc_gen(nextgen, nislast, objtoch->sz, objtoch->ptrs);
@@ -197,19 +171,7 @@ retry:
             objtoch->sz = ((size_t) newobj) | 1; /* forwarding pointer */
 
             /* and check its pointers */
-            ptr = (void **) (newobj + 1);
-            skip = 0;
-            for (j = 0; j < newobj->ptrs; j++, ptr++) {
-                void *pval = *ptr;
-                if (!skip) {
-                    if (GGC_UNTAG(pval))
-                        WRITE_ONE_BUFFER(tocheck, ptr);
-                    if ((size_t) pval & 0x1)
-                        skip = 1;
-                } else {
-                    skip = 0;
-                }
-            }
+            scan((void **) (newobj + 1), newobj->ptrs);
 
             /* finally, update the pointer we're looking at */
             *ptoch = (void *) (GGC_TAGS(*ptoch) | (size_t) (newobj + 1));
