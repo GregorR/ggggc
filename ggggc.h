@@ -191,7 +191,7 @@ void GGGGC_pstackExpand(size_t by);
 
 /* Use this write barrier to write a true pointer into a pointer field,
  * clearing the tag (when the next field is irrelevant) */
-#define GGC_PTR_WRITE_CLEAR_PTR(_obj, _ptr, _val) do { \
+#define GGC_PTR_WRITE(_obj, _ptr, _val) do { \
     size_t _sobj = (size_t) (_obj); \
     GGGGC_REMEMBER(_sobj); \
     (_obj)->_ggggc_ptrs._ptr = (_val); \
@@ -225,16 +225,17 @@ void GGGGC_pstackExpand(size_t by);
 } while (0)
 
 /* The read barrier to read a pointer known not to be used for tagging */
-#define GGC_PTR_READ_UNTAGGING_PTR(_obj, _ptr) ((_obj)->_ggggc_ptrs._ptr)
+#define GGC_PTR_READ(_obj, _ptr) ((_obj)->_ggggc_ptrs._ptr)
+#define GGC_PTR_READ_NONTAGGING_PTR GGC_PTR_READ
 
 /* The read barrier to read a pointer which may be used for tagging */
-#define GGC_PTR_READ_TAGGING_PTR(_obj, _ptr) (GGC_UNTAG(GGC_PTR_READ_UNTAGGING_PTR(_obj, _ptr)))
+#define GGC_PTR_READ_TAGGING_PTR(_obj, _ptr) (GGC_UNTAG(GGC_PTR_READ(_obj, _ptr)))
 
 /* Read the tags of a pointer which may be used for tagging */
-#define GGC_PTR_READ_PTR_TAGS(_obj, _ptr) (GGC_TAGS(GGC_PTR_READ_UNTAGGING_PTR(_obj, _ptr)))
+#define GGC_PTR_READ_PTR_TAGS(_obj, _ptr) (GGC_TAGS(GGC_PTR_READ(_obj, _ptr)))
 
 /* The read barrier to read a data value from a pointer field */
-#define GGC_PTR_READ_DATA(_obj, _ptr) GGC_PTR_READ_UNTAGGING_PTR(_obj, _ptr)
+#define GGC_PTR_READ_DATA GGC_PTR_READ
 
 /* Initialize GGGGC */
 #define GGC_INIT() GGGGC_init();
