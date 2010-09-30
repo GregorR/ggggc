@@ -25,5 +25,5 @@
 #include "ggggc.h"
 
 struct GGGGC_Generation *ggggc_gens[GGGGC_GENERATIONS+1];
-struct GGGGC_Pool *ggggc_heurpool, *ggggc_allocpool;
-struct GGGGC_PStack *ggggc_pstack;
+struct GGGGC_Pool *ggggc_heurpool = NULL, *ggggc_allocpool = NULL;
+struct GGGGC_PStack *ggggc_pstack = NULL;
