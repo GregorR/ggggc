@@ -25,10 +25,10 @@
 #include "ggggc.h"
 
 struct GGGGC_Generation *ggggc_gens[GGGGC_GENERATIONS+1];
-struct GGGGC_Pool *ggggc_heurpool, *ggggc_allocpool;
-struct GGGGC_PStack *ggggc_pstack;
+struct GGGGC_Pool *ggggc_heurpool = NULL, *ggggc_allocpool = NULL;
+struct GGGGC_PStack *ggggc_pstack = NULL;
 
-size_t GGGGC_fytheConstBankPtrs;
-void *GGGGC_fytheConstBank;
-void *GGGGC_fytheStackBase;
-void *GGGGC_fytheStackTop;
+size_t GGGGC_fytheConstBankPtrs = NULL;
+void *GGGGC_fytheConstBank = NULL;
+void *GGGGC_fytheStackBase = NULL;
+void *GGGGC_fytheStackTop = NULL;
