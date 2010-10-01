@@ -166,8 +166,7 @@ retry:
             /* copy it in */
             survivors += objtoch->sz;
             memcpy((void *) newobj, (void *) objtoch, objtoch->sz);
-            if (!nislast)
-                newobj->gen = nextgen;
+            newobj->gen = nextgen;
             objtoch->sz = ((size_t) newobj) | 1; /* forwarding pointer */
 
             /* and check its pointers */
@@ -198,6 +197,17 @@ retry:
         struct GGGGC_Generation *ggen = ggggc_gens[gen+1];
         ggggc_gens[gen+1] = ggggc_gens[gen];
         ggggc_gens[gen] = ggen;
+
+        /* update the gen property */
+        for (p = 0; p < ggen->poolc; p++) {
+            struct GGGGC_Pool *pool = ggen->pools[p];
+            struct GGGGC_Header *upd =
+                (struct GGGGC_Header *) (pool->firstobj + GGGGC_CARDS_PER_POOL);
+            while ((void *) upd < (void *) pool->top) {
+                upd->gen = GGGGC_GENERATIONS - 1;
+                upd = (struct GGGGC_Header *) ((char *) upd + upd->sz);
+            }
+        }
     }
 
     /* and finally, heuristically allocate more space */
