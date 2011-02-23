@@ -27,6 +27,7 @@
 struct GGGGC_Generation *ggggc_gens[GGGGC_GENERATIONS+1];
 struct GGGGC_Pool *ggggc_heurpool = NULL, *ggggc_allocpool = NULL;
 struct GGGGC_PStack *ggggc_pstack = NULL;
+struct GGGGC_PStack *ggggc_dpstack = NULL;
 
 size_t GGGGC_fytheConstBankPtrs = 0;
 void *GGGGC_fytheConstBank = NULL;

@@ -168,10 +168,16 @@ void GGGGC_collect(unsigned char gen);
  * pointers */
 #include "ggggcpush.h"
 #define GGC_PUSH GGC_PUSH1
+#define GGC_DPUSH GGC_DPUSH1
 void GGGGC_pstackExpand(size_t by);
+void GGGGC_dpstackExpand(size_t by);
 
 /* And when you leave the function, remove them */
 #define GGC_POP(ct) GGC_YIELD(); ggggc_pstack->rem += (ct); ggggc_pstack->cur -= (ct)
+#define GGC_DPOP(ct) GGC_YIELD(); ggggc_dpstack->rem += (ct); ggggc_dpstack->cur -= (ct)
+#define GGC_APOP(sct, dct) GGC_YIELD(); \
+    ggggc_pstack->rem += (sct);  ggggc_pstack->cur -= (sct); \
+    ggggc_dpstack->rem += (dct); ggggc_dpstack->cur -= (dct)
 
 /* Get just the tags out of a pointer */
 #define GGC_TAGS(_ptr) ((size_t) (_ptr) & 0x3)
@@ -267,6 +273,7 @@ struct GGGGC_PStack {
     void **ptrs[1];
 };
 extern struct GGGGC_PStack *ggggc_pstack;
+extern struct GGGGC_PStack *ggggc_dpstack;
 
 /* Purely Fythe-specific stuff: The Fythe registers and stack */
 extern size_t GGGGC_fytheConstBankPtrs;

@@ -41,6 +41,9 @@ void GGGGC_collector_init()
     ggggc_pstack = (struct GGGGC_PStack *) malloc(sizeof(struct GGGGC_PStack) - sizeof(void *) + sz * sizeof(void *));
     ggggc_pstack->rem = sz;
     ggggc_pstack->cur = ggggc_pstack->ptrs;
+    ggggc_dpstack = (struct GGGGC_PStack *) malloc(sizeof(struct GGGGC_PStack) - sizeof(void *) + sz * sizeof(void *));
+    ggggc_dpstack->rem = sz;
+    ggggc_dpstack->cur = ggggc_dpstack->ptrs;
     INIT_BUFFER(tocheck);
 }
 
@@ -54,6 +57,18 @@ void GGGGC_pstackExpand(size_t by)
         newsz *= 2;
     ggggc_pstack = (struct GGGGC_PStack *) realloc(ggggc_pstack, sizeof(struct GGGGC_PStack) - sizeof(void *) + newsz * sizeof(void *));
     ggggc_pstack->cur = ggggc_pstack->ptrs + cur;
+}
+
+/* expand the double root stack to support N more variables */
+void GGGGC_dpstackExpand(size_t by)
+{
+    size_t cur = (ggggc_dpstack->cur - ggggc_dpstack->ptrs);
+    size_t sz = cur + ggggc_dpstack->rem;
+    size_t newsz = sz;
+    while (newsz < cur + by)
+        newsz *= 2;
+    ggggc_dpstack = (struct GGGGC_PStack *) realloc(ggggc_dpstack, sizeof(struct GGGGC_PStack) - sizeof(void *) + newsz * sizeof(void *));
+    ggggc_dpstack->cur = ggggc_dpstack->ptrs + cur;
 }
 
 static __inline__ void scan(void **ptr, int ct)
@@ -75,7 +90,7 @@ static __inline__ void scan(void **ptr, int ct)
 void GGGGC_collect(unsigned char gen)
 {
     int i, c;
-    size_t p, survivors, heapsz;
+    size_t p, dp, survivors, heapsz;
     struct GGGGC_Generation *ggen;
     unsigned char nextgen;
     int nislast;
@@ -91,14 +106,25 @@ retry:
     /* first add the roots */
     tocheck.bufused = 0;
     p = ggggc_pstack->cur - ggggc_pstack->ptrs;
+    dp = ggggc_dpstack->cur - ggggc_dpstack->ptrs;
+    if (dp > 1024) {
+        printf("WTF!\n");
+    }
 
-    while (BUFFER_SPACE(tocheck) < p) {
+    while (BUFFER_SPACE(tocheck) < p + dp*2) {
         EXPAND_BUFFER(tocheck);
     }
 
     for (i = 0; i < p; i++) {
         if (*ggggc_pstack->ptrs[i])
             WRITE_ONE_BUFFER(tocheck, ggggc_pstack->ptrs[i]);
+    }
+
+    for (i = 0; i < dp; i++) {
+        if (GGC_UNTAG(*ggggc_dpstack->ptrs[i]))
+            WRITE_ONE_BUFFER(tocheck, ggggc_dpstack->ptrs[i]);
+        if (!GGC_TAGS(*ggggc_dpstack->ptrs[i]))
+            WRITE_ONE_BUFFER(tocheck, ggggc_dpstack->ptrs[i] + 1);
     }
 
     /* get the Fythe register bank */
