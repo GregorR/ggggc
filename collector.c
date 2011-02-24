@@ -109,9 +109,6 @@ retry:
     tocheck.bufused = 0;
     p = ggggc_pstack->cur - ggggc_pstack->ptrs;
     dp = ggggc_dpstack->cur - ggggc_dpstack->ptrs;
-    if (dp > 1024) {
-        printf("WTF!\n");
-    }
 
     while (BUFFER_SPACE(tocheck) < p + dp*2) {
         EXPAND_BUFFER(tocheck);
@@ -125,7 +122,7 @@ retry:
     for (i = 0; i < dp; i++) {
         if (GGC_UNTAG(*ggggc_dpstack->ptrs[i]))
             WRITE_ONE_BUFFER(tocheck, ggggc_dpstack->ptrs[i]);
-        if (!GGC_TAGS(*ggggc_dpstack->ptrs[i]))
+        if (!GGC_TAGS(*ggggc_dpstack->ptrs[i]) && ggggc_dpstack->ptrs[i][1])
             WRITE_ONE_BUFFER(tocheck, ggggc_dpstack->ptrs[i] + 1);
     }
 

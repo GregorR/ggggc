@@ -39,7 +39,7 @@ int main()
         printf("#define GGC_DPUSH%d(_obj1", i);
         for (j = 2; j <= i; j++)
             printf(", _obj%d", j);
-        printf(") do { if (ggggc_dpstack->rem < %d) GGGGC_dpstackExpand(%d); ggggc_pstack->rem -= %d;", i, i, i);
+        printf(") do { if (ggggc_dpstack->rem < %d) GGGGC_dpstackExpand(%d); ggggc_dpstack->rem -= %d;", i, i, i);
         for (j = 1; j <= i; j++)
             printf(" *(ggggc_dpstack->cur++) = (void **) &(_obj%d);", j);
         printf("} while(0)\n");
