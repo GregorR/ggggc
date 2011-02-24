@@ -140,6 +140,9 @@ void *GGGGC_realloc_ptr_array(void *orig, size_t sz);
 #define GGC_NEW_DATA_ARRAY_VOIDP(type, sz) (GGGGC_malloc_data_array(sizeof(type) * (sz) + sizeof(struct GGGGC_Header)))
 void *GGGGC_malloc_data_array(size_t sz);
 
+/* strdup for GGGGC */
+#define GGC_STRDUP(str) (strcpy(GGC_NEW_DATA_ARRAY(char, strlen(str) + 1), str))
+
 /* The ever-unpopular realloc for data arrays */
 #define GGC_REALLOC_DATA_ARRAY(type, orig, sz) ((type *) GGGGC_realloc_data_array((orig), sizeof(type) * (sz) + sizeof(struct GGGGC_Header)))
 #define GGC_REALLOC_DATA_ARRAY_VOIDP(type, orig, sz) (GGGGC_realloc_data_array((orig), sizeof(type) * (sz) + sizeof(struct GGGGC_Header)))
