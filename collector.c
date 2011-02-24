@@ -53,6 +53,7 @@ void GGGGC_pstackExpand(size_t by)
     while (newsz < cur + by)
         newsz *= 2;
     ggggc_pstack = (struct GGGGC_PStack *) realloc(ggggc_pstack, sizeof(struct GGGGC_PStack) - sizeof(void *) + newsz * sizeof(void *));
+    ggggc_pstack->rem = newsz - cur;
     ggggc_pstack->cur = ggggc_pstack->ptrs + cur;
 }
 
