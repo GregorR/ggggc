@@ -33,7 +33,7 @@
 #endif
 
 #ifndef GGGGC_POOL_SIZE
-#define GGGGC_POOL_SIZE 26 /* pool size as a power of 2 */
+#define GGGGC_POOL_SIZE 24 /* pool size as a power of 2 */
 #endif
 
 #ifndef GGGGC_CARD_SIZE
