@@ -54,8 +54,15 @@
 #define GGGGC_CARDS_PER_POOL ((size_t) 1 << (GGGGC_POOL_SIZE-GGGGC_CARD_SIZE))
 #define GGGGC_CARD_OF(ptr) (((size_t) (ptr) & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE)
 
+#ifdef GGGGC_DEBUG
+#define GGGGC_HEADER_MAGIC 0x0DEFACED
+#endif
+
 /* The GGGGC header */
 struct GGGGC_Header {
+#ifdef GGGGC_DEBUG
+    size_t magic;
+#endif
     size_t sz;
     unsigned char gen;
     unsigned char type; /* not used by GGGGC, free for end-users */
