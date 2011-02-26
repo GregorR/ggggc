@@ -123,7 +123,7 @@ retry:
         void **ptoch = tocheck.buf[i];
         struct GGGGC_Header *objtoch = (struct GGGGC_Header *) *ptoch - 1;
 
-#ifdef GGGGC_DEBUG
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
         /* Make sure it's valid */
         if (objtoch->magic != GGGGC_HEADER_MAGIC) {
             fprintf(stderr, "Memory corruption!\n");

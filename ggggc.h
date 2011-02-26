@@ -55,12 +55,18 @@
 #define GGGGC_CARD_OF(ptr) (((size_t) (ptr) & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE)
 
 #ifdef GGGGC_DEBUG
+#ifndef GGGGC_DEBUG_MEMORY_CORRUPTION
+#define GGGGC_DEBUG_MEMORY_CORRUPTION
+#endif
+#endif
+
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
 #define GGGGC_HEADER_MAGIC 0x0DEFACED
 #endif
 
 /* The GGGGC header */
 struct GGGGC_Header {
-#ifdef GGGGC_DEBUG
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
     size_t magic;
 #endif
     size_t sz;
