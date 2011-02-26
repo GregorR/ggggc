@@ -165,6 +165,14 @@ retry:
         void **ptoch = tocheck.buf[i];
         struct GGGGC_Header *objtoch = (struct GGGGC_Header *) GGC_UNTAG(*ptoch) - 1;
 
+#ifdef GGGGC_DEBUG
+        /* Make sure it's valid */
+        if (objtoch->magic != GGGGC_HEADER_MAGIC) {
+            fprintf(stderr, "Memory corruption!\n");
+            *((int *) 0) = 0;
+        }
+#endif
+
         /* OK, we have the object to check, has it already moved? */
         while (objtoch->sz & 1) {
             /* move it */

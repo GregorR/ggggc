@@ -150,6 +150,9 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
         ret = (struct GGGGC_Header *) top;
         gpool->top = (top += sz);
         gpool->remaining -= sz;
+#ifdef GGGGC_DEBUG
+        ret->magic = GGGGC_HEADER_MAGIC;
+#endif
         ret->sz = sz;
         ret->gen = gen;
         ret->type = 0;
