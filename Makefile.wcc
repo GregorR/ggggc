@@ -1,6 +1,6 @@
 CC=wcc
 ECFLAGS=-2
-CFLAGS=$(ECFLAGS) -mh -dGGGGC_MALLOC_OK -dGGGGC_POOL_SIZE=14 -dreal_size_t=long
+CFLAGS=$(ECFLAGS) -mh -dGGGGC_MALLOC_OK -dGGGGC_POOL_SIZE=14 -dsize_t=long -d_w_size_t=long -d_SIZE_T_DEFINED
 AR=wlib
 ARFLAGS=-n -fo
 LD=owcc
