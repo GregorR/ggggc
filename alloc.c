@@ -30,24 +30,33 @@
 #include <string.h>
 
 /* figure out what underlying allocator to use */
+#if defined(unix) || defined(__unix__) || defined(__unix)
+#include <unistd.h> /* for _POSIX_VERSION */
+#endif
+
 #if _POSIX_VERSION >= 200112L /* should support mmap */
 #include <sys/mman.h>
 
 #ifdef MAP_ANON /* have MAP_ANON, so mmap is fine */
+#define FOUND_ALLOCATOR mmap
 #define USE_ALLOCATOR_MMAP
-#else /* POSIX but no MAP_ANON, use malloc */
-#define USE_ALLOCATOR_MALLOC
 #endif
 
-#elif defined(__WIN32) /* use Windows allocators */
+#endif
+
+#if defined(__WIN32) /* use Windows allocators */
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#define FOUND_ALLOCATOR win32
 #define USE_ALLOCATOR_WIN32
 
-#else /* !POSIX, !Win32 */
+#elif !defined(FOUND_ALLOCATOR)
 /* don't know what to use, so malloc */
+#ifndef GGGGC_MALLOC_OK
+#error Cannot find an allocator for this system. Define GGGGC_MALLOC_OK to use malloc.
+#endif
 #define USE_ALLOCATOR_MALLOC
 
 #endif
