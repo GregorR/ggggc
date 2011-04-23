@@ -27,11 +27,6 @@
 
 #include <stdlib.h>
 
-/* override size_t on weird systems */
-#ifdef real_size_t
-#define size_t real_size_t
-#endif
-
 /* These can only be changed if they're changed while compiling, so be careful! */
 #ifndef GGGGC_GENERATIONS
 #define GGGGC_GENERATIONS 2
