@@ -22,19 +22,34 @@
  * THE SOFTWARE.
  */
 
+/* to get MAP_ANON */
 #define _BSD_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef __WIN32
+/* figure out what underlying allocator to use */
+#if _POSIX_VERSION >= 200112L /* should support mmap */
 #include <sys/mman.h>
-#else
+
+#ifdef MAP_ANON /* have MAP_ANON, so mmap is fine */
+#define USE_ALLOCATOR_MMAP
+#else /* POSIX but no MAP_ANON, use malloc */
+#define USE_ALLOCATOR_MALLOC
+#endif
+
+#elif defined(__WIN32) /* use Windows allocators */
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#define USE_ALLOCATOR_WIN32
+
+#else /* !POSIX, !Win32 */
+/* don't know what to use, so malloc */
+#define USE_ALLOCATOR_MALLOC
+
 #endif
 
 #include "ggggc.h"
@@ -46,30 +61,33 @@ static void *allocateAligned(size_t sz2)
     void *ret;
     size_t sz = 1<<sz2;
 
-#ifndef __WIN32
+#if defined(USE_ALLOCATOR_MMAP)
     /* mmap double */
     SF(ret, mmap, NULL, (NULL, sz*2, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0));
-#else
+#elif defined(USE_ALLOCATOR_WIN32)
     SF(ret, VirtualAlloc, NULL, (NULL, sz*2, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE));
+#elif defined(USE_ALLOCATOR_MALLOC)
+    SF(ret, malloc, NULL, (sz*2));
 #endif
 
     /* check for alignment */
     if (((size_t) ret & ~((size_t) -1 << sz2)) != 0) {
         /* not aligned, figure out the proper alignment */
         void *base = (void *) (((size_t) ret + sz) & ((size_t) -1 << sz2));
-#ifndef __WIN32
+#if defined(USE_ALLOCATOR_MMAP)
         munmap(ret, (char *) base - (char *) ret);
         munmap((void *) ((char *) base + sz), sz - ((char *) base - (char *) ret));
-#else
+#elif defined(USE_ALLOCATOR_WIN32)
         VirtualFree(ret, (char *) base - (char *) ret, MEM_RELEASE);
         VirtualFree((void *) ((char *) base + sz), sz - ((char *) base - (char *) ret), MEM_RELEASE);
 #endif
         ret = base;
+
     } else {
         /* aligned, just free the excess */
-#ifndef __WIN32
+#if defined(USE_ALLOCATOR_MMAP)
         munmap((void *) ((char *) ret + sz), sz);
-#else
+#elif defined(USE_ALLOCATOR_WIN32)
         VirtualFree((void *) ((char *) ret + sz), sz, MEM_RELEASE);
 #endif
     }
