@@ -1,0 +1,35 @@
+CC=wcc
+ECFLAGS=-2
+CFLAGS=$(ECFLAGS) -mh -dGGGGC_MALLOC_OK -dGGGGC_POOL_SIZE=14 -dreal_size_t=long
+AR=wlib
+ARFLAGS=-n -fo
+LD=owcc
+ELDFLAGS=-b dos
+LDFLAGS=$(ELDFLAGS)
+
+OBJS=alloc.o collector.o globals.o init.o
+
+all: libggggc.lib
+
+libggggc.lib: $(OBJS)
+	$(AR) $(ARFLAGS) libggggc.lib $(OBJS)
+
+btggggc.exe: btggggc.o libggggc.lib
+	$(LD) $(LDFLAGS) $< libggggc.lib -o btggggc.exe
+
+btggggc.c: tests/binary_trees_ggggc.c
+	cp tests/binary_trees_ggggc.c btggggc.c
+
+.SUFFIXES: .c .o
+
+.c.o:
+	$(CC) $(CFLAGS) $<
+
+clean:
+	rm -f $(OBJS) libggggc.lib
+	rm -f btggggc.exe btggggc.o btggggc.c
+
+include deps
+
+deps:
+	$(CC) -MM *.c > deps
