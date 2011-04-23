@@ -1,7 +1,6 @@
 CC=gcc
-ECFLAGS=
-OCFLAGS=$(ECFLAGS) -O2
-CFLAGS=$(OCFLAGS) -g -Wall -Werror -ansi -pedantic
+ECFLAGS=-O2 -g -Wall -Werror -ansi -pedantic
+CFLAGS=$(ECFLAGS)
 AR=ar
 ARFLAGS=rc
 RANLIB=ranlib
@@ -20,7 +19,7 @@ libggggc.a: $(OBJS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJS) ggggc
+	rm -f $(OBJS) libggggc.a
 
 include deps
 

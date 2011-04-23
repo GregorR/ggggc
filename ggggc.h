@@ -27,6 +27,11 @@
 
 #include <stdlib.h>
 
+/* override size_t on weird systems */
+#ifdef real_size_t
+#define size_t real_size_t
+#endif
+
 /* These can only be changed if they're changed while compiling, so be careful! */
 #ifndef GGGGC_GENERATIONS
 #define GGGGC_GENERATIONS 2
@@ -49,7 +54,7 @@
 #define GGGGC_NOPOOL_MASK ((size_t) -1 << GGGGC_POOL_SIZE)
 #define GGGGC_POOL_MASK (~GGGGC_NOPOOL_MASK)
 #define GGGGC_CARD_BYTES ((size_t) 1 << GGGGC_CARD_SIZE)
-#define GGGGC_NOCARD_MASK ((size_t ) -1 << GGGGC_CARD_SIZE)
+#define GGGGC_NOCARD_MASK ((size_t) -1 << GGGGC_CARD_SIZE)
 #define GGGGC_CARD_MASK (~GGGGC_NOCARD_MASK)
 #define GGGGC_CARDS_PER_POOL ((size_t) 1 << (GGGGC_POOL_SIZE-GGGGC_CARD_SIZE))
 #define GGGGC_CARD_OF(ptr) (((size_t) (ptr) & GGGGC_POOL_MASK) >> GGGGC_CARD_SIZE)
