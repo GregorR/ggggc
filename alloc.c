@@ -22,7 +22,8 @@
  * THE SOFTWARE.
  */
 
-/* to get MAP_ANON */
+/* to get mmap and MAP_ANON, respectively */
+#define _POSIX_C_SOURCE 200112L
 #define _BSD_SOURCE
 
 #include <stdio.h>
