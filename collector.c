@@ -86,11 +86,7 @@ void GGGGC_collect(unsigned char gen)
     unsigned int tid, ti;
     struct Buffer_voidpp mycheck;
 
-#define BARRIER do { \
-    fprintf(stderr, "Thread %u waiting ...\n", tid); \
-    serialThread = (GGC_barrier_wait(threadBarrier) == GGC_BARRIER_SERIAL_THREAD); \
-    fprintf(stderr, "Thread %u done waiting.\n", tid); \
-} while (0)
+#define BARRIER serialThread = (GGC_barrier_wait(threadBarrier) == GGC_BARRIER_SERIAL_THREAD)
 
     /* get our thread ID */
     tid = (unsigned int) (size_t) GGC_TLS_GET(void *, GGC_thread_identifier);
@@ -115,20 +111,19 @@ void GGGGC_collect(unsigned char gen)
     }
 
     for (i = 0; i < p; i++) {
-        if (*GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs[i])
+        if (*GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs[i]) {
             WRITE_ONE_BUFFER(mycheck, GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs[i]);
+        }
     }
     chcheck[tid] = mycheck;
     BARRIER;
 
     /* only the serial thread will GC */
     if (!serialThread) {
-        fprintf(stderr, "%u isn't serial.\n", tid);
         BARRIER;
         GGC_rwlock_rdunlock(threadLock);
         return;
     }
-    sleep(1);
 
 retry:
     survivors = heapsz = 0;

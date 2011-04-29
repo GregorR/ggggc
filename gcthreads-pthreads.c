@@ -149,29 +149,21 @@ static void *GGGGC_thread_child(void *args)
     void *(*real)(void *) = ((void *(**)(void *)) args)[0];
     void *rarg = ((void **) args)[1];
     void *ret;
-    fprintf(stderr, "A\n");
     free(args);
 
     /* get a thread ID */
-    fprintf(stderr, "b\n");
     GGC_mutex_lock(curThreadIdLock);
-    fprintf(stderr, "c\n");
     GGC_TLS_SET(GGC_thread_identifier, (void *) (size_t) curThreadId++);
-    fprintf(stderr, "d\n");
     GGC_mutex_unlock(curThreadIdLock);
-    fprintf(stderr, "e\n");
 
     /* tell GGGGC we exist */
     GGGGC_new_thread();
-    fprintf(stderr, "f\n");
 
     /* then call the real function */
     ret = real(rarg);
-    fprintf(stderr, "g\n");
 
     /* and we no longer exist! */
     GGGGC_end_thread();
-    fprintf(stderr, "H\n");
 
     return ret;
 }

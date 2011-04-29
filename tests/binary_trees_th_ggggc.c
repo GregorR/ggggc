@@ -42,14 +42,15 @@ treeNode NewTreeNode(treeNode left, treeNode right, long item)
 
 long ItemCheck(treeNode tree)
 {
+    long ret;
     GGC_PUSH(tree);
     if (GGC_PTR_READ(tree, left) == NULL) {
-        GGC_POP(1);
-        return tree->item;
+        ret = tree->item;
     } else {
-        GGC_POP(1);
-        return tree->item + ItemCheck(GGC_PTR_READ(tree, left)) - ItemCheck(GGC_PTR_READ(tree, right));
+        ret = tree->item + ItemCheck(GGC_PTR_READ(tree, left)) - ItemCheck(GGC_PTR_READ(tree, right));
     }
+    GGC_POP(1);
+    return ret;
 } /* ItemCheck() */
 
 
@@ -77,6 +78,8 @@ void *someTree(void *depthvp)
     unsigned depth = (unsigned) (size_t) depthvp;
         long    i, iterations, check;
     treeNode   stretchTree, longLivedTree, tempTree;
+
+    stretchTree = longLivedTree = tempTree = NULL;
 
     GGC_PUSH3(stretchTree, longLivedTree, tempTree);
 
