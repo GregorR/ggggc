@@ -33,10 +33,10 @@ void GGC_threads_init_common();
 #endif
 
 #if _POSIX_VERSION >= 200112L /* should support pthreads */
-#include "gcthreads-pthreads.c"
+#include "threads-pthreads.c"
 
 #else
-#include "gcthreads-nothreads.c"
+#include "threads-nothreads.c"
 
 #endif
 

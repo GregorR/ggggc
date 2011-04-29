@@ -210,7 +210,7 @@ retry:
 
     /* need to expand */
     npool = GGGGC_alloc_pool();
-    while (!GGC_cas(gpool->lock, &gpool->next, NULL, npool)) {
+    while (!GGC_cas(gpool->lock, (void **) &gpool->next, NULL, npool)) {
         gpool = gpool->next;
     }
     goto retry;
@@ -233,7 +233,7 @@ retry:
 
     /* need to expand */
     npool = GGGGC_alloc_pool();
-    while (!GGC_cas(gpool->lock, &gpool->next, NULL, npool)) {
+    while (!GGC_cas(gpool->lock, (void **) &gpool->next, NULL, npool)) {
         gpool = gpool->next;
     }
     if (sz >= npool->remaining) {

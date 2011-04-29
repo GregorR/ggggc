@@ -56,7 +56,7 @@ typedef struct _GGC_th_key_t *GGC_th_key_t;
 
 /* to define our own types */
 #define GGGGC_GCTHREADS_HFROMC
-#include "gcthreads.h"
+#include "ggggcthreads.h"
 #include "ggggc.h"
 #include "ggggc_internal.h"
 

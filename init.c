@@ -28,7 +28,6 @@
 
 #include "ggggc.h"
 #include "ggggc_internal.h"
-#include "gcthreads.h"
 #include "helpers.h"
 
 void GGGGC_init()
