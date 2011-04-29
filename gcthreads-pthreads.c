@@ -133,7 +133,7 @@ static void *GGGGC_thread_child(void *args)
 
     /* get a thread ID */
     GGC_mutex_lock(curThreadIdLock);
-    GGC_key_set(GGC_thread_identifier, (void *) (size_t) curThreadId++);
+    GGC_TLS_SET(GGC_thread_identifier, (void *) (size_t) curThreadId++);
     GGC_mutex_unlock(curThreadIdLock);
 
     /* tell GGGGC we exist */

@@ -41,12 +41,11 @@ void GGC_threads_init_common();
 #endif
 
 /* global thread identifier */
-GGC_th_key_t GGC_thread_identifier;
+GGC_TLS(void *) GGC_thread_identifier;
 
 /* common initialization */
 void GGC_threads_init_common()
 {
-    GGC_thread_identifier = GGC_alloc_key();
-    GGC_key_init(GGC_thread_identifier);
-    GGC_key_set(GGC_thread_identifier, (void *) 0);
+    GGC_TLS_INIT(GGC_thread_identifier);
+    GGC_TLS_SET(GGC_thread_identifier, (void *) 0);
 }

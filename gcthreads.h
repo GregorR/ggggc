@@ -99,9 +99,6 @@ void *GGC_key_get(GGC_th_key_t key);
 /* portable compare-and-swap operation, falling back to mutex iff necessary */
 int GGC_cas(GGC_th_mutex_t mutex, void **addr, void *oldv, void *newv);
 
-/* global thread identifier */
-extern GGC_th_key_t GGC_thread_identifier;
-
 
 /* figure out what the best kind of TLS to use is */
 #if defined(__MACH__)
@@ -140,6 +137,10 @@ extern GGC_th_key_t GGC_thread_identifier;
 #define GGC_TLS_GET(type, var)  ((type) (size_t) GGC_key_get(var))
 
 #endif
+
+
+/* global thread identifier */
+extern GGC_TLS(void *) GGC_thread_identifier;
 
 
 #endif
