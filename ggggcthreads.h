@@ -66,6 +66,9 @@ GGC_th_key_t GGC_alloc_key();
 /* free a key object */
 void GGC_free_key(GGC_th_key_t key);
 
+/* equivalent to sysconf(_SC_NPROCESSORS_ONLN) */
+int GGC_nprocs();
+
 /* equivalent to pthread_create */
 int GGC_thread_create(GGC_thread_t thread, void *(*start_routine)(void *), void *arg);
 

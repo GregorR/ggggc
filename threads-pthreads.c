@@ -143,6 +143,18 @@ void GGC_free_key(GGC_th_key_t key)
     free(key);
 }
 
+/* equivalent to sysconf(_SC_NPROCESSORS_ONLN) */
+int GGC_nprocs()
+{
+#if defined(_SC_NPROCESSORS_ONLN)
+    return sysconf(_SC_NPROCESSORS_ONLN);
+#elif defined(_SC_NPROCESSORS_CONF)
+    return sysconf(_SC_NPROCESSORS_CONF);
+#else
+    return 1;
+#endif
+}
+
 /* landing function for GGC_thread_create */
 static void *GGGGC_thread_child(void *args)
 {
