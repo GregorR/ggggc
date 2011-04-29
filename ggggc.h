@@ -27,6 +27,8 @@
 
 #include <stdlib.h>
 
+#include "gcthreads.h"
+
 /* These can only be changed if they're changed while compiling, so be careful! */
 #ifndef GGGGC_GENERATIONS
 #define GGGGC_GENERATIONS 2
@@ -181,7 +183,7 @@ void GGGGC_collect(unsigned char gen);
 void GGGGC_pstackExpand(size_t by);
 
 /* And when you leave the function, remove them */
-#define GGC_POP(ct) GGC_YIELD(); ggggc_pstack->rem += (ct); ggggc_pstack->cur -= (ct)
+#define GGC_POP(ct) GGC_YIELD(); GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->rem += (ct); GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->cur -= (ct)
 
  /* This is used to determine whether a pointer relationship needs to be added
   * to the remembered set */
@@ -232,6 +234,6 @@ struct GGGGC_PStack {
     void ***cur;
     void **ptrs[1];
 };
-extern struct GGGGC_PStack *ggggc_pstack;
+extern GGC_TLS(struct GGGGC_PStack *) ggggc_pstack;
 
 #endif

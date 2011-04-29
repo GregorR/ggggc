@@ -38,23 +38,24 @@ static struct Buffer_voidpp tocheck;
 void GGGGC_collector_init()
 {
     size_t sz = GGGGC_PSTACK_SIZE;
-    ggggc_pstack = (struct GGGGC_PStack *) malloc(sizeof(struct GGGGC_PStack) - sizeof(void *) + sz * sizeof(void *));
-    ggggc_pstack->rem = sz;
-    ggggc_pstack->cur = ggggc_pstack->ptrs;
+    GGC_TLS_INIT(ggggc_pstack);
+    GGC_TLS_SET(ggggc_pstack, (struct GGGGC_PStack *) malloc(sizeof(struct GGGGC_PStack) - sizeof(void *) + sz * sizeof(void *)));
+    GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->rem = sz;
+    GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->cur = GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs;
     INIT_BUFFER(tocheck);
 }
 
 /* expand the root stack to support N more variables */
 void GGGGC_pstackExpand(size_t by)
 {
-    size_t cur = (ggggc_pstack->cur - ggggc_pstack->ptrs);
-    size_t sz = cur + ggggc_pstack->rem;
+    size_t cur = (GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->cur - GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs);
+    size_t sz = cur + GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->rem;
     size_t newsz = sz;
     while (newsz < cur + by)
         newsz *= 2;
-    ggggc_pstack = (struct GGGGC_PStack *) realloc(ggggc_pstack, sizeof(struct GGGGC_PStack) - sizeof(void *) + newsz * sizeof(void *));
-    ggggc_pstack->rem = newsz - cur;
-    ggggc_pstack->cur = ggggc_pstack->ptrs + cur;
+    GGC_TLS_SET(ggggc_pstack, (struct GGGGC_PStack *) realloc(GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack), sizeof(struct GGGGC_PStack) - sizeof(void *) + newsz * sizeof(void *)));
+    GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->rem = newsz - cur;
+    GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->cur = GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs + cur;
 }
 
 void GGGGC_collect(unsigned char gen)
@@ -75,15 +76,15 @@ retry:
 
     /* first add the roots */
     tocheck.bufused = 0;
-    p = ggggc_pstack->cur - ggggc_pstack->ptrs;
+    p = GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->cur - GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs;
 
     while (BUFFER_SPACE(tocheck) < p) {
         EXPAND_BUFFER(tocheck);
     }
 
     for (i = 0; i < p; i++) {
-        if (*ggggc_pstack->ptrs[i])
-            WRITE_ONE_BUFFER(tocheck, ggggc_pstack->ptrs[i]);
+        if (*GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs[i])
+            WRITE_ONE_BUFFER(tocheck, GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs[i]);
     }
 
     /* get all the remembered cards */

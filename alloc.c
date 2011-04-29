@@ -309,3 +309,6 @@ void *GGGGC_realloc_data_array(void *orig, size_t sz)
 
     return ret;
 }
+
+/* this doesn't REALLY belong here */
+void GGGGC_new_thread() {}

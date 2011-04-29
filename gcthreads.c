@@ -1,7 +1,7 @@
 /*
- * Initialization junk
+ * GGGGC threads
  *
- * Copyright (C) 2010 Gregor Richards
+ * Copyright (C) 2011 Gregor Richards
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,25 +22,31 @@
  * THE SOFTWARE.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+/* for pthreads */
+#define _POSIX_C_SOURCE 200112L
 
-#include "ggggc.h"
-#include "ggggc_internal.h"
-#include "gcthreads.h"
-#include "helpers.h"
+void GGC_threads_init_common();
 
-void GGGGC_init()
+/* get our real POSIX version */
+#if defined(unix) || defined(__unix__) || defined(__unix)
+#include <unistd.h>
+#endif
+
+#if _POSIX_VERSION >= 200112L /* should support pthreads */
+#include "gcthreads-pthreads.c"
+
+#else
+#include "gcthreads-nothreads.c"
+
+#endif
+
+/* global thread identifier */
+GGC_th_key_t GGC_thread_identifier;
+
+/* common initialization */
+void GGC_threads_init_common()
 {
-    int g;
-
-    for (g = 0; g <= GGGGC_GENERATIONS; g++) {
-        ggggc_gens[g] = GGGGC_alloc_generation(NULL);
-    }
-    ggggc_heurpool = ggggc_allocpool = ggggc_gens[0]->pools[0];
-
-    /* other inits */
-    GGGGC_collector_init();
-    GGC_threads_init();
+    GGC_thread_identifier = GGC_alloc_key();
+    GGC_key_init(GGC_thread_identifier);
+    GGC_key_set(GGC_thread_identifier, (void *) 0);
 }

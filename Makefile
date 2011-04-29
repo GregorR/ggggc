@@ -5,7 +5,7 @@ AR=ar
 ARFLAGS=rc
 RANLIB=ranlib
 
-OBJS=alloc.o collector.o globals.o init.o
+OBJS=alloc.o collector.o gcthreads.o globals.o init.o
 
 all: libggggc.a
 

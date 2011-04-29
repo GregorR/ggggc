@@ -6,7 +6,7 @@ LD=$(CC)
 LDFLAGS=
 GC_LIBS=-lgc
 GGGGC_LIBS=../libggggc.a
-LIBS=-lm
+LIBS=-lm -pthread
 
 BTOBJS=binary_trees_td.o
 BTGCOBJS=binary_trees_gc_td.o
