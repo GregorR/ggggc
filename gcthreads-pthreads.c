@@ -39,6 +39,11 @@ struct _GGC_th_mutex_t {
 };
 typedef struct _GGC_th_mutex_t *GGC_th_mutex_t;
 
+struct _GGC_th_rwlock_t {
+    pthread_rwlock_t v;
+};
+typedef struct _GGC_th_rwlock_t *GGC_th_rwlock_t;
+
 struct _GGC_th_barrier_t {
     pthread_barrier_t v;
 };
@@ -96,6 +101,20 @@ void GGC_free_mutex(GGC_th_mutex_t mutex)
     free(mutex);
 }
 
+/* get a rwlock object (FIXME: it's less than ideal that this is allocated ...) */
+GGC_th_rwlock_t GGC_alloc_rwlock()
+{
+    GGC_th_rwlock_t ret;
+    SF(ret, malloc, NULL, (sizeof(struct _GGC_th_rwlock_t)));
+    return ret;
+}
+
+/* free a rwlock object */
+void GGC_free_rwlock(GGC_th_rwlock_t rwlock)
+{
+    free(rwlock);
+}
+
 /* get a barrier object (FIXME: it's less than ideal that this is allocated ...) */
 GGC_th_barrier_t GGC_alloc_barrier()
 {
@@ -129,30 +148,58 @@ static void *GGGGC_thread_child(void *args)
 {
     void *(*real)(void *) = ((void *(**)(void *)) args)[0];
     void *rarg = ((void **) args)[1];
+    void *ret;
+    fprintf(stderr, "A\n");
     free(args);
 
     /* get a thread ID */
+    fprintf(stderr, "b\n");
     GGC_mutex_lock(curThreadIdLock);
+    fprintf(stderr, "c\n");
     GGC_TLS_SET(GGC_thread_identifier, (void *) (size_t) curThreadId++);
+    fprintf(stderr, "d\n");
     GGC_mutex_unlock(curThreadIdLock);
+    fprintf(stderr, "e\n");
 
     /* tell GGGGC we exist */
     GGGGC_new_thread();
+    fprintf(stderr, "f\n");
 
     /* then call the real function */
-    return real(rarg);
+    ret = real(rarg);
+    fprintf(stderr, "g\n");
+
+    /* and we no longer exist! */
+    GGGGC_end_thread();
+    fprintf(stderr, "H\n");
+
+    return ret;
 }
 
 /* equivalent to pthread_create */
 int GGC_thread_create(GGC_thread_t thread, void *(*start_routine)(void *), void *arg)
 {
     void **trampoline;
+    GGC_thread_t usethread;
+    int ret;
+
+    if (thread) {
+        usethread = thread;
+    } else {
+        usethread = GGC_alloc_thread();
+    }
 
     SF(trampoline, malloc, NULL, (2 * sizeof(void*)));
     trampoline[0] = (void *) (size_t) start_routine;
     trampoline[1] = arg;
 
-    return pthread_create(&thread->v, NULL, GGGGC_thread_child, trampoline);
+    ret = pthread_create(&usethread->v, NULL, GGGGC_thread_child, trampoline);
+
+    if (!thread) {
+        GGC_free_thread(usethread);
+    }
+
+    return ret;
 }
 
 /* equivalent to pthread_mutex_init */
@@ -179,6 +226,42 @@ int GGC_mutex_unlock(GGC_th_mutex_t mutex)
     return pthread_mutex_unlock(&mutex->v);
 }
 
+/* equivalent to pthread_rwlock_init */
+int GGC_rwlock_init(GGC_th_rwlock_t rwlock)
+{
+    return pthread_rwlock_init(&rwlock->v, NULL);
+}
+
+/* equivalent to pthread_rwlock_destroy */
+int GGC_rwlock_destroy(GGC_th_rwlock_t rwlock)
+{
+    return pthread_rwlock_destroy(&rwlock->v);
+}
+
+/* equivalent to pthread_rwlock_rdlock */
+int GGC_rwlock_rdlock(GGC_th_rwlock_t rwlock)
+{
+    return pthread_rwlock_rdlock(&rwlock->v);
+}
+
+/* equivalent to pthread_rwlock_unlock (for readers) */
+int GGC_rwlock_rdunlock(GGC_th_rwlock_t rwlock)
+{
+    return pthread_rwlock_unlock(&rwlock->v);
+}
+
+/* equivalent to pthread_rwlock_wrlock */
+int GGC_rwlock_wrlock(GGC_th_rwlock_t rwlock)
+{
+    return pthread_rwlock_wrlock(&rwlock->v);
+}
+
+/* equivalent to pthread_rwlock_unlock (for writers) */
+int GGC_rwlock_wrunlock(GGC_th_rwlock_t rwlock)
+{
+    return pthread_rwlock_unlock(&rwlock->v);
+}
+
 /* equivalent to pthread_barrier_init */
 int GGC_barrier_init(GGC_th_barrier_t barrier, unsigned count)
 {
@@ -195,7 +278,8 @@ int GGC_barrier_destroy(GGC_th_barrier_t barrier)
 int GGC_barrier_wait(GGC_th_barrier_t barrier)
 {
     int ret = pthread_barrier_wait(&barrier->v);
-    if (ret == PTHREAD_BARRIER_SERIAL_THREAD) ret = GGC_BARIER_SERIAL_THREAD;
+    if (ret == PTHREAD_BARRIER_SERIAL_THREAD) ret = GGC_BARRIER_SERIAL_THREAD;
+    else if (ret == 0) ret = 0;
     else ret = -1;
     return ret;
 }

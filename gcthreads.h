@@ -28,6 +28,7 @@
 #ifndef GGGGC_GCTHREADS_HFROMC
 typedef void *GGC_thread_t;
 typedef void *GGC_th_mutex_t;
+typedef void *GGC_th_rwlock_t;
 typedef void *GGC_th_barrier_t;
 typedef void *GGC_th_key_t;
 #endif
@@ -46,6 +47,12 @@ GGC_th_mutex_t GGC_alloc_mutex();
 
 /* free a mutex object */
 void GGC_free_mutex(GGC_th_mutex_t mutex);
+
+/* get a rwlock object (FIXME: it's less than ideal that this is allocated ...) */
+GGC_th_rwlock_t GGC_alloc_rwlock();
+
+/* free a rwlock object */
+void GGC_free_rwlock(GGC_th_rwlock_t rwlock);
 
 /* get a barrier object (FIXME: it's less than ideal that this is allocated ...) */
 GGC_th_barrier_t GGC_alloc_barrier();
@@ -74,6 +81,24 @@ int GGC_mutex_lock(GGC_th_mutex_t mutex);
 /* equivalent to pthread_mutex_unlock */
 int GGC_mutex_unlock(GGC_th_mutex_t mutex);
 
+/* equivalent to pthread_rwlock_init */
+int GGC_rwlock_init(GGC_th_rwlock_t rwlock);
+
+/* equivalent to pthread_rwlock_destroy */
+int GGC_rwlock_destroy(GGC_th_rwlock_t rwlock);
+
+/* equivalent to pthread_rwlock_rdlock */
+int GGC_rwlock_rdlock(GGC_th_rwlock_t rwlock);
+
+/* equivalent to pthread_rwlock_unlock (for readers) */
+int GGC_rwlock_rdunlock(GGC_th_rwlock_t rwlock);
+
+/* equivalent to pthread_rwlock_wrlock */
+int GGC_rwlock_wrlock(GGC_th_rwlock_t rwlock);
+
+/* equivalent to pthread_rwlock_unlock (for writers) */
+int GGC_rwlock_wrunlock(GGC_th_rwlock_t rwlock);
+
 /* equivalent to pthread_barrier_init */
 int GGC_barrier_init(GGC_th_barrier_t barrier, unsigned count);
 
@@ -82,7 +107,7 @@ int GGC_barrier_destroy(GGC_th_barrier_t barrier);
 
 /* equivalent to pthread_barrier_wait */
 int GGC_barrier_wait(GGC_th_barrier_t barrier);
-#define GGC_BARIER_SERIAL_THREAD 1
+#define GGC_BARRIER_SERIAL_THREAD 1
 
 /* equivalent to pthread_key_create */
 int GGC_key_init(GGC_th_key_t key);
@@ -121,13 +146,13 @@ int GGC_cas(GGC_th_mutex_t mutex, void **addr, void *oldv, void *newv);
 
 
 /* now macros to create TLS variables */
-#if defined(GGGGC_TLS_ANN) && 0
+#if defined(GGGGC_TLS_ANN)
 #define GGC_TLS(type)           GGGGC_TLS_ANN type
 #define GGC_TLS_INIT(var)
 #define GGC_TLS_SET(var, val)   ((var) = (val))
 #define GGC_TLS_GET(type, var)  ((type) (var))
 
-#elif defined(GGGGC_TLS_DISPATCH) || 1
+#elif defined(GGGGC_TLS_DISPATCH)
 #define GGC_TLS(type)           GGC_th_key_t
 #define GGC_TLS_INIT(var)       do { \
                                     (var) = GGC_alloc_key(); \

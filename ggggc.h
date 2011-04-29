@@ -215,18 +215,14 @@ void GGGGC_init();
 /* A GGGGC pool (header) */
 struct GGGGC_Pool {
     GGC_th_mutex_t lock;
+    struct GGGGC_Pool *next;
     char *top;
     size_t remaining; /* bytes remaining in the pool */
     char remember[GGGGC_CARDS_PER_POOL];
     char firstobj[GGGGC_CARDS_PER_POOL];
 };
 
-/* A GGGGC generation, which is several pools (header) */
-struct GGGGC_Generation {
-    size_t poolc;
-    struct GGGGC_Pool *pools[1];
-};
-extern struct GGGGC_Generation *ggggc_gens[GGGGC_GENERATIONS+1];
+extern struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS+1];
 extern struct GGGGC_Pool *ggggc_heurpool, *ggggc_allocpool;
 
 /* The pointer stack */
