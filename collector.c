@@ -61,7 +61,7 @@ void GGGGC_collect(unsigned char gen)
 {
     int i, j, c;
     size_t p, survivors, heapsz;
-    struct GGGGC_Generation *ggen;
+    struct GGGGC_Pool *gpool;
     unsigned char nextgen;
     int nislast;
 
@@ -88,11 +88,9 @@ retry:
 
     /* get all the remembered cards */
     for (i = gen + 1; i < GGGGC_GENERATIONS; i++) {
-        ggen = ggggc_gens[i];
+        gpool = ggggc_gens[i];
 
-        for (p = 0; p < ggen->poolc; p++) {
-            struct GGGGC_Pool *gpool = ggen->pools[p];
-
+        for (; gpool; gpool = gpool->next) {
             for (c = 0; c < GGGGC_CARDS_PER_POOL; c++) {
                 if (gpool->remember[c]) {
                     /* remembered, add the card */
@@ -176,31 +174,30 @@ retry:
 
     /* and clear the generations we've done */
     for (i = 0; i <= gen; i++) {
-        ggen = ggggc_gens[i];
-        for (p = 0; p < ggen->poolc; p++) {
+        gpool = ggggc_gens[i];
+        for (; gpool; gpool = gpool->next) {
             heapsz += GGGGC_POOL_BYTES;
-            GGGGC_clear_pool(ggen->pools[p]);
+            GGGGC_clear_pool(gpool);
         }
     }
 
     /* clear the remember set of the next one */
-    ggen = ggggc_gens[gen+1];
-    for (p = 0; p < ggen->poolc; p++) {
-        memset(ggen->pools[p]->remember, 0, GGGGC_CARDS_PER_POOL);
+    gpool = ggggc_gens[gen+1];
+    for (; gpool; gpool = gpool->next) {
+        memset(gpool->remember, 0, GGGGC_CARDS_PER_POOL);
     }
 
     /* and if we're doing the last (last+1 really) generation, treat it like two-space copying */
     if (nislast) {
-        struct GGGGC_Generation *ggen = ggggc_gens[gen+1];
+        gpool = ggggc_gens[gen+1];
         ggggc_gens[gen+1] = ggggc_gens[gen];
-        ggggc_gens[gen] = ggen;
+        ggggc_gens[gen] = gpool;
 
         /* update the gen property */
-        for (p = 0; p < ggen->poolc; p++) {
-            struct GGGGC_Pool *pool = ggen->pools[p];
+        for (; gpool; gpool = gpool->next) {
             struct GGGGC_Header *upd =
-                (struct GGGGC_Header *) (pool->firstobj + GGGGC_CARDS_PER_POOL);
-            while ((void *) upd < (void *) pool->top) {
+                (struct GGGGC_Header *) (gpool->firstobj + GGGGC_CARDS_PER_POOL);
+            while ((void *) upd < (void *) gpool->top) {
                 upd->gen = GGGGC_GENERATIONS - 1;
                 upd = (struct GGGGC_Header *) ((char *) upd + upd->sz);
             }
@@ -210,9 +207,13 @@ retry:
     /* and finally, heuristically allocate more space */
     if (survivors > heapsz / 2) {
         for (i = 0; i <= GGGGC_GENERATIONS; i++) {
-            ggggc_gens[i] = GGGGC_alloc_generation(ggggc_gens[i]);
+            gpool = ggggc_gens[i];
+            for (; gpool->next; gpool = gpool->next);
+            gpool->next = GGGGC_alloc_pool();
         }
-        ggggc_heurpool = ggggc_gens[0]->pools[ggggc_gens[0]->poolc-1];
+        gpool = ggggc_gens[0];
+        for (; gpool->next; gpool = gpool->next);
+        ggggc_heurpool = gpool;
     }
-    ggggc_allocpool = ggggc_gens[0]->pools[0];
+    ggggc_allocpool = ggggc_gens[0];
 }
