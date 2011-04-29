@@ -47,18 +47,17 @@ static GGC_th_rwlock_t threadLock;
 
 void GGGGC_collector_init()
 {
-    size_t sz = GGGGC_PSTACK_SIZE;
-    GGC_TLS_INIT(ggggc_pstack);
-    GGC_TLS_SET(ggggc_pstack, (struct GGGGC_PStack *) malloc(sizeof(struct GGGGC_PStack) - sizeof(void *) + sz * sizeof(void *)));
-    GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->rem = sz;
-    GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->cur = GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs;
+    /* initialize our own threading infrastructure */
     INIT_BUFFER(tocheck);
-    threadCount = 1;
+    threadCount = 0;
     maxThread = 0;
     threadBarrier = GGC_alloc_barrier();
     GGC_barrier_init(threadBarrier, 1);
     threadLock = GGC_alloc_rwlock();
     GGC_rwlock_init(threadLock);
+
+    /* then declare our existence */
+    GGGGC_new_thread();
 }
 
 /* expand the root stack to support N more variables */

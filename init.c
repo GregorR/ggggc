@@ -40,6 +40,6 @@ void GGGGC_init()
     ggggc_heurpool = ggggc_allocpool = ggggc_gens[0];
 
     /* other inits */
-    GGGGC_collector_init();
     GGC_threads_init();
+    GGGGC_collector_init();
 }
