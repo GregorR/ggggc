@@ -131,6 +131,8 @@ struct GGGGC_Pool *GGGGC_alloc_pool()
 {
     /* allocate this pool */
     struct GGGGC_Pool *pool = (struct GGGGC_Pool *) allocateAligned(GGGGC_POOL_SIZE);
+    pool->lock = GGC_alloc_mutex();
+    GGC_mutex_init(pool->lock);
     GGGGC_clear_pool(pool);
 
     return pool;
@@ -164,20 +166,31 @@ struct GGGGC_Generation *GGGGC_alloc_generation(struct GGGGC_Generation *from)
 static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, size_t sz, unsigned short ptrs)
 {
     /* perform the actual allocation */
-    if (sz < gpool->remaining) {
+    size_t remaining = gpool->remaining;
+    if (sz < remaining) {
         size_t c1, c2;
         struct GGGGC_Header *ret;
         void **pt;
         char *top;
 
+        /* reduce it */
+        while (!GGC_cas(gpool->lock, (void **) &gpool->remaining, (void *) remaining, (void *) (remaining - sz))) {
+            remaining = gpool->remaining;
+            if (remaining <= sz) return NULL;
+        }
+
         /* current top */
         top = gpool->top;
         c1 = GGGGC_CARD_OF(top);
 
+        /* try to increase the top */
+        while (!GGC_cas(gpool->lock, (void **) &gpool->top, (void *) top, (void *) (top + sz))) {
+            top = gpool->top;
+        }
+
         /* sufficient room, just give it */
         ret = (struct GGGGC_Header *) top;
-        gpool->top = (top += sz);
-        gpool->remaining -= sz;
+        top += sz;
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
         ret->magic = GGGGC_HEADER_MAGIC;
 #endif

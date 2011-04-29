@@ -214,6 +214,7 @@ void GGGGC_init();
 
 /* A GGGGC pool (header) */
 struct GGGGC_Pool {
+    GGC_th_mutex_t lock;
     char *top;
     size_t remaining; /* bytes remaining in the pool */
     char remember[GGGGC_CARDS_PER_POOL];
