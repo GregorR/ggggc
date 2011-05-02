@@ -47,6 +47,8 @@ static GGC_th_rwlock_t threadLock;
 
 void GGGGC_collector_init()
 {
+    int tmpi;
+
     /* initialize our own threading infrastructure */
     INIT_BUFFER(tocheck);
     threadCount = 0;
@@ -54,7 +56,7 @@ void GGGGC_collector_init()
     threadBarrier = GGC_alloc_barrier();
     GGC_BARRIER_INIT(tmpi, threadBarrier, 1);
     threadLock = GGC_alloc_rwlock();
-    GGC_rwlock_init(threadLock);
+    GGC_RWLOCK_INIT(tmpi, threadLock);
 
     /* then declare our existence */
     GGGGC_new_thread();
@@ -302,7 +304,7 @@ void GGGGC_new_thread()
     GGC_BARRIER_DESTROY(tmpi, threadBarrier);
     GGC_BARRIER_INIT(tmpi, threadBarrier, threadCount);
 
-    GGC_rwlock_wrunlock(threadLock);
+    GGC_RWLOCK_WRUNLOCK(tmpi, threadLock);
 }
 
 void GGGGC_end_thread()
