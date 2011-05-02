@@ -34,8 +34,11 @@
 
 BUFFER(voidpp, void **);
 
-/* one global tocheck, so we don't have to re-init and re-free it */
-static struct Buffer_voidpp tocheck;
+/* one global tocheck per collector thread, so we don't have to re-init and re-free it */
+static struct Buffer_voidpp *ctocheck;
+static int *ctochecki;
+static GGC_th_mutex_t *ctocheckl;
+static GGC_th_mutex_t casmutex;
 
 /* place for each thread to leave its individual pointer stacks */
 static struct Buffer_voidpp *chcheck;
@@ -44,13 +47,15 @@ static struct Buffer_voidpp *chcheck;
 static unsigned int threadCount, maxThread;
 static GGC_th_barrier_t threadBarrier;
 static GGC_th_rwlock_t threadLock;
+static GGC_TLS(void *) threadIsCollector;
+static int collectorThreadCount;
+static void *GGGGC_collector_thread(void *);
 
 void GGGGC_collector_init()
 {
-    int tmpi;
+    int nprocs, pi, tmpi;
 
     /* initialize our own threading infrastructure */
-    INIT_BUFFER(tocheck);
     threadCount = 0;
     maxThread = 0;
     threadBarrier = GGC_alloc_barrier();
@@ -58,8 +63,30 @@ void GGGGC_collector_init()
     threadLock = GGC_alloc_rwlock();
     GGC_RWLOCK_INIT(tmpi, threadLock);
 
+    /* set up the tocheck buffers */
+    collectorThreadCount = nprocs = GGC_nprocs();
+    SF(ctocheck, malloc, NULL, (nprocs * sizeof(struct Buffer_voidpp)));
+    for (pi = 0; pi < nprocs; pi++) {
+        INIT_BUFFER(ctocheck[pi]);
+    }
+    SF(ctochecki, malloc, NULL, (nprocs * sizeof(int)));
+    SF(ctocheckl, malloc, NULL, (nprocs * sizeof(GGC_th_mutex_t *)));
+    for (pi = 0; pi < nprocs; pi++) {
+        ctocheckl[pi] = GGC_alloc_mutex();
+        GGC_MUTEX_INIT(tmpi, ctocheckl[pi]);
+    }
+    casmutex = GGC_alloc_mutex();
+    GGC_MUTEX_INIT(tmpi, casmutex);
+
     /* then declare our existence */
     GGGGC_new_thread();
+    GGC_TLS_INIT(threadIsCollector);
+    GGC_TLS_SET(threadIsCollector, (void *) (size_t) 1);
+
+    /* and spawn off other threads */
+    for (pi = 1; pi < nprocs; pi++) {
+        GGC_thread_create(NULL, GGGGC_collector_thread, NULL);
+    }
 }
 
 /* expand the root stack to support N more variables */
@@ -75,6 +102,17 @@ void GGGGC_pstackExpand(size_t by)
     GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->cur = GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs + cur;
 }
 
+/* is there any thread that seems to have stuff left to check? */
+static __inline__ int GGGGC_haveData()
+{
+    int i;
+    GGC_FULL_BARRIER;
+    for (i = 0; i < collectorThreadCount; i++) {
+        if (ctochecki[i] < ctocheck[i].bufused) return 1;
+    }
+    return 0;
+}
+
 void GGGGC_collect(unsigned char gen)
 {
     int i, j, c;
@@ -88,6 +126,9 @@ void GGGGC_collect(unsigned char gen)
     struct Buffer_voidpp mycheck;
 
 #define BARRIER GGC_BARRIER_WAIT(serialThread, threadBarrier); serialThread = (serialThread == GGC_BARRIER_SERIAL_THREAD)
+#define tocheck (ctocheck[tid])
+#define tochecki (ctochecki[tid])
+#define tocheckl (ctocheckl[tid])
 
     /* get our thread ID */
     tid = (unsigned int) (size_t) GGC_TLS_GET(void *, GGC_thread_identifier);
@@ -119,8 +160,8 @@ void GGGGC_collect(unsigned char gen)
     chcheck[tid] = mycheck;
     BARRIER;
 
-    /* only the serial thread will GC */
-    if (!serialThread) {
+    /* only the collector threads will GC */
+    if (!GGC_TLS_GET(void *, threadIsCollector)) {
         BARRIER;
         GGC_RWLOCK_RDUNLOCK(tmpi, threadLock);
         return;
@@ -134,16 +175,17 @@ retry:
         nislast = 1;
     }
 
+    GGC_MUTEX_LOCK(tmpi, tocheckl);
     /* first add all the roots */
     tocheck.bufused = 0;
-    for (ti = 0; ti <= maxThread; ti++) {
+    for (ti = tid; ti <= maxThread; ti += collectorThreadCount) {
         if (chcheck[ti].buf) {
             WRITE_BUFFER(tocheck, chcheck[ti].buf, chcheck[ti].bufused);
         }
     }
 
     /* get all the remembered cards */
-    for (i = gen + 1; i < GGGGC_GENERATIONS; i++) {
+    for (i = gen + 1; serialThread && i < GGGGC_GENERATIONS; i++) {
         gpool = ggggc_gens[i];
 
         for (; gpool; gpool = gpool->next) {
@@ -172,10 +214,38 @@ retry:
         }
     }
 
+    GGC_MUTEX_UNLOCK(tmpi, tocheckl);
+
     /* now just iterate while we have things to check */
-    for (i = 0; i < tocheck.bufused; i++) {
-        void **ptoch = tocheck.buf[i];
-        struct GGGGC_Header *objtoch = (struct GGGGC_Header *) *ptoch - 1;
+    while (GGGGC_haveData()) {
+        void **ptoch = NULL;
+        struct GGGGC_Header *objtoch;
+        size_t sz;
+
+        /* get something from our queue */
+        GGC_MUTEX_LOCK(tmpi, tocheckl);
+        if (tochecki < tocheck.bufused) {
+            ptoch = tocheck.buf[tochecki++];
+        }
+        GGC_MUTEX_UNLOCK(tmpi, tocheckl);
+
+        if (ptoch == NULL) {
+            /* didn't find one, steal one */
+            for (i = 0; i < collectorThreadCount; i++) {
+                GGC_MUTEX_TRYLOCK(tmpi, ctocheckl[i]);
+                if (tmpi == 0) {
+                    if (ctochecki[i] < ctocheck[i].bufused) {
+                        ptoch = ctocheck[i].buf[ctochecki[i]++];
+                    }
+                    GGC_MUTEX_UNLOCK(tmpi, ctocheckl[i]);
+                }
+                if (ptoch != NULL) break;
+            }
+        }
+
+        if (ptoch == NULL) continue;
+
+        objtoch = (struct GGGGC_Header *) *ptoch - 1;
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
         /* Make sure it's valid */
@@ -186,7 +256,8 @@ retry:
 #endif
 
         /* OK, we have the object to check, has it already moved? */
-        while (objtoch->sz & 1) {
+retryone:
+        while ((sz = objtoch->sz) & 1) {
             /* move it */
             objtoch = (struct GGGGC_Header *) (objtoch->sz & ((size_t) -1 << 1));
             *ptoch = (void *) (objtoch + 1);
@@ -214,14 +285,19 @@ retry:
             survivors += objtoch->sz;
             memcpy((void *) newobj, (void *) objtoch, objtoch->sz);
             newobj->gen = nextgen;
-            objtoch->sz = ((size_t) newobj) | 1; /* forwarding pointer */
+            if (!GGC_cas(casmutex, (void **) &objtoch->sz, (void *) sz, (void *) (((size_t) newobj) | 1))) {
+                /* failed to update the forwarding pointer, try this again from the top! */
+                goto retryone;
+            }
 
             /* and check its pointers */
+            GGC_MUTEX_LOCK(tmpi, tocheckl);
             ptr = (void **) (newobj + 1);
             for (j = 0; j < newobj->ptrs; j++, ptr++) {
                 if (*ptr)
                     WRITE_ONE_BUFFER(tocheck, ptr);
             }
+            GGC_MUTEX_UNLOCK(tmpi, tocheckl);
 
             /* finally, update the pointer we're looking at */
             *ptoch = (void *) (newobj + 1);
@@ -229,7 +305,7 @@ retry:
     }
 
     /* and clear the generations we've done */
-    for (i = 0; i <= gen; i++) {
+    for (i = tid; i <= gen; i += collectorThreadCount) {
         gpool = ggggc_gens[i];
         for (; gpool; gpool = gpool->next) {
             heapsz += GGGGC_POOL_BYTES;
@@ -238,28 +314,31 @@ retry:
     }
 
     /* clear the remember set of the next one */
-    gpool = ggggc_gens[gen+1];
-    for (; gpool; gpool = gpool->next) {
-        memset(gpool->remember, 0, GGGGC_CARDS_PER_POOL);
-    }
-
-    /* and if we're doing the last (last+1 really) generation, treat it like two-space copying */
-    if (nislast) {
+    if (serialThread) {
         gpool = ggggc_gens[gen+1];
-        ggggc_gens[gen+1] = ggggc_gens[gen];
-        ggggc_gens[gen] = gpool;
-
-        /* update the gen property */
         for (; gpool; gpool = gpool->next) {
-            struct GGGGC_Header *upd =
-                (struct GGGGC_Header *) (gpool->firstobj + GGGGC_CARDS_PER_POOL);
-            while ((void *) upd < (void *) gpool->top) {
-                upd->gen = GGGGC_GENERATIONS - 1;
-                upd = (struct GGGGC_Header *) ((char *) upd + upd->sz);
+            memset(gpool->remember, 0, GGGGC_CARDS_PER_POOL);
+        }
+
+        /* and if we're doing the last (last+1 really) generation, treat it like two-space copying */
+        if (nislast) {
+            gpool = ggggc_gens[gen+1];
+            ggggc_gens[gen+1] = ggggc_gens[gen];
+            ggggc_gens[gen] = gpool;
+
+            /* update the gen property */
+            for (; gpool; gpool = gpool->next) {
+                struct GGGGC_Header *upd =
+                    (struct GGGGC_Header *) (gpool->firstobj + GGGGC_CARDS_PER_POOL);
+                while ((void *) upd < (void *) gpool->top) {
+                    upd->gen = GGGGC_GENERATIONS - 1;
+                    upd = (struct GGGGC_Header *) ((char *) upd + upd->sz);
+                }
             }
         }
     }
 
+#if 0
     /* and finally, heuristically allocate more space */
     if (survivors > heapsz / 2) {
         for (i = 0; i <= GGGGC_GENERATIONS; i++) {
@@ -271,15 +350,16 @@ retry:
         for (; gpool->next; gpool = gpool->next);
         ggggc_heurpool = gpool;
     }
-    ggggc_allocpool = ggggc_gens[0];
+#endif
+    if (serialThread) ggggc_allocpool = ggggc_gens[0];
 
     /* clear up all the space used by the other threads */
-    for (ti = 0; ti <= maxThread; ti++) {
+    for (ti = tid; ti <= maxThread; ti += collectorThreadCount) {
         if (chcheck[ti].buf) {
             FREE_BUFFER(chcheck[ti]);
         }
     }
-    free(chcheck);
+    if (serialThread) free(chcheck);
     BARRIER;
     GGC_RWLOCK_RDUNLOCK(tmpi, threadLock);
 }
@@ -304,6 +384,9 @@ void GGGGC_new_thread()
     GGC_BARRIER_DESTROY(tmpi, threadBarrier);
     GGC_BARRIER_INIT(tmpi, threadBarrier, threadCount);
 
+    /* and mark it as a non-collector thread */
+    GGC_TLS_SET(threadIsCollector, (void *) 0);
+
     GGC_RWLOCK_WRUNLOCK(tmpi, threadLock);
 }
 
@@ -321,4 +404,13 @@ void GGGGC_end_thread()
 
     /* free this thread's pointer stack */
     free(GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack));
+}
+
+static void *GGGGC_collector_thread(void *ignored)
+{
+    GGC_TLS_SET(threadIsCollector, (void *) (size_t) 1);
+    while (1) {
+        GGGGC_collect(0); /* this has a barrier, so isn't a tight loop */
+    }
+    return NULL;
 }
