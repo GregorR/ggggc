@@ -37,6 +37,9 @@ void GGC_threads_init_common();
 
 #else
 #include "threads-nothreads.c"
+#if defined(GGGGC_DEBUG) || defined(GGGGC_DEBUG_UNKNOWN_HOST)
+#warn Unknown host
+#endif
 
 #endif
 

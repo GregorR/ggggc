@@ -22,10 +22,10 @@
  * THE SOFTWARE.
  */
 
-#ifndef GGGGC_GCTHREADS_H
-#define GGGGC_GCTHREADS_H
+#ifndef GGGGC_THREADS_H
+#define GGGGC_THREADS_H
 
-#ifndef GGGGC_GCTHREADS_HFROMC
+#ifndef GGGGC_THREADS_HFROMC
 typedef void *GGC_thread_t;
 typedef void *GGC_th_mutex_t;
 typedef void *GGC_th_rwlock_t;
@@ -73,43 +73,46 @@ int GGC_nprocs();
 int GGC_thread_create(GGC_thread_t thread, void *(*start_routine)(void *), void *arg);
 
 /* equivalent to pthread_mutex_init */
-int GGC_mutex_init(GGC_th_mutex_t mutex);
+int GGGGC_mutex_init(GGC_th_mutex_t mutex);
 
 /* equivalent to pthread_mutex_destroy */
-int GGC_mutex_destroy(GGC_th_mutex_t mutex);
+int GGGGC_mutex_destroy(GGC_th_mutex_t mutex);
 
 /* equivalent to pthread_mutex_lock */
-int GGC_mutex_lock(GGC_th_mutex_t mutex);
+int GGGGC_mutex_lock(GGC_th_mutex_t mutex);
+
+/* equivalent to pthread_mutex_trylock (note: returns 0 on success) */
+int GGGGC_mutex_trylock(GGC_th_mutex_t mutex);
 
 /* equivalent to pthread_mutex_unlock */
-int GGC_mutex_unlock(GGC_th_mutex_t mutex);
+int GGGGC_mutex_unlock(GGC_th_mutex_t mutex);
 
 /* equivalent to pthread_rwlock_init */
-int GGC_rwlock_init(GGC_th_rwlock_t rwlock);
+int GGGGC_rwlock_init(GGC_th_rwlock_t rwlock);
 
 /* equivalent to pthread_rwlock_destroy */
-int GGC_rwlock_destroy(GGC_th_rwlock_t rwlock);
+int GGGGC_rwlock_destroy(GGC_th_rwlock_t rwlock);
 
 /* equivalent to pthread_rwlock_rdlock */
-int GGC_rwlock_rdlock(GGC_th_rwlock_t rwlock);
+int GGGGC_rwlock_rdlock(GGC_th_rwlock_t rwlock);
 
 /* equivalent to pthread_rwlock_unlock (for readers) */
-int GGC_rwlock_rdunlock(GGC_th_rwlock_t rwlock);
+int GGGGC_rwlock_rdunlock(GGC_th_rwlock_t rwlock);
 
 /* equivalent to pthread_rwlock_wrlock */
-int GGC_rwlock_wrlock(GGC_th_rwlock_t rwlock);
+int GGGGC_rwlock_wrlock(GGC_th_rwlock_t rwlock);
 
 /* equivalent to pthread_rwlock_unlock (for writers) */
-int GGC_rwlock_wrunlock(GGC_th_rwlock_t rwlock);
+int GGGGC_rwlock_wrunlock(GGC_th_rwlock_t rwlock);
 
 /* equivalent to pthread_barrier_init */
-int GGC_barrier_init(GGC_th_barrier_t barrier, unsigned count);
+int GGGGC_barrier_init(GGC_th_barrier_t barrier, unsigned count);
 
 /* equivalent to pthread_barrier_destroy */
-int GGC_barrier_destroy(GGC_th_barrier_t barrier);
+int GGGGC_barrier_destroy(GGC_th_barrier_t barrier);
 
 /* equivalent to pthread_barrier_wait */
-int GGC_barrier_wait(GGC_th_barrier_t barrier);
+int GGGGC_barrier_wait(GGC_th_barrier_t barrier);
 #define GGC_BARRIER_SERIAL_THREAD 1
 
 /* equivalent to pthread_key_create */
@@ -127,48 +130,27 @@ void *GGC_key_get(GGC_th_key_t key);
 /* portable compare-and-swap operation, falling back to mutex iff necessary */
 int GGC_cas(GGC_th_mutex_t mutex, void **addr, void *oldv, void *newv);
 
-
-/* figure out what the best kind of TLS to use is */
-#if defined(__MACH__)
-/* for now, no true TLS annotation on Mach-O :( */
-#define GGGGC_TLS_DISPATCH
-
-#elif defined(__GNUC__)
-#define GGGGC_TLS_ANN __thread
-
-#elif defined(_WIN32)
-#define GGGGC_TLS_ANN __declspec(thread)
-
-#elif defined(__SUNPRO_CC)
-#define GGGGC_TLS_ANN __thread
-
-#else
-#define GGGGC_TLS_DISPATCH
-
-#endif
-
-
-/* now macros to create TLS variables */
-#if defined(GGGGC_TLS_ANN)
-#define GGC_TLS(type)           GGGGC_TLS_ANN type
-#define GGC_TLS_INIT(var)
-#define GGC_TLS_SET(var, val)   ((var) = (val))
-#define GGC_TLS_GET(type, var)  ((type) (var))
-
-#elif defined(GGGGC_TLS_DISPATCH)
-#define GGC_TLS(type)           GGC_th_key_t
-#define GGC_TLS_INIT(var)       do { \
-                                    (var) = GGC_alloc_key(); \
-                                    GGC_key_init(var); \
-                                } while (0)
-#define GGC_TLS_SET(var, val)   (GGC_key_set((var), (void *) (size_t) (val)))
-#define GGC_TLS_GET(type, var)  ((type) (size_t) GGC_key_get(var))
-
-#endif
-
+#include "threads-tls.h"
+#include "threads-barrier.h"
 
 /* global thread identifier */
 extern GGC_TLS(void *) GGC_thread_identifier;
 
+/* and everything with memory barriers as appropriate */
+#define GGC_THREAD_CREATE(r, x, y, z)           do { GGC_FULL_BARRIER; (r) = GGGGC_thread_create(x, y, z); } while (0)
+#define GGC_MUTEX_INIT(r, x)                    (r) = GGGGC_mutex_init(x)
+#define GGC_MUTEX_DESTROY(r, x)                 (r) = GGGGC_mutex_destroy(x)
+#define GGC_MUTEX_LOCK(r, x)                    do { GGC_FULL_BARRIER; (r) = GGGGC_mutex_lock(x); GGC_FULL_BARRIER; } while (0)
+#define GGC_MUTEX_TRYLOCK(r, x)                 do { GGC_FULL_BARRIER; (r) = GGGGC_mutex_trylock(x); GGC_FULL_BARRIER; } while (0)
+#define GGC_MUTEX_UNLOCK(r, x)                  do { GGC_FULL_BARRIER; (r) = GGGGC_mutex_unlock(x); GGC_FULL_BARRIER; } while (0)
+#define GGC_RWLOCK_INIT(r, x)                   (r) = GGGGC_rwlock_init(x)
+#define GGC_RWLOCK_DESTROY(r, x)                (r) = GGGGC_rwlock_destroy(x)
+#define GGC_RWLOCK_RDLOCK(r, x)                 do { GGC_FULL_BARRIER; (r) = GGGGC_rwlock_rdlock(x); GGC_FULL_BARRIER; } while (0)
+#define GGC_RWLOCK_RDUNLOCK(r, x)               do { GGC_FULL_BARRIER; (r) = GGGGC_rwlock_rdunlock(x); GGC_FULL_BARRIER; } while (0)
+#define GGC_RWLOCK_WRLOCK(r, x)                 do { GGC_FULL_BARRIER; (r) = GGGGC_rwlock_wrlock(x); GGC_FULL_BARRIER; } while (0)
+#define GGC_RWLOCK_WRUNLOCK(r, x)               do { GGC_FULL_BARRIER; (r) = GGGGC_rwlock_wrunlock(x); GGC_FULL_BARRIER; } while (0)
+#define GGC_BARRIER_INIT(r, x, y)               (r) = GGGGC_barrier_init(x, y)
+#define GGC_BARRIER_DESTROY(r, x)               (r) = GGGGC_barrier_destroy(x)
+#define GGC_BARRIER_WAIT(r, x)                  do { GGC_FULL_BARRIER; (r) = GGGGC_barrier_wait(x); GGC_FULL_BARRIER; } while (0)
 
 #endif

@@ -27,8 +27,6 @@
 
 #include <stdlib.h>
 
-#include "ggggcthreads.h"
-
 /* These can only be changed if they're changed while compiling, so be careful! */
 #ifndef GGGGC_GENERATIONS
 #define GGGGC_GENERATIONS 2
@@ -60,11 +58,16 @@
 #ifndef GGGGC_DEBUG_MEMORY_CORRUPTION
 #define GGGGC_DEBUG_MEMORY_CORRUPTION
 #endif
+#ifndef GGGGC_DEBUG_UNKNOWN_HOST
+#define GGGGC_DEBUG_UNKNOWN_HOST
+#endif
 #endif
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
 #define GGGGC_HEADER_MAGIC 0x0DEFACED
 #endif
+
+#include "ggggcthreads.h"
 
 /* The GGGGC header */
 struct GGGGC_Header {
