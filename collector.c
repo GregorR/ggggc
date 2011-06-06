@@ -49,7 +49,9 @@ static GGC_th_barrier_t threadBarrier;
 static GGC_th_rwlock_t threadLock;
 static GGC_TLS(void *) threadIsCollector;
 static int collectorThreadCount;
+#if 0
 static void *GGGGC_collector_thread(void *);
+#endif
 
 void GGGGC_collector_init()
 {
@@ -64,7 +66,8 @@ void GGGGC_collector_init()
     GGC_RWLOCK_INIT(tmpi, threadLock);
 
     /* set up the tocheck buffers */
-    collectorThreadCount = nprocs = GGC_nprocs();
+    /*collectorThreadCount = nprocs = GGC_nprocs();*/
+    collectorThreadCount = nprocs = 1;
     SF(ctocheck, malloc, NULL, (nprocs * sizeof(struct Buffer_voidpp)));
     for (pi = 0; pi < nprocs; pi++) {
         INIT_BUFFER(ctocheck[pi]);
@@ -83,10 +86,12 @@ void GGGGC_collector_init()
     GGC_TLS_INIT(threadIsCollector);
     GGC_TLS_SET(threadIsCollector, (void *) (size_t) 1);
 
+#if 0
     /* and spawn off other threads */
     for (pi = 1; pi < nprocs; pi++) {
         GGC_thread_create(NULL, GGGGC_collector_thread, NULL);
     }
+#endif
 }
 
 /* expand the root stack to support N more variables */
@@ -394,7 +399,10 @@ void GGGGC_end_thread()
 {
     int tmpi;
 
-    GGC_RWLOCK_WRLOCK(tmpi, threadLock);
+    do {
+        GGC_RWLOCK_TRYWRLOCK(tmpi, threadLock);
+        if (tmpi != 0) GGC_YIELD();
+    } while (tmpi != 0);
 
     threadCount--;
     GGC_BARRIER_DESTROY(tmpi, threadBarrier);
@@ -406,6 +414,7 @@ void GGGGC_end_thread()
     free(GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack));
 }
 
+#if 0
 static void *GGGGC_collector_thread(void *ignored)
 {
     GGC_TLS_SET(threadIsCollector, (void *) (size_t) 1);
@@ -414,3 +423,4 @@ static void *GGGGC_collector_thread(void *ignored)
     }
     return NULL;
 }
+#endif

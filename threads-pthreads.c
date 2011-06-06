@@ -256,6 +256,13 @@ int GGGGC_rwlock_rdlock(GGC_th_rwlock_t rwlock)
     return pthread_rwlock_rdlock(&rwlock->v);
 }
 
+
+/* equivalent to pthread_rwlock_tryrdlock */
+int GGGGC_rwlock_tryrdlock(GGC_th_rwlock_t rwlock)
+{
+    return pthread_rwlock_tryrdlock(&rwlock->v);
+}
+
 /* equivalent to pthread_rwlock_unlock (for readers) */
 int GGGGC_rwlock_rdunlock(GGC_th_rwlock_t rwlock)
 {
@@ -266,6 +273,12 @@ int GGGGC_rwlock_rdunlock(GGC_th_rwlock_t rwlock)
 int GGGGC_rwlock_wrlock(GGC_th_rwlock_t rwlock)
 {
     return pthread_rwlock_wrlock(&rwlock->v);
+}
+
+/* equivalent to pthread_rwlock_trywrlock */
+int GGGGC_rwlock_trywrlock(GGC_th_rwlock_t rwlock)
+{
+    return pthread_rwlock_trywrlock(&rwlock->v);
 }
 
 /* equivalent to pthread_rwlock_unlock (for writers) */

@@ -74,12 +74,16 @@ treeNode TopDownTree(long item, unsigned depth)
         return NewTreeNode(NULL, NULL, item);
 } /* BottomUpTree() */
 
+volatile int thbarrier = 0;
+GGC_th_mutex_t thbmutex = NULL;
+
 
 void *someTree(void *depthvp)
 {
     unsigned depth = (unsigned) (size_t) depthvp;
         long    i, iterations, check;
     treeNode   stretchTree, longLivedTree, tempTree;
+    int tmpi;
 
     stretchTree = longLivedTree = tempTree = NULL;
 
@@ -106,6 +110,14 @@ void *someTree(void *depthvp)
             check
         );
 
+    {
+        int cur = thbarrier;
+        while (!GGC_cas(thbmutex, (void *) &thbarrier, (void *) (size_t) cur, (void *) (size_t) (cur - 1)))
+        {
+            cur = thbarrier;
+        }
+    }
+
     GGC_POP(3);
 }
 
@@ -114,6 +126,7 @@ int main(int argc, char* argv[])
 {
     unsigned   N, depth, stretchDepth;
     treeNode   stretchTree, longLivedTree, tempTree;
+    int tmpi;
 
     GGC_INIT();
 
@@ -141,15 +154,20 @@ int main(int argc, char* argv[])
 
     longLivedTree = TopDownTree(0, maxDepth);
 
+    thbmutex = GGC_alloc_mutex();
+    GGC_MUTEX_INIT(tmpi, thbmutex);
     for (depth = minDepth; depth <= maxDepth; depth += 2)
     {
+        int cur = thbarrier;
         GGC_thread_create(NULL, someTree, (void *) (size_t) depth);
+        while (!GGC_cas(thbmutex, (void *) &thbarrier, (void *) (size_t) cur, (void *) (size_t) (cur + 1)))
+        {
+            cur = thbarrier;
+        }
     } /* for(depth = minDepth...) */
-    someTree((void *) (size_t) maxDepth);
-    someTree((void *) (size_t) maxDepth);
-    someTree((void *) (size_t) maxDepth);
-    someTree((void *) (size_t) maxDepth);
-    someTree((void *) (size_t) maxDepth);
+    while (thbarrier) GGC_YIELD();
+    GGC_MUTEX_DESTROY(tmpi, thbmutex);
+    GGC_free_mutex(thbmutex);
 
     printf
     (

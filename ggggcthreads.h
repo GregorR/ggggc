@@ -96,11 +96,17 @@ int GGGGC_rwlock_destroy(GGC_th_rwlock_t rwlock);
 /* equivalent to pthread_rwlock_rdlock */
 int GGGGC_rwlock_rdlock(GGC_th_rwlock_t rwlock);
 
+/* equivalent to pthread_rwlock_tryrdlock */
+int GGGGC_rwlock_tryrdlock(GGC_th_rwlock_t rwlock);
+
 /* equivalent to pthread_rwlock_unlock (for readers) */
 int GGGGC_rwlock_rdunlock(GGC_th_rwlock_t rwlock);
 
 /* equivalent to pthread_rwlock_wrlock */
 int GGGGC_rwlock_wrlock(GGC_th_rwlock_t rwlock);
+
+/* equivalent to pthread_rwlock_trywrlock */
+int GGGGC_rwlock_trywrlock(GGC_th_rwlock_t rwlock);
 
 /* equivalent to pthread_rwlock_unlock (for writers) */
 int GGGGC_rwlock_wrunlock(GGC_th_rwlock_t rwlock);
@@ -137,20 +143,22 @@ int GGC_cas(GGC_th_mutex_t mutex, void **addr, void *oldv, void *newv);
 extern GGC_TLS(void *) GGC_thread_identifier;
 
 /* and everything with memory barriers as appropriate */
-#define GGC_THREAD_CREATE(r, x, y, z)           do { GGC_FULL_BARRIER; (r) = GGGGC_thread_create(x, y, z); } while (0)
-#define GGC_MUTEX_INIT(r, x)                    (r) = GGGGC_mutex_init(x)
-#define GGC_MUTEX_DESTROY(r, x)                 (r) = GGGGC_mutex_destroy(x)
-#define GGC_MUTEX_LOCK(r, x)                    do { GGC_FULL_BARRIER; (r) = GGGGC_mutex_lock(x); GGC_FULL_BARRIER; } while (0)
-#define GGC_MUTEX_TRYLOCK(r, x)                 do { GGC_FULL_BARRIER; (r) = GGGGC_mutex_trylock(x); GGC_FULL_BARRIER; } while (0)
-#define GGC_MUTEX_UNLOCK(r, x)                  do { GGC_FULL_BARRIER; (r) = GGGGC_mutex_unlock(x); GGC_FULL_BARRIER; } while (0)
-#define GGC_RWLOCK_INIT(r, x)                   (r) = GGGGC_rwlock_init(x)
-#define GGC_RWLOCK_DESTROY(r, x)                (r) = GGGGC_rwlock_destroy(x)
-#define GGC_RWLOCK_RDLOCK(r, x)                 do { GGC_FULL_BARRIER; (r) = GGGGC_rwlock_rdlock(x); GGC_FULL_BARRIER; } while (0)
-#define GGC_RWLOCK_RDUNLOCK(r, x)               do { GGC_FULL_BARRIER; (r) = GGGGC_rwlock_rdunlock(x); GGC_FULL_BARRIER; } while (0)
-#define GGC_RWLOCK_WRLOCK(r, x)                 do { GGC_FULL_BARRIER; (r) = GGGGC_rwlock_wrlock(x); GGC_FULL_BARRIER; } while (0)
-#define GGC_RWLOCK_WRUNLOCK(r, x)               do { GGC_FULL_BARRIER; (r) = GGGGC_rwlock_wrunlock(x); GGC_FULL_BARRIER; } while (0)
-#define GGC_BARRIER_INIT(r, x, y)               (r) = GGGGC_barrier_init(x, y)
-#define GGC_BARRIER_DESTROY(r, x)               (r) = GGGGC_barrier_destroy(x)
-#define GGC_BARRIER_WAIT(r, x)                  do { GGC_FULL_BARRIER; (r) = GGGGC_barrier_wait(x); GGC_FULL_BARRIER; } while (0)
+#define GGC_THREAD_CREATE(r, x, y, z)           do { GGC_FULL_BARRIER; (r) = GGGGC_thread_create(x, y, z); (void) r; } while (0)
+#define GGC_MUTEX_INIT(r, x)                    do { (r) = GGGGC_mutex_init(x); (void) r; } while (0)
+#define GGC_MUTEX_DESTROY(r, x)                 do { (r) = GGGGC_mutex_destroy(x); (void) r; } while (0)
+#define GGC_MUTEX_LOCK(r, x)                    do { GGC_FULL_BARRIER; (r) = GGGGC_mutex_lock(x); (void) r; GGC_FULL_BARRIER; } while (0)
+#define GGC_MUTEX_TRYLOCK(r, x)                 do { GGC_FULL_BARRIER; (r) = GGGGC_mutex_trylock(x); (void) r; GGC_FULL_BARRIER; } while (0)
+#define GGC_MUTEX_UNLOCK(r, x)                  do { GGC_FULL_BARRIER; (r) = GGGGC_mutex_unlock(x); (void) r; GGC_FULL_BARRIER; } while (0)
+#define GGC_RWLOCK_INIT(r, x)                   do { (r) = GGGGC_rwlock_init(x); (void) r; } while (0)
+#define GGC_RWLOCK_DESTROY(r, x)                do { (r) = GGGGC_rwlock_destroy(x); (void) r; } while (0)
+#define GGC_RWLOCK_RDLOCK(r, x)                 do { GGC_FULL_BARRIER; (r) = GGGGC_rwlock_rdlock(x); (void) r; GGC_FULL_BARRIER; } while (0)
+#define GGC_RWLOCK_TRYRDLOCK(r, x)              do { GGC_FULL_BARRIER; (r) = GGGGC_rwlock_tryrdlock(x); (void) r; GGC_FULL_BARRIER; } while (0)
+#define GGC_RWLOCK_RDUNLOCK(r, x)               do { GGC_FULL_BARRIER; (r) = GGGGC_rwlock_rdunlock(x); (void) r; GGC_FULL_BARRIER; } while (0)
+#define GGC_RWLOCK_WRLOCK(r, x)                 do { GGC_FULL_BARRIER; (r) = GGGGC_rwlock_wrlock(x); (void) r; GGC_FULL_BARRIER; } while (0)
+#define GGC_RWLOCK_TRYWRLOCK(r, x)              do { GGC_FULL_BARRIER; (r) = GGGGC_rwlock_trywrlock(x); (void) r; GGC_FULL_BARRIER; } while (0)
+#define GGC_RWLOCK_WRUNLOCK(r, x)               do { GGC_FULL_BARRIER; (r) = GGGGC_rwlock_wrunlock(x); (void) r; GGC_FULL_BARRIER; } while (0)
+#define GGC_BARRIER_INIT(r, x, y)               do { (r) = GGGGC_barrier_init(x, y); (void) r; } while (0)
+#define GGC_BARRIER_DESTROY(r, x)               do { (r) = GGGGC_barrier_destroy(x); (void) r; } while (0)
+#define GGC_BARRIER_WAIT(r, x)                  do { GGC_FULL_BARRIER; (r) = GGGGC_barrier_wait(x); (void) r; GGC_FULL_BARRIER; } while (0)
 
 #endif
