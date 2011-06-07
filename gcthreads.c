@@ -33,13 +33,10 @@ void GGC_threads_init_common();
 #endif
 
 #if _POSIX_VERSION >= 200112L /* should support pthreads */
-#include "threads-pthreads.c"
+#include "gcthreads-pthreads.c"
 
 #else
-#include "threads-nothreads.c"
-#if defined(GGGGC_DEBUG) || defined(GGGGC_DEBUG_UNKNOWN_HOST)
-#warn Unknown host
-#endif
+#include "gcthreads-nothreads.c"
 
 #endif
 

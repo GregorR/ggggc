@@ -20,14 +20,14 @@ GGC_STRUCT(treeNode,
     long item;
 );
 
-unsigned minDepth, maxDepth;
+unsigned maxDepth, minDepth;
 
 
 treeNode NewTreeNode(treeNode left, treeNode right, long item)
 {
     treeNode    new = NULL;
 
-    GGC_PUSH3(left, right, new);
+    GGC_PUSH3(new, left, right);
 
     new = GGC_NEW(treeNode);
 
@@ -36,36 +36,34 @@ treeNode NewTreeNode(treeNode left, treeNode right, long item)
     new->item = item;
 
     GGC_POP(3);
-
     return new;
 } /* NewTreeNode() */
 
 
 long ItemCheck(treeNode tree)
 {
+    long ret;
     GGC_PUSH(tree);
     if (GGC_PTR_READ(tree, left) == NULL) {
-        GGC_POP(1);
-        return tree->item;
+        ret = tree->item;
     } else {
-        GGC_POP(1);
-        return tree->item + ItemCheck(GGC_PTR_READ(tree, left)) - ItemCheck(GGC_PTR_READ(tree, right));
+        ret = tree->item + ItemCheck(GGC_PTR_READ(tree, left)) - ItemCheck(GGC_PTR_READ(tree, right));
     }
+    GGC_POP(1);
+    return ret;
 } /* ItemCheck() */
 
 
-treeNode TopDownTree(long item, unsigned depth)
+treeNode BottomUpTree(long item, unsigned depth)
 {
     if (depth > 0) {
         treeNode ret, l, r;
         ret = l = r = NULL;
         GGC_PUSH3(ret, l, r);
 
-        ret = NewTreeNode(NULL, NULL, item);
-        l = TopDownTree(2 * item - 1, depth - 1);
-        r = TopDownTree(2 * item, depth - 1);
-        GGC_PTR_WRITE(ret, left, l);
-        GGC_PTR_WRITE(ret, right, r);
+        l = BottomUpTree(2 * item - 1, depth - 1);
+        r = BottomUpTree(2 * item, depth - 1);
+        ret = NewTreeNode(l, r, item);
 
         GGC_POP(3);
 
@@ -74,16 +72,12 @@ treeNode TopDownTree(long item, unsigned depth)
         return NewTreeNode(NULL, NULL, item);
 } /* BottomUpTree() */
 
-volatile int thbarrier = 0;
-GGC_th_mutex_t thbmutex = NULL;
-
 
 void *someTree(void *depthvp)
 {
     unsigned depth = (unsigned) (size_t) depthvp;
         long    i, iterations, check;
     treeNode   stretchTree, longLivedTree, tempTree;
-    int tmpi;
 
     stretchTree = longLivedTree = tempTree = NULL;
 
@@ -95,10 +89,10 @@ void *someTree(void *depthvp)
 
         for (i = 1; i <= iterations; i++)
         {
-            tempTree = TopDownTree(i, depth);
+            tempTree = BottomUpTree(i, depth);
             check += ItemCheck(tempTree);
 
-            tempTree = TopDownTree(-i, depth);
+            tempTree = BottomUpTree(-i, depth);
             check += ItemCheck(tempTree);
         } /* for(i = 1...) */
 
@@ -110,25 +104,17 @@ void *someTree(void *depthvp)
             check
         );
 
-    {
-        int cur = thbarrier;
-        while (!GGC_cas(thbmutex, (void *) &thbarrier, (void *) (size_t) cur, (void *) (size_t) (cur - 1)))
-        {
-            cur = thbarrier;
-        }
-    }
-
     GGC_POP(3);
 }
-
 
 int main(int argc, char* argv[])
 {
     unsigned   N, depth, stretchDepth;
     treeNode   stretchTree, longLivedTree, tempTree;
-    int tmpi;
 
     GGC_INIT();
+    stretchTree = longLivedTree = tempTree = NULL;
+    GGC_PUSH3(stretchTree, longLivedTree, tempTree);
 
     N = atol(argv[1]);
 
@@ -141,10 +127,7 @@ int main(int argc, char* argv[])
 
     stretchDepth = maxDepth + 1;
 
-    tempTree = stretchTree = longLivedTree = NULL;
-    GGC_PUSH3(tempTree, stretchTree, longLivedTree);
-
-    stretchTree = TopDownTree(0, stretchDepth);
+    stretchTree = BottomUpTree(0, stretchDepth);
     printf
     (
         "stretch tree of depth %u\t check: %li\n",
@@ -152,22 +135,17 @@ int main(int argc, char* argv[])
         ItemCheck(stretchTree)
     );
 
-    longLivedTree = TopDownTree(0, maxDepth);
+    longLivedTree = BottomUpTree(0, maxDepth);
 
-    thbmutex = GGC_alloc_mutex();
-    GGC_MUTEX_INIT(tmpi, thbmutex);
     for (depth = minDepth; depth <= maxDepth; depth += 2)
     {
-        int cur = thbarrier;
         GGC_thread_create(NULL, someTree, (void *) (size_t) depth);
-        while (!GGC_cas(thbmutex, (void *) &thbarrier, (void *) (size_t) cur, (void *) (size_t) (cur + 1)))
-        {
-            cur = thbarrier;
-        }
     } /* for(depth = minDepth...) */
-    while (thbarrier) GGC_YIELD();
-    GGC_MUTEX_DESTROY(tmpi, thbmutex);
-    GGC_free_mutex(thbmutex);
+    someTree((void *) (size_t) maxDepth);
+    someTree((void *) (size_t) maxDepth);
+    someTree((void *) (size_t) maxDepth);
+    someTree((void *) (size_t) maxDepth);
+    someTree((void *) (size_t) maxDepth);
 
     printf
     (

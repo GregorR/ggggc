@@ -131,9 +131,8 @@ struct GGGGC_Pool *GGGGC_alloc_pool()
 {
     /* allocate this pool */
     struct GGGGC_Pool *pool = (struct GGGGC_Pool *) allocateAligned(GGGGC_POOL_SIZE);
-    int tmpi;
     pool->lock = GGC_alloc_mutex();
-    GGC_MUTEX_INIT(tmpi, pool->lock);
+    GGC_mutex_init(pool->lock);
     pool->next = NULL;
     GGGGC_clear_pool(pool);
 
@@ -181,9 +180,11 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
         while (ptrs--) *pt++ = NULL;
 
         /* if we allocate at a card boundary, need to mark firstobj */
-        c2 = GGGGC_CARD_OF(top);
-        if (c1 != c2)
-            gpool->firstobj[c2] = (unsigned char) ((size_t) top & GGGGC_CARD_MASK);
+        if (gen != 0) {
+            c2 = GGGGC_CARD_OF(top);
+            if (c1 != c2)
+                gpool->firstobj[c2] = (unsigned char) ((size_t) top & GGGGC_CARD_MASK);
+        }
 
         return (void *) (ret + 1);
     }
@@ -194,7 +195,6 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
 void *GGGGC_trymalloc_gen(unsigned char gen, int expand, size_t sz, unsigned short ptrs)
 {
     struct GGGGC_Pool *gpool = ggggc_gens[gen];
-    struct GGGGC_Pool *npool;
     void *ret;
 
     if ((ret = GGGGC_trymalloc_pool(gen, gpool, sz, ptrs))) return ret;
@@ -210,17 +210,13 @@ retry:
         return NULL;
 
     /* need to expand */
-    npool = GGGGC_alloc_pool();
-    while (!GGC_cas(gpool->lock, (void **) &gpool->next, NULL, npool)) {
-        gpool = gpool->next;
-    }
+    gpool->next = GGGGC_alloc_pool();
     goto retry;
 }
 
 static __inline__ void *GGGGC_trymalloc_gen0(size_t sz, unsigned short ptrs)
 {
     struct GGGGC_Pool *gpool = ggggc_gens[0];
-    struct GGGGC_Pool *npool;
     void *ret;
 
     /* call this only after trying ggggc_allocpool, so probably pool[0] */
@@ -233,13 +229,10 @@ retry:
     }
 
     /* need to expand */
-    npool = GGGGC_alloc_pool();
-    while (!GGC_cas(gpool->lock, (void **) &gpool->next, NULL, npool)) {
-        gpool = gpool->next;
-    }
-    if (sz >= npool->remaining) {
+    gpool->next = GGGGC_alloc_pool();
+    if (sz >= gpool->next->remaining) {
         /* there will never be enough room! */
-        fprintf(stderr, "Allocation of a too-large object: %d > %d\n", (int) sz, (int) npool->remaining);
+        fprintf(stderr, "Allocation of a too-large object: %d > %d\n", (int) sz, (int) gpool->next->remaining);
         return NULL;
     }
     goto retry;

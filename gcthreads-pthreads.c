@@ -55,8 +55,8 @@ struct _GGC_th_key_t {
 typedef struct _GGC_th_key_t *GGC_th_key_t;
 
 /* to define our own types */
-#define GGGGC_THREADS_HFROMC
-#include "ggggcthreads.h"
+#define GGGGC_GCTHREADS_HFROMC
+#include "gcthreads.h"
 #include "ggggc.h"
 #include "ggggc_internal.h"
 
@@ -67,11 +67,10 @@ GGC_th_mutex_t curThreadIdLock;
 /* initialize GGGGC's threading subsystem */
 void GGC_threads_init()
 {
-    int tmpi;
     GGC_threads_init_common();
     curThreadId = 1;
     curThreadIdLock = GGC_alloc_mutex();
-    GGC_MUTEX_INIT(tmpi, curThreadIdLock);
+    GGC_mutex_init(curThreadIdLock);
 }
 
 /* allocate a thread object */
@@ -144,31 +143,18 @@ void GGC_free_key(GGC_th_key_t key)
     free(key);
 }
 
-/* equivalent to sysconf(_SC_NPROCESSORS_ONLN) */
-int GGC_nprocs()
-{
-#if defined(_SC_NPROCESSORS_ONLN)
-    return sysconf(_SC_NPROCESSORS_ONLN);
-#elif defined(_SC_NPROCESSORS_CONF)
-    return sysconf(_SC_NPROCESSORS_CONF);
-#else
-    return 1;
-#endif
-}
-
 /* landing function for GGC_thread_create */
 static void *GGGGC_thread_child(void *args)
 {
     void *(*real)(void *) = ((void *(**)(void *)) args)[0];
     void *rarg = ((void **) args)[1];
     void *ret;
-    int tmpi;
     free(args);
 
     /* get a thread ID */
-    GGC_MUTEX_LOCK(tmpi, curThreadIdLock);
+    GGC_mutex_lock(curThreadIdLock);
     GGC_TLS_SET(GGC_thread_identifier, (void *) (size_t) curThreadId++);
-    GGC_MUTEX_UNLOCK(tmpi, curThreadIdLock);
+    GGC_mutex_unlock(curThreadIdLock);
 
     /* tell GGGGC we exist */
     GGGGC_new_thread();
@@ -209,98 +195,79 @@ int GGC_thread_create(GGC_thread_t thread, void *(*start_routine)(void *), void 
 }
 
 /* equivalent to pthread_mutex_init */
-int GGGGC_mutex_init(GGC_th_mutex_t mutex)
+int GGC_mutex_init(GGC_th_mutex_t mutex)
 {
     return pthread_mutex_init(&mutex->v, NULL);
 }
 
 /* equivalent to pthread_mutex_destroy */
-int GGGGC_mutex_destroy(GGC_th_mutex_t mutex)
+int GGC_mutex_destroy(GGC_th_mutex_t mutex)
 {
     return pthread_mutex_destroy(&mutex->v);
 }
 
 /* equivalent to pthread_mutex_lock */
-int GGGGC_mutex_lock(GGC_th_mutex_t mutex)
+int GGC_mutex_lock(GGC_th_mutex_t mutex)
 {
     return pthread_mutex_lock(&mutex->v);
 }
 
-/* equivalent to pthread_mutex_trylock (note: returns 0 on success) */
-int GGGGC_mutex_trylock(GGC_th_mutex_t mutex)
-{
-    return pthread_mutex_trylock(&mutex->v);
-}
-
 /* equivalent to pthread_mutex_unlock */
-int GGGGC_mutex_unlock(GGC_th_mutex_t mutex)
+int GGC_mutex_unlock(GGC_th_mutex_t mutex)
 {
     return pthread_mutex_unlock(&mutex->v);
 }
 
 /* equivalent to pthread_rwlock_init */
-int GGGGC_rwlock_init(GGC_th_rwlock_t rwlock)
+int GGC_rwlock_init(GGC_th_rwlock_t rwlock)
 {
     return pthread_rwlock_init(&rwlock->v, NULL);
 }
 
 /* equivalent to pthread_rwlock_destroy */
-int GGGGC_rwlock_destroy(GGC_th_rwlock_t rwlock)
+int GGC_rwlock_destroy(GGC_th_rwlock_t rwlock)
 {
     return pthread_rwlock_destroy(&rwlock->v);
 }
 
 /* equivalent to pthread_rwlock_rdlock */
-int GGGGC_rwlock_rdlock(GGC_th_rwlock_t rwlock)
+int GGC_rwlock_rdlock(GGC_th_rwlock_t rwlock)
 {
     return pthread_rwlock_rdlock(&rwlock->v);
 }
 
-
-/* equivalent to pthread_rwlock_tryrdlock */
-int GGGGC_rwlock_tryrdlock(GGC_th_rwlock_t rwlock)
-{
-    return pthread_rwlock_tryrdlock(&rwlock->v);
-}
-
 /* equivalent to pthread_rwlock_unlock (for readers) */
-int GGGGC_rwlock_rdunlock(GGC_th_rwlock_t rwlock)
+int GGC_rwlock_rdunlock(GGC_th_rwlock_t rwlock)
 {
     return pthread_rwlock_unlock(&rwlock->v);
 }
 
 /* equivalent to pthread_rwlock_wrlock */
-int GGGGC_rwlock_wrlock(GGC_th_rwlock_t rwlock)
+int GGC_rwlock_wrlock(GGC_th_rwlock_t rwlock)
 {
     return pthread_rwlock_wrlock(&rwlock->v);
 }
 
-/* equivalent to pthread_rwlock_trywrlock */
-int GGGGC_rwlock_trywrlock(GGC_th_rwlock_t rwlock)
-{
-    return pthread_rwlock_trywrlock(&rwlock->v);
-}
-
 /* equivalent to pthread_rwlock_unlock (for writers) */
-int GGGGC_rwlock_wrunlock(GGC_th_rwlock_t rwlock)
+int GGC_rwlock_wrunlock(GGC_th_rwlock_t rwlock)
 {
     return pthread_rwlock_unlock(&rwlock->v);
 }
 
 /* equivalent to pthread_barrier_init */
-int GGGGC_barrier_init(GGC_th_barrier_t barrier, unsigned count)
+int GGC_barrier_init(GGC_th_barrier_t barrier, unsigned count)
 {
     return pthread_barrier_init(&barrier->v, NULL, count);
 }
 
 /* equivalent to pthread_barrier_destroy */
-int GGGGC_barrier_destroy(GGC_th_barrier_t barrier)
+int GGC_barrier_destroy(GGC_th_barrier_t barrier)
 {
     return pthread_barrier_destroy(&barrier->v);
 }
 
 /* equivalent to pthread_barrier_wait */
-int GGGGC_barrier_wait(GGC_th_barrier_t barrier)
+int GGC_barrier_wait(GGC_th_barrier_t barrier)
 {
     int ret = pthread_barrier_wait(&barrier->v);
     if (ret == PTHREAD_BARRIER_SERIAL_THREAD) ret = GGC_BARRIER_SERIAL_THREAD;

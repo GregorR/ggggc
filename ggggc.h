@@ -27,6 +27,8 @@
 
 #include <stdlib.h>
 
+#include "gcthreads.h"
+
 /* These can only be changed if they're changed while compiling, so be careful! */
 #ifndef GGGGC_GENERATIONS
 #define GGGGC_GENERATIONS 2
@@ -58,16 +60,11 @@
 #ifndef GGGGC_DEBUG_MEMORY_CORRUPTION
 #define GGGGC_DEBUG_MEMORY_CORRUPTION
 #endif
-#ifndef GGGGC_DEBUG_UNKNOWN_HOST
-#define GGGGC_DEBUG_UNKNOWN_HOST
-#endif
 #endif
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
 #define GGGGC_HEADER_MAGIC 0x0DEFACED
 #endif
-
-#include "ggggcthreads.h"
 
 /* The GGGGC header */
 struct GGGGC_Header {
@@ -217,11 +214,12 @@ void GGGGC_init();
 
 /* A GGGGC pool (header) */
 struct GGGGC_Pool {
+    /* at the beginning to simplify GGGGC_REMEMBER's math */
+    char remember[GGGGC_CARDS_PER_POOL];
     GGC_th_mutex_t lock;
     struct GGGGC_Pool *next;
     char *top;
     size_t remaining; /* bytes remaining in the pool */
-    char remember[GGGGC_CARDS_PER_POOL];
     char firstobj[GGGGC_CARDS_PER_POOL];
 };
 
