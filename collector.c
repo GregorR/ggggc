@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
+#include <sys/time.h>
 
 #include "ggggc.h"
 #include "ggggc_internal.h"
@@ -64,6 +66,16 @@ void GGGGC_collect(unsigned char gen)
     struct GGGGC_Pool *gpool;
     unsigned char nextgen;
     int nislast;
+#ifdef RUSAGE_SELF
+    long faultBegin, faultEnd;
+    static int faultingCollections = 0;
+
+    {
+        struct rusage ru;
+        if (getrusage(RUSAGE_SELF, &ru) == 0) faultBegin = ru.ru_minflt;
+        else faultBegin = 0;
+    }
+#endif
 
 retry:
     survivors = heapsz = 0;
@@ -205,16 +217,45 @@ retry:
         }
     }
 
-    /* and finally, heuristically allocate more space */
-    if (survivors > heapsz / 2) {
+    /* and finally, heuristically allocate more space or restrict */
+#ifdef RUSAGE_SELF
+    {
+        struct rusage ru;
+        if (getrusage(RUSAGE_SELF, &ru) == 0) faultEnd = ru.ru_minflt;
+        else faultEnd = 0;
+    }
+    if (faultEnd > faultBegin) faultingCollections++;
+    else faultingCollections = 0;
+    if (faultingCollections == 0)
+#else
+    if (survivors > heapsz / 2)
+#endif
+    {
         for (i = 0; i <= GGGGC_GENERATIONS; i++) {
             gpool = ggggc_gens[i];
             for (; gpool->next; gpool = gpool->next);
             gpool->next = GGGGC_alloc_pool();
+            if (i == 0)
+                ggggc_heurpool = gpool->next;
         }
-        gpool = ggggc_gens[0];
-        for (; gpool->next; gpool = gpool->next);
-        ggggc_heurpool = gpool;
+    } else
+#ifdef RUSAGE_SELF
+    if (faultingCollections > 1)
+#else
+    if (0)
+#endif
+    {
+        for (i = 0; i <= GGGGC_GENERATIONS; i++) {
+            gpool = ggggc_gens[i];
+            for (; gpool->next && gpool->next->next; gpool = gpool->next);
+            if (gpool->next && (void *) gpool->next->top == (void *) (gpool + 1)) {
+                GGGGC_free_pool(gpool->next);
+                gpool->next = NULL;
+            }
+            if (i == 0)
+                ggggc_heurpool = gpool->next ? gpool->next : gpool;
+        }
     }
+
     ggggc_allocpool = ggggc_gens[0];
 }

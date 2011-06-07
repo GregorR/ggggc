@@ -37,7 +37,7 @@
 #endif
 
 #ifndef GGGGC_CARD_SIZE
-#define GGGGC_CARD_SIZE 7 /* also a power of 2 */
+#define GGGGC_CARD_SIZE 8 /* also a power of 2 */
 #endif
 
 #ifndef GGGGC_PSTACK_SIZE
