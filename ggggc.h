@@ -214,11 +214,12 @@ void GGGGC_init();
 
 /* A GGGGC pool (header) */
 struct GGGGC_Pool {
+    /* at the beginning to simplify GGGGC_REMEMBER's math */
+    char remember[GGGGC_CARDS_PER_POOL];
     GGC_th_mutex_t lock;
     struct GGGGC_Pool *next;
     char *top;
     size_t remaining; /* bytes remaining in the pool */
-    char remember[GGGGC_CARDS_PER_POOL];
     char firstobj[GGGGC_CARDS_PER_POOL];
 };
 

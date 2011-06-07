@@ -180,9 +180,11 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
         while (ptrs--) *pt++ = NULL;
 
         /* if we allocate at a card boundary, need to mark firstobj */
-        c2 = GGGGC_CARD_OF(top);
-        if (c1 != c2)
-            gpool->firstobj[c2] = (unsigned char) ((size_t) top & GGGGC_CARD_MASK);
+        if (gen != 0) {
+            c2 = GGGGC_CARD_OF(top);
+            if (c1 != c2)
+                gpool->firstobj[c2] = (unsigned char) ((size_t) top & GGGGC_CARD_MASK);
+        }
 
         return (void *) (ret + 1);
     }

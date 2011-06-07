@@ -172,9 +172,10 @@ retry:
     }
 
     /* now just iterate while we have things to check */
-    for (i = 0; i < tocheck.bufused; i++) {
+    for (i = tocheck.bufused - 1; i > 0; i = tocheck.bufused - 1) {
         void **ptoch = tocheck.buf[i];
         struct GGGGC_Header *objtoch = (struct GGGGC_Header *) *ptoch - 1;
+        tocheck.bufused--;
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
         /* Make sure it's valid */
