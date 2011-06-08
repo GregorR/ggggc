@@ -35,9 +35,9 @@ void GGGGC_init()
     int g;
 
     for (g = 0; g <= GGGGC_GENERATIONS; g++) {
-        ggggc_gens[g] = GGGGC_alloc_generation(NULL);
+        ggggc_gens[g] = GGGGC_alloc_pool();
     }
-    ggggc_heurpool = ggggc_allocpool = ggggc_gens[0]->pools[0];
+    ggggc_heurpool = ggggc_allocpool = ggggc_gens[0];
 
     /* other inits */
     GGGGC_collector_init();

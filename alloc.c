@@ -131,34 +131,10 @@ struct GGGGC_Pool *GGGGC_alloc_pool()
 {
     /* allocate this pool */
     struct GGGGC_Pool *pool = (struct GGGGC_Pool *) allocateAligned(GGGGC_POOL_SIZE);
+    pool->next = NULL;
     GGGGC_clear_pool(pool);
 
     return pool;
-}
-
-struct GGGGC_Generation *GGGGC_alloc_generation(struct GGGGC_Generation *from)
-{
-    struct GGGGC_Generation *ret;
-    size_t sz, i;
-    if (from) {
-        sz = sizeof(struct GGGGC_Generation) - sizeof(struct GGGGC_Pool *) + ((from->poolc*2) * sizeof(struct GGGGC_Pool *));
-        SF(ret, malloc, NULL, (sz));
-        memcpy(ret, from, sz);
-        free(from);
-
-        /* double the number of pools */
-        for (i = ret->poolc; i < ret->poolc*2; i++) {
-            ret->pools[i] = GGGGC_alloc_pool();
-        }
-        ret->poolc *= 2;
-
-    } else {
-        SF(ret, malloc, NULL, (sizeof(struct GGGGC_Generation)));
-        ret->poolc = 1;
-        ret->pools[ret->poolc-1] = GGGGC_alloc_pool();
-
-    }
-    return ret;
 }
 
 static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, size_t sz, unsigned short ptrs)
@@ -191,9 +167,11 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
         while (ptrs--) *pt++ = NULL;
 
         /* if we allocate at a card boundary, need to mark firstobj */
-        c2 = GGGGC_CARD_OF(top);
-        if (c1 != c2)
-            gpool->firstobj[c2] = (unsigned char) ((size_t) top & GGGGC_CARD_MASK);
+        if (gen != 0) {
+            c2 = GGGGC_CARD_OF(top);
+            if (c1 != c2)
+                gpool->firstobj[c2] = (unsigned char) ((size_t) top & GGGGC_CARD_MASK);
+        }
 
         return (void *) (ret + 1);
     }
@@ -203,18 +181,15 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
 
 void *GGGGC_trymalloc_gen(unsigned char gen, int expand, size_t sz, unsigned short ptrs)
 {
-    size_t p;
-    struct GGGGC_Generation *ggen = ggggc_gens[gen];
+    struct GGGGC_Pool *gpool = ggggc_gens[gen];
     void *ret;
 
-    if ((ret = GGGGC_trymalloc_pool(gen, ggen->pools[0], sz, ptrs))) return ret;
+    if ((ret = GGGGC_trymalloc_pool(gen, gpool, sz, ptrs))) return ret;
 
     /* crazy loops to avoid overchecking */
-    p = 1;
-
 retry:
-    for (p = 1; p < ggen->poolc; p++) {
-        if ((ret = GGGGC_trymalloc_pool(gen, ggen->pools[p], sz, ptrs))) return ret;
+    for (; gpool->next; gpool = gpool->next) {
+        if ((ret = GGGGC_trymalloc_pool(gen, gpool->next, sz, ptrs))) return ret;
     }
 
     /* failed to find, must expand */
@@ -222,34 +197,29 @@ retry:
         return NULL;
 
     /* need to expand */
-    ggggc_gens[gen] = ggen = GGGGC_alloc_generation(ggen);
+    gpool->next = GGGGC_alloc_pool();
     goto retry;
 }
 
 static __inline__ void *GGGGC_trymalloc_gen0(size_t sz, unsigned short ptrs)
 {
-    size_t p;
-    struct GGGGC_Generation *ggen = ggggc_gens[0];
-    struct GGGGC_Pool *gpool;
+    struct GGGGC_Pool *gpool = ggggc_gens[0];
     void *ret;
 
     /* call this only after trying ggggc_allocpool, so probably pool[0] */
-    p = 1;
-
 retry:
-    for (p = 1; p < ggen->poolc; p++) {
-        gpool = ggen->pools[p];
-        if ((ret = GGGGC_trymalloc_pool(0, gpool, sz, ptrs))) {
-            ggggc_allocpool = gpool;
+    for (; gpool->next; gpool = gpool->next) {
+        if ((ret = GGGGC_trymalloc_pool(0, gpool->next, sz, ptrs))) {
+            ggggc_allocpool = gpool->next;
             return ret;
         }
     }
 
     /* need to expand */
-    ggggc_gens[0] = ggen = GGGGC_alloc_generation(ggen);
-    if (sz >= ggen->pools[p]->remaining) {
+    gpool->next = GGGGC_alloc_pool();
+    if (sz >= gpool->next->remaining) {
         /* there will never be enough room! */
-        fprintf(stderr, "Allocation of a too-large object: %d > %d\n", (int) sz, (int) ggen->pools[p]->remaining);
+        fprintf(stderr, "Allocation of a too-large object: %d > %d\n", (int) sz, (int) gpool->next->remaining);
         return NULL;
     }
     goto retry;
