@@ -300,12 +300,10 @@ void *GGC_key_get(GGC_th_key_t key)
     return pthread_getspecific(key->v);
 }
 
+#ifndef __GNUC__
 /* portable compare-and-swap operation, falling back to mutex iff necessary */
 int GGC_cas(GGC_th_mutex_t mutex, void **addr, void *oldv, void *newv)
 {
-#ifdef __GNUC__
-    return __sync_bool_compare_and_swap(addr, oldv, newv);
-#else
     int ret = 1;
     GGC_mutex_lock(mutex);
     if (*addr == oldv) {
@@ -315,5 +313,5 @@ int GGC_cas(GGC_th_mutex_t mutex, void **addr, void *oldv, void *newv)
     }
     GGC_mutex_unlock(mutex);
     return ret;
-#endif
 }
+#endif

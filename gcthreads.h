@@ -132,6 +132,7 @@ int GGC_cas(GGC_th_mutex_t mutex, void **addr, void *oldv, void *newv);
 
 #elif defined(__GNUC__)
 #define GGGGC_TLS_ANN __thread
+#define GGC_cas(mutex, addr, oldv, newv) __sync_bool_compare_and_swap((void **) addr, (void *) oldv, (void *) newv)
 
 #elif defined(_WIN32)
 #define GGGGC_TLS_ANN __declspec(thread)
