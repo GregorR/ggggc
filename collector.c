@@ -120,6 +120,7 @@ retry:
     for (i = tocheck.bufused - 1; i > 0; i = tocheck.bufused - 1) {
         void **ptoch = tocheck.buf[i];
         struct GGGGC_Header *objtoch = (struct GGGGC_Header *) *ptoch - 1;
+        int moved = 0;
         tocheck.bufused--;
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
@@ -131,19 +132,31 @@ retry:
 #endif
 
         /* OK, we have the object to check, has it already moved? */
-        while (objtoch->sz & 1) {
+        while (objtoch->col) {
             /* move it */
-            objtoch = (struct GGGGC_Header *) (objtoch->sz & ((size_t) -1 << 1));
+            objtoch = *((struct GGGGC_Header **) (objtoch + 1));
             *ptoch = (void *) (objtoch + 1);
+            moved = 1;
         }
 
         /* Do we need to reclaim? */
-        if (objtoch->gen <= gen) {
+        if (objtoch->gen <= gen &&
+            (!objtoch->fin || !moved)) {
             void **ptr;
+            struct GGGGC_Header *newobj;
+
+            if (objtoch->fin) {
+                /* has finalizers, move separately */
+                newobj = (struct GGGGC_Header *) GGGGC_trymalloc_gen(GGGGC_GENERATIONS + 2, 1, objtoch->sz, objtoch->ptrs);
+                if (newobj == NULL) {
+                    fprintf(stderr, "Memory exhausted during GC???\n");
+                    *((int *) 0) = 0;
+                }
+                newobj -= 1;
+            } else {
 
             /* nope, get a new one */
-            struct GGGGC_Header *newobj =
-                (struct GGGGC_Header *) GGGGC_trymalloc_gen(nextgen, nislast, objtoch->sz, objtoch->ptrs);
+            newobj = (struct GGGGC_Header *) GGGGC_trymalloc_gen(nextgen, nislast, objtoch->sz, objtoch->ptrs);
             if (newobj == NULL) {
                 /* ACK! Out of memory! Need more GC! */
                 gen++;
@@ -155,11 +168,16 @@ retry:
             }
             newobj -= 1; /* get back to the header */
 
+            }
+
             /* copy it in */
             survivors += objtoch->sz;
             memcpy((void *) newobj, (void *) objtoch, objtoch->sz);
-            newobj->gen = nextgen;
-            objtoch->sz = ((size_t) newobj) | 1; /* forwarding pointer */
+            if (!objtoch->fin) newobj->gen = nextgen;
+
+            /* forwarding pointer */
+            objtoch->col = 1;
+            *((struct GGGGC_Header **) (objtoch + 1)) = newobj;
 
             /* and check its pointers */
             ptr = (void **) (newobj + 1);
@@ -202,6 +220,22 @@ retry:
                 upd->gen = GGGGC_GENERATIONS - 1;
                 upd = (struct GGGGC_Header *) ((char *) upd + upd->sz);
             }
+        }
+    }
+
+    /* handle finalizers */
+    gpool = ggggc_gens[GGGGC_GENERATIONS+1];
+    ggggc_gens[GGGGC_GENERATIONS+1] = ggggc_gens[GGGGC_GENERATIONS+2];
+    ggggc_gens[GGGGC_GENERATIONS+2] = gpool;
+    for (; gpool; gpool = gpool->next) {
+        struct GGGGC_Header *upd =
+            (struct GGGGC_Header *) (gpool->firstobj + GGGGC_CARDS_PER_POOL);
+        while ((void *) upd < (void *) gpool->top) {
+            if (upd->fin)
+                ((void (**)(void *)) upd)[
+                    upd->sz / sizeof(void *) - 1
+                ](upd + 1);
+            upd = (struct GGGGC_Header *) ((char *) upd + upd->sz);
         }
     }
 

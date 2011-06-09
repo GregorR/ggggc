@@ -71,7 +71,9 @@ struct GGGGC_Header {
 #endif
     size_t sz;
     unsigned char gen;
-    unsigned char type; /* not used by GGGGC, free for end-users */
+    unsigned int fin : 1;
+    unsigned int col : 1;
+    unsigned int type : 6; /* not used by GGGGC, free for end-users */
     unsigned short ptrs;
 };
 
@@ -100,6 +102,10 @@ struct _GGGGC_ArrayPtrs__ ## name { \
 struct _GGGGC_Array__ ## name { \
     struct _GGGGC_ArrayPtrs__ ## name _ggggc_ptrs; \
 }
+
+/* Use this macro to make a definition for a struct with a finalizer */
+#define GGC_DEFN_FIN_STRUCT(name, ptrs, data) \
+GGC_DEFN_STRUCT(name, ptrs, data void (*fin)(void *);)
 
 /* Use this macro to create a traceable struct. Make sure all GGGGC pointers
  * are in the 'ptrs' part. Due to how C macros work, you can't have comma-lists
@@ -137,6 +143,13 @@ GGC_DEFN_DATA_STRUCT(name, data)
     sizeof(struct _GGGGC__ ## type) + sizeof(struct GGGGC_Header) - sizeof(void *), \
     _ggggc_ptrs_ct__ ## type))
 void *GGGGC_malloc(size_t sz, unsigned short ptrs);
+
+/* Allocate a fresh object of the given type, with finalizer */
+#define GGC_NEW_FIN(type, finalizer) ((type) GGGGC_malloc_fin( \
+    sizeof(struct _GGGGC__ ## type) + sizeof(struct GGGGC_Header) - sizeof(void *), \
+    _ggggc_ptrs_ct__ ## type, \
+    finalizer))
+void *GGGGC_malloc_fin(size_t sz, unsigned short ptrs, void (*fin)(void *));
 
 /* Allocate an array of the given kind of pointers */
 #define GGC_NEW_PTR_ARRAY(type, sz) ((type ## Array) GGGGC_malloc_ptr_array(sz))
@@ -220,7 +233,8 @@ struct GGGGC_Pool {
     char firstobj[GGGGC_CARDS_PER_POOL];
 };
 
-extern struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS+1];
+/* generations + 1 for last-gen two-space copying, +2 for finalizers two-space copying */
+extern struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS+3];
 extern struct GGGGC_Pool *ggggc_heurpool, *ggggc_allocpool;
 
 /* The pointer stack */

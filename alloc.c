@@ -232,6 +232,23 @@ void *GGGGC_malloc(size_t sz, unsigned short ptrs)
     return GGGGC_trymalloc_gen0(sz, ptrs);
 }
 
+void *GGGGC_malloc_fin(size_t sz, unsigned short ptrs, void (*fin)(void *))
+{
+    struct GGGGC_Header *ret = GGGGC_trymalloc_gen(GGGGC_GENERATIONS + 1, 1, sz, ptrs);
+    ret--;
+
+    ret->gen = 0;
+    ret->fin = 1;
+
+    /* finalizer is always the final field */
+    ((void (**)(void *)) ret)[
+        ret->sz / sizeof(void *) - 1
+    ] = fin;
+
+    ret++;
+    return (void *) ret;
+}
+
 void *GGGGC_malloc_ptr_array(size_t sz)
 {
     return GGGGC_malloc(sizeof(struct GGGGC_Header) + sz * sizeof(void *), sz);
