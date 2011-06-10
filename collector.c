@@ -41,22 +41,8 @@ void GGGGC_collector_init()
 {
     size_t sz = GGGGC_PSTACK_SIZE;
     ggggc_pstack = (struct GGGGC_PStack *) malloc(sizeof(struct GGGGC_PStack) - sizeof(void *) + sz * sizeof(void *));
-    ggggc_pstack->rem = sz;
     ggggc_pstack->cur = ggggc_pstack->ptrs;
     INIT_BUFFER(tocheck);
-}
-
-/* expand the root stack to support N more variables */
-void GGGGC_pstackExpand(size_t by)
-{
-    size_t cur = (ggggc_pstack->cur - ggggc_pstack->ptrs);
-    size_t sz = cur + ggggc_pstack->rem;
-    size_t newsz = sz;
-    while (newsz < cur + by)
-        newsz *= 2;
-    ggggc_pstack = (struct GGGGC_PStack *) realloc(ggggc_pstack, sizeof(struct GGGGC_PStack) - sizeof(void *) + newsz * sizeof(void *));
-    ggggc_pstack->rem = newsz - cur;
-    ggggc_pstack->cur = ggggc_pstack->ptrs + cur;
 }
 
 void GGGGC_collect(unsigned char gen)
