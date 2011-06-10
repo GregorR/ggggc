@@ -38,6 +38,7 @@ void GGGGC_init()
         ggggc_gens[g] = GGGGC_alloc_pool();
     }
     ggggc_heurpool = ggggc_allocpool = ggggc_gens[0];
+    ggggc_heurpoolmax = (char *) ggggc_heurpool + GGGGC_HEURISTIC_MAX;
 
     /* other inits */
     GGGGC_collector_init();
