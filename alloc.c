@@ -116,9 +116,8 @@ void GGGGC_clear_pool(struct GGGGC_Pool *pool)
     pool->top = pool->firstobj + GGGGC_CARDS_PER_POOL;
 
     /* remaining amount */
-    pool->remaining = GGGGC_POOL_BYTES - ((size_t) pool->top - (size_t) pool);
 #if defined(GGGGC_DEBUG) || defined(GGGGC_CLEAR_POOLS)
-    memset(pool->top, 0, pool->remaining);
+    memset(pool->top, 0, GGGGC_POOL_BYTES - ((size_t) pool->top - (size_t) pool));
 #endif
     /*pool->remc = GGGGC_CARD_BYTES - ((size_t) pool->top & GGGGC_CARD_MASK);*/
 
@@ -155,19 +154,14 @@ void GGGGC_free_pool(struct GGGGC_Pool *pool)
 static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, size_t sz, unsigned short ptrs)
 {
     /* perform the actual allocation */
-    if (sz < gpool->remaining) {
+    if ((void *) (((size_t) gpool->top + sz) & GGGGC_NOPOOL_MASK) == gpool) {
         size_t c1, c2;
         struct GGGGC_Header *ret;
         void **pt;
-        char *top;
 
         /* current top */
-        top = gpool->top;
-
-        /* sufficient room, just give it */
-        ret = (struct GGGGC_Header *) top;
-        gpool->top = (top += sz);
-        gpool->remaining -= sz;
+        ret = (struct GGGGC_Header *) gpool->top;
+        gpool->top += sz;
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
         ret->magic = GGGGC_HEADER_MAGIC;
 #endif
@@ -182,9 +176,9 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
         /* if we allocate at a card boundary, need to mark firstobj */
         if (gen != 0) {
             c1 = GGGGC_CARD_OF(ret);
-            c2 = GGGGC_CARD_OF(top);
+            c2 = GGGGC_CARD_OF(gpool->top);
             if (c1 != c2)
-                gpool->firstobj[c2] = (unsigned char) ((size_t) top & GGGGC_CARD_MASK);
+                gpool->firstobj[c2] = (unsigned char) ((size_t) gpool->top & GGGGC_CARD_MASK);
         }
 
         return (void *) (ret + 1);
@@ -228,12 +222,16 @@ retry:
             return ret;
         }
     }
+    if ((ret = GGGGC_trymalloc_pool(0, gpool, sz, ptrs))) {
+        ggggc_allocpool = gpool;
+        return ret;
+    }
 
     /* need to expand */
     gpool->next = GGGGC_alloc_pool();
-    if (sz >= gpool->next->remaining) {
+    if ((void *) (((size_t) gpool->next->top + sz) & GGGGC_NOPOOL_MASK) != (void *) gpool->next) {
         /* there will never be enough room! */
-        fprintf(stderr, "Allocation of a too-large object: %d > %d\n", (int) sz, (int) gpool->next->remaining);
+        fprintf(stderr, "Allocation of a too-large object: %d\n", (int) sz);
         return NULL;
     }
     goto retry;
@@ -242,7 +240,7 @@ retry:
 void *GGGGC_malloc(size_t sz, unsigned short ptrs)
 {
     void *ret;
-    if ((ret = GGGGC_trymalloc_pool(0, ggggc_allocpool, sz, ptrs))) return ret;
+    if (LIKELY(ret = GGGGC_trymalloc_pool(0, ggggc_allocpool, sz, ptrs))) return ret;
     return GGGGC_trymalloc_gen0(sz, ptrs);
 }
 

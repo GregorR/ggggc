@@ -235,8 +235,10 @@ retry:
             gpool = ggggc_gens[i];
             for (; gpool->next; gpool = gpool->next);
             gpool->next = GGGGC_alloc_pool();
-            if (i == 0)
+            if (i == 0) {
                 ggggc_heurpool = gpool->next;
+                ggggc_heurpoolmax = (char *) ggggc_heurpool + GGGGC_HEURISTIC_MAX;
+            }
         }
     } else
 #ifdef RUSAGE_SELF
@@ -252,8 +254,10 @@ retry:
                 GGGGC_free_pool(gpool->next);
                 gpool->next = NULL;
             }
-            if (i == 0)
+            if (i == 0) {
                 ggggc_heurpool = gpool->next ? gpool->next : gpool;
+                ggggc_heurpoolmax = (char *) ggggc_heurpool + GGGGC_HEURISTIC_MAX;
+            }
         }
     }
 

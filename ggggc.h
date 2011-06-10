@@ -44,6 +44,10 @@
 #define GGGGC_PSTACK_SIZE 256 /* # elements */
 #endif
 
+#ifndef GGGGC_HEURISTIC_MAX
+#define GGGGC_HEURISTIC_MAX (((size_t) 1 << GGGGC_POOL_SIZE) / 10)
+#endif
+
 /* Various sizes and masks */
 #define GGGGC_POOL_BYTES ((size_t) 1 << GGGGC_POOL_SIZE)
 #define GGGGC_NOPOOL_MASK ((size_t) -1 << GGGGC_POOL_SIZE)
@@ -166,7 +170,7 @@ void *GGGGC_realloc_data_array(void *orig, size_t sz);
 #define GGC_YIELD() GGGGC_collect(0)
 #else
 #define GGC_YIELD() do { \
-    if (ggggc_heurpool->remaining <= GGGGC_POOL_BYTES / 10) { \
+    if (ggggc_heurpool->top > ggggc_heurpoolmax) { \
         GGGGC_collect(0); \
     } \
 } while (0)
@@ -216,12 +220,12 @@ struct GGGGC_Pool {
     char remember[GGGGC_CARDS_PER_POOL];
     struct GGGGC_Pool *next;
     char *top;
-    size_t remaining; /* bytes remaining in the pool */
     char firstobj[GGGGC_CARDS_PER_POOL];
 };
 
 extern struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS+1];
 extern struct GGGGC_Pool *ggggc_heurpool, *ggggc_allocpool;
+extern char *ggggc_heurpoolmax;
 
 /* The pointer stack */
 struct GGGGC_PStack {
