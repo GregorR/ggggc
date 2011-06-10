@@ -50,6 +50,13 @@ void GGGGC_collect(unsigned char gen)
     struct GGGGC_Pool *gpool;
     unsigned char nextgen;
     int nislast;
+#ifdef GGGGC_DEBUG_COLLECTION_TIME
+    struct timeval tva, tvb;
+#endif
+
+#ifdef GGGGC_DEBUG_COLLECTION_TIME
+    gettimeofday(&tva, NULL);
+#endif
 
 retry:
     survivors = heapsz = 0;
@@ -210,4 +217,11 @@ retry:
     }
 
     ggggc_allocpool = ggggc_gens[0];
+
+#ifdef GGGGC_DEBUG_COLLECTION_TIME
+    gettimeofday(&tvb, NULL);
+    fprintf(stderr, "Generation %d collection finished in %dus\n",
+            (int) gen,
+            (tvb.tv_sec - tva.tv_sec) * 1000000 + (tvb.tv_usec - tva.tv_usec));
+#endif
 }
