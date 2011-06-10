@@ -172,7 +172,7 @@ retry:
     }
 
     /* now just iterate while we have things to check */
-    for (i = tocheck.bufused - 1; i > 0; i = tocheck.bufused - 1) {
+    for (i = tocheck.bufused - 1; i >= 0; i = tocheck.bufused - 1) {
         void **ptoch = tocheck.buf[i];
         struct GGGGC_Header *objtoch = (struct GGGGC_Header *) *ptoch - 1;
         tocheck.bufused--;
@@ -266,11 +266,13 @@ retry:
             gpool = ggggc_gens[i];
             for (; gpool->next; gpool = gpool->next);
             gpool->next = GGGGC_alloc_pool();
+            if (i == 0) {
+                ggggc_heurpool = gpool->next;
+                ggggc_heurpoolmax = (char *) ggggc_heurpool + GGGGC_HEURISTIC_MAX;
+            }
         }
-        gpool = ggggc_gens[0];
-        for (; gpool->next; gpool = gpool->next);
-        ggggc_heurpool = gpool;
     }
+
     ggggc_allocpool = ggggc_gens[0];
 
     /* clear up all the space used by the other threads */
