@@ -187,17 +187,25 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
     return NULL;
 }
 
-void *GGGGC_trymalloc_gen(unsigned char gen, int expand, size_t sz, unsigned short ptrs)
+void *GGGGC_trymalloc_gen(unsigned char gen, int expand, struct GGGGC_Pool **allocpool, size_t sz, unsigned short ptrs)
 {
-    struct GGGGC_Pool *gpool = ggggc_gens[gen];
+    struct GGGGC_Pool *gpool = *allocpool;
     void *ret;
+
+    /* if no allocation pool was provided, default */
+    if (gpool == NULL) {
+        gpool = *allocpool = ggggc_gens[gen];
+    }
 
     if ((ret = GGGGC_trymalloc_pool(gen, gpool, sz, ptrs))) return ret;
 
     /* crazy loops to avoid overchecking */
 retry:
     for (; gpool->next; gpool = gpool->next) {
-        if ((ret = GGGGC_trymalloc_pool(gen, gpool->next, sz, ptrs))) return ret;
+        if ((ret = GGGGC_trymalloc_pool(gen, gpool->next, sz, ptrs))) {
+            *allocpool = gpool->next;
+            return ret;
+        }
     }
 
     /* failed to find, must expand */
@@ -211,7 +219,7 @@ retry:
 
 static __inline__ void *GGGGC_trymalloc_gen0(size_t sz, unsigned short ptrs)
 {
-    struct GGGGC_Pool *gpool = ggggc_gens[0];
+    struct GGGGC_Pool *gpool = ggggc_allocpool;
     void *ret;
 
     /* call this only after trying ggggc_allocpool, so probably pool[0] */
