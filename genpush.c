@@ -31,9 +31,9 @@ int main()
         printf("#define GGC_PUSH%d(_obj1", i);
         for (j = 2; j <= i; j++)
             printf(", _obj%d", j);
-        printf(") do { if (ggggc_pstack->rem < %d) GGGGC_pstackExpand(%d); ggggc_pstack->rem -= %d;", i, i, i);
+        printf(") do {", i, i, i);
         for (j = 1; j <= i; j++)
             printf(" *(ggggc_pstack->cur++) = (void **) &(_obj%d);", j);
-        printf("} while(0)\n");
+        printf(" } while(0)\n");
     }
 }
