@@ -37,19 +37,18 @@ static struct Buffer_voidpp tocheck;
 
 void GGGGC_collector_init()
 {
-    size_t sz = GGGGC_PSTACK_SIZE;
-    ggggc_pstack = (struct GGGGC_PStack *) malloc(sizeof(struct GGGGC_PStack) - sizeof(void *) + sz * sizeof(void *));
-    ggggc_pstack->cur = ggggc_pstack->ptrs;
+    ggggc_pstack = NULL;
     INIT_BUFFER(tocheck);
 }
 
 void GGGGC_collect(unsigned char gen)
 {
     int i, j, c;
-    size_t p, survivors, heapsz;
+    size_t survivors, heapsz;
     struct GGGGC_Pool *gpool;
     unsigned char nextgen;
     int nislast;
+    struct GGGGC_PStack *p;
 #ifdef GGGGC_DEBUG_COLLECTION_TIME
     struct timeval tva, tvb;
 #endif
@@ -68,15 +67,13 @@ retry:
 
     /* first add the roots */
     tocheck.bufused = 0;
-    p = ggggc_pstack->cur - ggggc_pstack->ptrs;
 
-    while (BUFFER_SPACE(tocheck) < p) {
-        EXPAND_BUFFER(tocheck);
-    }
-
-    for (i = 0; i < p; i++) {
-        if (*ggggc_pstack->ptrs[i])
-            WRITE_ONE_BUFFER(tocheck, ggggc_pstack->ptrs[i]);
+    for (p = ggggc_pstack; p; p = p->next) {
+        void ***ptrs = p->ptrs;
+        for (i = 0; ptrs[i]; i++) {
+            if (*ptrs[i])
+                WRITE_ONE_BUFFER(tocheck, ptrs[i]);
+        }
     }
 
     /* get all the remembered cards */
