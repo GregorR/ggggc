@@ -103,6 +103,7 @@ retry:
     }
 
     /* now just iterate while we have things to check */
+    gpool = NULL;
     for (i = tocheck.bufused - 1; i >= 0; i = tocheck.bufused - 1) {
         void **ptoch = tocheck.buf[i];
         struct GGGGC_Header *objtoch = (struct GGGGC_Header *) *ptoch - 1;
@@ -129,7 +130,7 @@ retry:
 
             /* nope, get a new one */
             struct GGGGC_Header *newobj =
-                (struct GGGGC_Header *) GGGGC_trymalloc_gen(nextgen, nislast, objtoch->sz, objtoch->ptrs);
+                (struct GGGGC_Header *) GGGGC_trymalloc_gen(nextgen, nislast, &gpool, objtoch->sz, objtoch->ptrs);
             if (newobj == NULL) {
                 /* ACK! Out of memory! Need more GC! */
                 gen++;
