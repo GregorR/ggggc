@@ -139,7 +139,7 @@ struct GGGGC_Pool *GGGGC_alloc_pool()
 static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, size_t sz, unsigned short ptrs)
 {
     /* perform the actual allocation */
-    if ((void *) (((size_t) gpool->top + sz) & GGGGC_NOPOOL_MASK) == gpool) {
+    if (LIKELY((void *) (((size_t) gpool->top + sz) & GGGGC_NOPOOL_MASK) == gpool)) {
         size_t c1, c2;
         struct GGGGC_Header *ret;
         void **pt;
