@@ -33,6 +33,7 @@
 void GGGGC_init()
 {
     int g;
+    int tmpi;
 
     for (g = 0; g <= GGGGC_GENERATIONS; g++) {
         ggggc_gens[g] = GGGGC_alloc_pool();
@@ -42,5 +43,7 @@ void GGGGC_init()
 
     /* other inits */
     GGGGC_collector_init();
+    pFreelistLock = GGC_alloc_mutex();
+    GGC_MUTEX_INIT(tmpi, pFreelistLock);
     GGC_threads_init();
 }

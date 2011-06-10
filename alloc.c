@@ -126,9 +126,6 @@ void GGGGC_clear_pool(struct GGGGC_Pool *pool)
     pool->firstobj[c] = ((size_t) pool->top) & GGGGC_CARD_MASK;
 }
 
-/* FIXME: global freelist */
-static struct GGGGC_Pool *pFreelist = NULL;
-
 struct GGGGC_Pool *GGGGC_alloc_pool()
 {
     /* allocate this pool */
@@ -136,8 +133,7 @@ struct GGGGC_Pool *GGGGC_alloc_pool()
     struct GGGGC_Pool *pool = NULL;
     while (!pool && pFreelist) {
         pool = pFreelist;
-        /* FIXME: mutex */
-        if (!GGC_cas(NULL, (void **) &pFreelist, pool, NULL)) pool = NULL;
+        if (!GGC_cas(pFreelistLock, (void **) &pFreelist, pool, NULL)) pool = NULL;
         if (pool) {
             pFreelist = pool->next;
         }

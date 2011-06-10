@@ -28,3 +28,5 @@ struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS+1];
 struct GGGGC_Pool *ggggc_heurpool = NULL, *ggggc_allocpool = NULL;
 char *ggggc_heurpoolmax = NULL;
 GGC_TLS(struct GGGGC_PStack *) ggggc_pstack = NULL;
+struct GGGGC_Pool *pFreelist = NULL;
+GGC_th_mutex_t pFreelistLock;

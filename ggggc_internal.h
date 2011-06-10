@@ -46,4 +46,8 @@ void GGGGC_new_thread();
 /* or ending */
 void GGGGC_end_thread();
 
+/* FIXME: global freelist */
+extern struct GGGGC_Pool *pFreelist;
+extern GGC_th_mutex_t pFreelistLock;
+
 #endif
