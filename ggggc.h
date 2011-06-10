@@ -45,7 +45,7 @@
 #endif
 
 #ifndef GGGGC_HEURISTIC_MAX
-#define GGGGC_HEURISTIC_MAX (((size_t) 1 << GGGGC_POOL_SIZE) / 10)
+#define GGGGC_HEURISTIC_MAX (((size_t) 1 << GGGGC_POOL_SIZE) * 15 / 16)
 #endif
 
 /* Various sizes and masks */
