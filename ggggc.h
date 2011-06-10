@@ -27,7 +27,7 @@
 
 #include <stdlib.h>
 
-#include "gcthreads.h"
+#include "ggggcthreads.h"
 
 /* These can only be changed if they're changed while compiling, so be careful! */
 #ifndef GGGGC_GENERATIONS

@@ -48,6 +48,7 @@ static GGC_th_rwlock_t threadLock;
 void GGGGC_collector_init()
 {
     size_t sz = GGGGC_PSTACK_SIZE;
+    int tmpi;
     GGC_TLS_INIT(ggggc_pstack);
     GGC_TLS_SET(ggggc_pstack, (struct GGGGC_PStack *) malloc(sizeof(struct GGGGC_PStack) - sizeof(void *) + sz * sizeof(void *)));
     GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->rem = sz;
@@ -56,9 +57,9 @@ void GGGGC_collector_init()
     threadCount = 1;
     maxThread = 0;
     threadBarrier = GGC_alloc_barrier();
-    GGC_barrier_init(threadBarrier, 1);
+    GGC_BARRIER_INIT(tmpi, threadBarrier, 1);
     threadLock = GGC_alloc_rwlock();
-    GGC_rwlock_init(threadLock);
+    GGC_RWLOCK_INIT(tmpi, threadLock);
 }
 
 /* expand the root stack to support N more variables */
@@ -85,14 +86,17 @@ void GGGGC_collect(unsigned char gen)
     int serialThread;
     unsigned int tid, ti;
     struct Buffer_voidpp mycheck;
+    int tmpi;
 
-#define BARRIER serialThread = (GGC_barrier_wait(threadBarrier) == GGC_BARRIER_SERIAL_THREAD)
+#define BARRIER \
+    GGC_BARRIER_WAIT(serialThread, threadBarrier); \
+    serialThread = (serialThread == GGC_BARRIER_SERIAL_THREAD)
 
     /* get our thread ID */
     tid = (unsigned int) (size_t) GGC_TLS_GET(void *, GGC_thread_identifier);
 
     /* make sure all threads synchronize here */
-    GGC_rwlock_rdlock(threadLock);
+    GGC_RWLOCK_RDLOCK(tmpi, threadLock);
     BARRIER;
 
     /* first, create an array for all the pointer stacks */
@@ -121,7 +125,7 @@ void GGGGC_collect(unsigned char gen)
     /* only the serial thread will GC */
     if (!serialThread) {
         BARRIER;
-        GGC_rwlock_rdunlock(threadLock);
+        GGC_RWLOCK_RDUNLOCK(tmpi, threadLock);
         return;
     }
 
@@ -283,7 +287,7 @@ retry:
     }
     free(chcheck);
     BARRIER;
-    GGC_rwlock_rdunlock(threadLock);
+    GGC_RWLOCK_RDUNLOCK(tmpi, threadLock);
 }
 
 /* keep track of the number of threads we have */
@@ -291,32 +295,35 @@ void GGGGC_new_thread()
 {
     unsigned int tid = (unsigned int) (size_t) GGC_TLS_GET(void *, GGC_thread_identifier);
     size_t sz = GGGGC_PSTACK_SIZE;
+    int tmpi;
 
     /* set up this thread's pointer stack */
     GGC_TLS_SET(ggggc_pstack, (struct GGGGC_PStack *) malloc(sizeof(struct GGGGC_PStack) - sizeof(void *) + sz * sizeof(void *)));
     GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->rem = sz;
     GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->cur = GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs;
 
-    GGC_rwlock_wrlock(threadLock);
+    GGC_RWLOCK_WRLOCK(tmpi, threadLock);
 
     /* now mark this thread as existing and reset the barrier */
     threadCount++;
     if (tid > maxThread) maxThread = tid;
-    GGC_barrier_destroy(threadBarrier);
-    GGC_barrier_init(threadBarrier, threadCount);
+    GGC_BARRIER_DESTROY(tmpi, threadBarrier);
+    GGC_BARRIER_INIT(tmpi, threadBarrier, threadCount);
 
-    GGC_rwlock_wrunlock(threadLock);
+    GGC_RWLOCK_WRUNLOCK(tmpi, threadLock);
 }
 
 void GGGGC_end_thread()
 {
-    GGC_rwlock_wrlock(threadLock);
+    int tmpi;
+
+    GGC_RWLOCK_WRLOCK(tmpi, threadLock);
 
     threadCount--;
-    GGC_barrier_destroy(threadBarrier);
-    GGC_barrier_init(threadBarrier, threadCount);
+    GGC_BARRIER_DESTROY(tmpi, threadBarrier);
+    GGC_BARRIER_INIT(tmpi, threadBarrier, threadCount);
 
-    GGC_rwlock_wrunlock(threadLock);
+    GGC_RWLOCK_WRUNLOCK(tmpi, threadLock);
 
     /* free this thread's pointer stack */
     free(GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack));
