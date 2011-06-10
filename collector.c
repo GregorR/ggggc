@@ -39,23 +39,31 @@ static struct Buffer_voidpp tocheck;
 
 void GGGGC_collector_init()
 {
-    size_t sz = GGGGC_PSTACK_SIZE;
-    ggggc_pstack = (struct GGGGC_PStack *) malloc(sizeof(struct GGGGC_PStack) - sizeof(void *) + sz * sizeof(void *));
-    ggggc_pstack->cur = ggggc_pstack->ptrs;
+    ggggc_pstack = NULL;
     INIT_BUFFER(tocheck);
 }
 
 void GGGGC_collect(unsigned char gen)
 {
     int i, j, c;
-    size_t p, survivors, heapsz;
+    size_t survivors, heapsz;
     struct GGGGC_Pool *gpool;
     unsigned char nextgen;
     int nislast;
+    struct GGGGC_PStack *p;
 #ifdef RUSAGE_SELF
     long faultBegin, faultEnd;
     static int faultingCollections = 0;
+#endif
+#ifdef GGGGC_DEBUG_COLLECTION_TIME
+    struct timeval tva, tvb;
+#endif
 
+#ifdef GGGGC_DEBUG_COLLECTION_TIME
+    gettimeofday(&tva, NULL);
+#endif
+
+#ifdef RUSAGE_SELF
     {
         struct rusage ru;
         if (getrusage(RUSAGE_SELF, &ru) == 0) faultBegin = ru.ru_minflt;
@@ -73,15 +81,13 @@ retry:
 
     /* first add the roots */
     tocheck.bufused = 0;
-    p = ggggc_pstack->cur - ggggc_pstack->ptrs;
 
-    while (BUFFER_SPACE(tocheck) < p) {
-        EXPAND_BUFFER(tocheck);
-    }
-
-    for (i = 0; i < p; i++) {
-        if (*ggggc_pstack->ptrs[i])
-            WRITE_ONE_BUFFER(tocheck, ggggc_pstack->ptrs[i]);
+    for (p = ggggc_pstack; p; p = p->next) {
+        void ***ptrs = p->ptrs;
+        for (i = 0; ptrs[i]; i++) {
+            if (*ptrs[i])
+                WRITE_ONE_BUFFER(tocheck, ptrs[i]);
+        }
     }
 
     /* get all the remembered cards */
@@ -187,7 +193,10 @@ retry:
         memset(gpool->remember, 0, GGGGC_CARDS_PER_POOL);
     }
 
-    /* and if we're doing the last (last+1 really) generation, treat it like two-space copying */
+    /* and if we're doing the last (last+1 really) generation, treat it like two-space copying
+     * NOTE: This step is expensive, but maintaining the same intelligence
+     * during collection proper, particularly due to forwarding pointers from
+     * both generations, seems to be more expensive */
     if (nislast) {
         gpool = ggggc_gens[gen+1];
         ggggc_gens[gen+1] = ggggc_gens[gen];
@@ -197,7 +206,8 @@ retry:
         for (; gpool; gpool = gpool->next) {
             struct GGGGC_Header *upd =
                 (struct GGGGC_Header *) (gpool->firstobj + GGGGC_CARDS_PER_POOL);
-            while ((void *) upd < (void *) gpool->top) {
+            void *top = gpool->top;
+            while ((void *) upd < top) {
                 upd->gen = GGGGC_GENERATIONS - 1;
                 upd = (struct GGGGC_Header *) ((char *) upd + upd->sz);
             }
@@ -249,4 +259,11 @@ retry:
     }
 
     ggggc_allocpool = ggggc_gens[0];
+
+#ifdef GGGGC_DEBUG_COLLECTION_TIME
+    gettimeofday(&tvb, NULL);
+    fprintf(stderr, "Generation %d collection finished in %dus\n",
+            (int) gen,
+            (tvb.tv_sec - tva.tv_sec) * 1000000 + (tvb.tv_usec - tva.tv_usec));
+#endif
 }
