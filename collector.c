@@ -175,7 +175,10 @@ retry:
         memset(gpool->remember, 0, GGGGC_CARDS_PER_POOL);
     }
 
-    /* and if we're doing the last (last+1 really) generation, treat it like two-space copying */
+    /* and if we're doing the last (last+1 really) generation, treat it like two-space copying
+     * NOTE: This step is expensive, but maintaining the same intelligence
+     * during collection proper, particularly due to forwarding pointers from
+     * both generations, seems to be more expensive */
     if (nislast) {
         gpool = ggggc_gens[gen+1];
         ggggc_gens[gen+1] = ggggc_gens[gen];
@@ -185,7 +188,8 @@ retry:
         for (; gpool; gpool = gpool->next) {
             struct GGGGC_Header *upd =
                 (struct GGGGC_Header *) (gpool->firstobj + GGGGC_CARDS_PER_POOL);
-            while ((void *) upd < (void *) gpool->top) {
+            void *top = gpool->top;
+            while ((void *) upd < top) {
                 upd->gen = GGGGC_GENERATIONS - 1;
                 upd = (struct GGGGC_Header *) ((char *) upd + upd->sz);
             }
