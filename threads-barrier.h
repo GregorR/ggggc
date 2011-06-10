@@ -1,5 +1,5 @@
 /*
- * GGGGC threads
+ * GGGGC memory barrier support
  *
  * Copyright (C) 2011 Gregor Richards
  * 
@@ -22,30 +22,24 @@
  * THE SOFTWARE.
  */
 
-/* for pthreads */
-#define _POSIX_C_SOURCE 200112L
+/* The only exported #define is GGC_MEMORY_BARRIER() */
 
-void GGC_threads_init_common();
+#ifndef GGGGC_THREADS_BARRIER_H
+#define GGGGC_THREADS_BARRIER_H
 
-/* get our real POSIX version */
-#if defined(unix) || defined(__unix__) || defined(__unix)
-#include <unistd.h>
-#endif
-
-#if _POSIX_VERSION >= 200112L /* should support pthreads */
-#include "gcthreads-pthreads.c"
+#if defined(__GNUC__)
+#define GGC_ARCH_BARRIER            __sync_synchronize()
+#define GGC_COMP_BARRIER            __asm__ __volatile__ ("" ::: "memory")
+#define GGC_FULL_BARRIER            __sync_synchronize()
 
 #else
-#include "gcthreads-nothreads.c"
+#define GGC_ARCH_BARRIER            do {} while (0)
+#define GGC_COMP_BARRIER            do {} while (0)
+#define GGC_FULL_BARRIER            do {} while (0)
+#ifdef GGGGC_DEBUG_UNKNOWN_HOST
+#warn Unknown host
+#endif
 
 #endif
 
-/* global thread identifier */
-GGC_TLS(void *) GGC_thread_identifier;
-
-/* common initialization */
-void GGC_threads_init_common()
-{
-    GGC_TLS_INIT(GGC_thread_identifier);
-    GGC_TLS_SET(GGC_thread_identifier, (void *) 0);
-}
+#endif

@@ -130,9 +130,10 @@ void GGGGC_clear_pool(struct GGGGC_Pool *pool)
 struct GGGGC_Pool *GGGGC_alloc_pool()
 {
     /* allocate this pool */
+    int tmpi;
     struct GGGGC_Pool *pool = (struct GGGGC_Pool *) allocateAligned(GGGGC_POOL_SIZE);
     pool->lock = GGC_alloc_mutex();
-    GGC_mutex_init(pool->lock);
+    GGC_MUTEX_INIT(tmpi, pool->lock);
     pool->next = NULL;
     GGGGC_clear_pool(pool);
 
