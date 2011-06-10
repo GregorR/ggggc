@@ -41,7 +41,7 @@
 #endif
 
 #ifndef GGGGC_PSTACK_SIZE
-#define GGGGC_PSTACK_SIZE 256 /* # elements */
+#define GGGGC_PSTACK_SIZE 1048572 /* # elements */
 #endif
 
 #ifndef GGGGC_HEURISTIC_MAX
@@ -182,10 +182,9 @@ void GGGGC_collect(unsigned char gen);
  * pointers */
 #include "ggggcpush.h"
 #define GGC_PUSH GGC_PUSH1
-void GGGGC_pstackExpand(size_t by);
 
 /* And when you leave the function, remove them */
-#define GGC_POP(ct) GGC_YIELD(); ggggc_pstack->rem += (ct); ggggc_pstack->cur -= (ct)
+#define GGC_POP(ct) GGC_YIELD(); ggggc_pstack->cur -= (ct)
 
  /* This is used to determine whether a pointer relationship needs to be added
   * to the remembered set */
@@ -229,7 +228,6 @@ extern char *ggggc_heurpoolmax;
 
 /* The pointer stack */
 struct GGGGC_PStack {
-    size_t rem;
     void ***cur;
     void **ptrs[1];
 };
