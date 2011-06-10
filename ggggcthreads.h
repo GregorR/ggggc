@@ -136,9 +136,17 @@ void *GGC_key_get(GGC_th_key_t key);
 /* portable compare-and-swap operation, falling back to mutex iff necessary */
 int GGC_cas(GGC_th_mutex_t mutex, void **addr, void *oldv, void *newv);
 
+/* portable atomic increment operation, falling back to mutex iff necessary */
+void *GGC_inc(GGC_th_mutex_t mutex, void **addr, void *inc);
+
+/* portable atomic decrement operation, falling back to mutex iff necessary */
+void *GGC_dec(GGC_th_mutex_t mutex, void **addr, void *inc);
+
 /* figure out alternatives to cas etc */
 #if defined(__GNUC__)
-#define GGC_cas(mutex, addr, oldv, newv) __sync_bool_compare_and_swap((void **) addr, (void *) oldv, (void *) newv)
+#define GGC_cas(mutex, addr, oldv, newv) (__sync_bool_compare_and_swap((void **) (addr), (void *) (oldv), (void *) (newv)))
+#define GGC_inc(mutex, addr, incr) ((void *) __sync_fetch_and_add((size_t *) (void *) (addr), (size_t) (incr)))
+#define GGC_dec(mutex, addr, decr) ((void *) __sync_fetch_and_sub((size_t *) (void *) (addr), (size_t) (decr)))
 #endif
 
 #include "threads-tls.h"

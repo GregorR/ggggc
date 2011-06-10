@@ -314,4 +314,15 @@ int GGC_cas(GGC_th_mutex_t mutex, void **addr, void *oldv, void *newv)
     GGC_mutex_unlock(mutex);
     return ret;
 }
+
+/* portable atomic increment operation, falling back to mutex iff necessary */
+void *GGC_inc(GGC_th_mutex_t mutex, void **addr, void *inc)
+{
+    void *ret;
+    GGC_mutex_lock(mutex);
+    ret = *addr;
+    *((char **) addr) += (size_t) inc;
+    GGC_mutex_unlock(mutex);
+    return ret;
+}
 #endif

@@ -142,17 +142,11 @@ struct GGGGC_Pool *GGGGC_alloc_pool()
 static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, size_t sz, unsigned short ptrs)
 {
     /* perform the actual allocation */
-    char *top = gpool->top;
+    char *top = GGC_inc(gpool->lock, (void **) &gpool->top, (void *) sz);
     if (LIKELY((void *) (((size_t) top + sz) & GGGGC_NOPOOL_MASK) == gpool)) {
         size_t c1, c2;
         struct GGGGC_Header *ret;
         void **pt;
-
-        /* try to increase the top */
-        while (!GGC_cas(gpool->lock, (void **) &gpool->top, (void *) top, (void *) (top + sz))) {
-            top = gpool->top;
-            if (UNLIKELY((void *) (((size_t) top + sz) & GGGGC_NOPOOL_MASK) != gpool)) return NULL;
-        }
 
         /* sufficient room, just give it */
         ret = (struct GGGGC_Header *) top;
@@ -177,6 +171,11 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
         }
 
         return (void *) (ret + 1);
+    }
+
+    else {
+        /* put it back */
+        (void) GGC_dec(gpool->lock, (void **) &gpool->top, (void *) sz);
     }
 
     return NULL;
