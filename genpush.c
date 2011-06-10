@@ -32,8 +32,9 @@ int main()
         for (j = 2; j <= i; j++)
             printf(", _obj%d", j);
         printf(") do {", i, i, i);
-        for (j = 1; j <= i; j++)
-            printf(" *(ggggc_pstack->cur++) = (void **) &(_obj%d);", j);
+        for (j = 0; j < i; j++)
+            printf(" ggggc_pstack->cur[%d] = (void **) &(_obj%d);", j, j + 1);
+        printf(" ggggc_pstack->cur += %d;", i);
         printf(" } while(0)\n");
     }
 }
