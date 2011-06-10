@@ -42,10 +42,6 @@
 #define GGGGC_CARD_SIZE 8 /* also a power of 2 */
 #endif
 
-#ifndef GGGGC_PSTACK_SIZE
-#define GGGGC_PSTACK_SIZE 256 /* # elements */
-#endif
-
 #ifndef GGGGC_HEURISTIC_MAX
 #define GGGGC_HEURISTIC_MAX (((size_t) 1 << GGGGC_POOL_SIZE) * 15 / 16)
 #endif
@@ -63,6 +59,12 @@
 #ifdef GGGGC_DEBUG
 #ifndef GGGGC_DEBUG_MEMORY_CORRUPTION
 #define GGGGC_DEBUG_MEMORY_CORRUPTION
+#endif
+#ifndef GGGGC_DEBUG_COLLECTION_TIME
+#define GGGGC_DEBUG_COLLECTION_TIME
+#endif
+#ifndef GGGGC_DEBUG_COLLECTION_TIME
+#define GGGGC_DEBUG_COLLECTION_TIME
 #endif
 #endif
 
@@ -184,10 +186,9 @@ void GGGGC_collect(unsigned char gen);
  * pointers */
 #include "ggggcpush.h"
 #define GGC_PUSH GGC_PUSH1
-void GGGGC_pstackExpand(size_t by);
 
 /* And when you leave the function, remove them */
-#define GGC_POP(ct) GGC_YIELD(); GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->rem += (ct); GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->cur -= (ct)
+#define GGC_POP(ct) GGC_YIELD(); GGC_TLS_SET(ggggc_pstack, GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->next)
 
  /* This is used to determine whether a pointer relationship needs to be added
   * to the remembered set */
@@ -232,8 +233,7 @@ extern char *ggggc_heurpoolmax;
 
 /* The pointer stack */
 struct GGGGC_PStack {
-    size_t rem;
-    void ***cur;
+    void *next;
     void **ptrs[1];
 };
 extern GGC_TLS(struct GGGGC_PStack *) ggggc_pstack;

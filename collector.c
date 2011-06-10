@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
+#include <sys/time.h>
 
 #include <unistd.h>
 
@@ -47,12 +49,9 @@ static GGC_th_rwlock_t threadLock;
 
 void GGGGC_collector_init()
 {
-    size_t sz = GGGGC_PSTACK_SIZE;
     int tmpi;
     GGC_TLS_INIT(ggggc_pstack);
-    GGC_TLS_SET(ggggc_pstack, (struct GGGGC_PStack *) malloc(sizeof(struct GGGGC_PStack) - sizeof(void *) + sz * sizeof(void *)));
-    GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->rem = sz;
-    GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->cur = GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs;
+    GGC_TLS_SET(ggggc_pstack, NULL);
     INIT_BUFFER(tocheck);
     threadCount = 1;
     maxThread = 0;
@@ -62,31 +61,38 @@ void GGGGC_collector_init()
     GGC_RWLOCK_INIT(tmpi, threadLock);
 }
 
-/* expand the root stack to support N more variables */
-void GGGGC_pstackExpand(size_t by)
-{
-    size_t cur = (GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->cur - GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs);
-    size_t sz = cur + GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->rem;
-    size_t newsz = sz;
-    while (newsz < cur + by)
-        newsz *= 2;
-    GGC_TLS_SET(ggggc_pstack, (struct GGGGC_PStack *) realloc(GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack), sizeof(struct GGGGC_PStack) - sizeof(void *) + newsz * sizeof(void *)));
-    GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->rem = newsz - cur;
-    GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->cur = GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs + cur;
-}
-
 void GGGGC_collect(unsigned char gen)
 {
     int i, j, c;
-    size_t p, survivors, heapsz;
+    size_t survivors, heapsz;
     struct GGGGC_Pool *gpool;
     unsigned char nextgen;
     int nislast;
+    struct GGGGC_PStack *p;
+#ifdef RUSAGE_SELF
+    long faultBegin, faultEnd;
+    static int faultingCollections = 0;
+#endif
+#ifdef GGGGC_DEBUG_COLLECTION_TIME
+    struct timeval tva, tvb;
+#endif
 
     int serialThread;
     unsigned int tid, ti;
     struct Buffer_voidpp mycheck;
     int tmpi;
+
+#ifdef GGGGC_DEBUG_COLLECTION_TIME
+    gettimeofday(&tva, NULL);
+#endif
+
+#ifdef RUSAGE_SELF
+    {
+        struct rusage ru;
+        if (getrusage(RUSAGE_SELF, &ru) == 0) faultBegin = ru.ru_minflt;
+        else faultBegin = 0;
+    }
+#endif
 
 #define BARRIER \
     GGC_BARRIER_WAIT(serialThread, threadBarrier); \
@@ -108,17 +114,16 @@ void GGGGC_collect(unsigned char gen)
 
     /* now each thread puts its own roots in */
     INIT_BUFFER(mycheck);
-    p = GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->cur - GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs;
+    p = GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack);
 
-    while (BUFFER_SPACE(mycheck) < p) {
-        EXPAND_BUFFER(mycheck);
-    }
-
-    for (i = 0; i < p; i++) {
-        if (*GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs[i]) {
-            WRITE_ONE_BUFFER(mycheck, GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs[i]);
+    for (; p; p = p->next) {
+        void ***ptrs = p->ptrs;
+        for (i = 0; ptrs[i]; i++) {
+            if (*ptrs[i])
+                WRITE_ONE_BUFFER(mycheck, ptrs[i]);
         }
     }
+
     chcheck[tid] = mycheck;
     BARRIER;
 
@@ -176,6 +181,7 @@ retry:
     }
 
     /* now just iterate while we have things to check */
+    gpool = NULL;
     for (i = tocheck.bufused - 1; i >= 0; i = tocheck.bufused - 1) {
         void **ptoch = tocheck.buf[i];
         struct GGGGC_Header *objtoch = (struct GGGGC_Header *) *ptoch - 1;
@@ -202,7 +208,7 @@ retry:
 
             /* nope, get a new one */
             struct GGGGC_Header *newobj =
-                (struct GGGGC_Header *) GGGGC_trymalloc_gen(nextgen, nislast, objtoch->sz, objtoch->ptrs);
+                (struct GGGGC_Header *) GGGGC_trymalloc_gen(nextgen, nislast, &gpool, objtoch->sz, objtoch->ptrs);
             if (newobj == NULL) {
                 /* ACK! Out of memory! Need more GC! */
                 gen++;
@@ -247,7 +253,10 @@ retry:
         memset(gpool->remember, 0, GGGGC_CARDS_PER_POOL);
     }
 
-    /* and if we're doing the last (last+1 really) generation, treat it like two-space copying */
+    /* and if we're doing the last (last+1 really) generation, treat it like two-space copying
+     * NOTE: This step is expensive, but maintaining the same intelligence
+     * during collection proper, particularly due to forwarding pointers from
+     * both generations, seems to be more expensive */
     if (nislast) {
         gpool = ggggc_gens[gen+1];
         ggggc_gens[gen+1] = ggggc_gens[gen];
@@ -257,21 +266,53 @@ retry:
         for (; gpool; gpool = gpool->next) {
             struct GGGGC_Header *upd =
                 (struct GGGGC_Header *) (gpool->firstobj + GGGGC_CARDS_PER_POOL);
-            while ((void *) upd < (void *) gpool->top) {
+            void *top = gpool->top;
+            while ((void *) upd < top) {
                 upd->gen = GGGGC_GENERATIONS - 1;
                 upd = (struct GGGGC_Header *) ((char *) upd + upd->sz);
             }
         }
     }
 
-    /* and finally, heuristically allocate more space */
-    if (survivors > heapsz / 2) {
+    /* and finally, heuristically allocate more space or restrict */
+#ifdef RUSAGE_SELF
+    {
+        struct rusage ru;
+        if (getrusage(RUSAGE_SELF, &ru) == 0) faultEnd = ru.ru_minflt;
+        else faultEnd = 0;
+    }
+    if (faultEnd > faultBegin) faultingCollections++;
+    else faultingCollections = 0;
+    if (faultingCollections == 0)
+#else
+    if (survivors > heapsz / 2)
+#endif
+    {
         for (i = 0; i <= GGGGC_GENERATIONS; i++) {
             gpool = ggggc_gens[i];
             for (; gpool->next; gpool = gpool->next);
             gpool->next = GGGGC_alloc_pool();
             if (i == 0) {
                 ggggc_heurpool = gpool->next;
+                ggggc_heurpoolmax = (char *) ggggc_heurpool + GGGGC_HEURISTIC_MAX;
+            }
+        }
+    } else
+#ifdef RUSAGE_SELF
+    if (faultingCollections > 1)
+#else
+    if (0)
+#endif
+    {
+        for (i = 0; i <= GGGGC_GENERATIONS; i++) {
+            gpool = ggggc_gens[i];
+            for (; gpool->next && gpool->next->next; gpool = gpool->next);
+            if (gpool->next && (void *) gpool->next->top == (void *) (gpool + 1)) {
+                GGGGC_free_pool(gpool->next);
+                gpool->next = NULL;
+            }
+            if (i == 0) {
+                ggggc_heurpool = gpool->next ? gpool->next : gpool;
                 ggggc_heurpoolmax = (char *) ggggc_heurpool + GGGGC_HEURISTIC_MAX;
             }
         }
@@ -288,19 +329,23 @@ retry:
     free(chcheck);
     BARRIER;
     GGC_RWLOCK_RDUNLOCK(tmpi, threadLock);
+
+#ifdef GGGGC_DEBUG_COLLECTION_TIME
+    gettimeofday(&tvb, NULL);
+    fprintf(stderr, "Generation %d collection finished in %dus\n",
+            (int) gen,
+            (tvb.tv_sec - tva.tv_sec) * 1000000 + (tvb.tv_usec - tva.tv_usec));
+#endif
 }
 
 /* keep track of the number of threads we have */
 void GGGGC_new_thread()
 {
     unsigned int tid = (unsigned int) (size_t) GGC_TLS_GET(void *, GGC_thread_identifier);
-    size_t sz = GGGGC_PSTACK_SIZE;
     int tmpi;
 
     /* set up this thread's pointer stack */
-    GGC_TLS_SET(ggggc_pstack, (struct GGGGC_PStack *) malloc(sizeof(struct GGGGC_PStack) - sizeof(void *) + sz * sizeof(void *)));
-    GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->rem = sz;
-    GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->cur = GGC_TLS_GET(struct GGGGC_PStack *, ggggc_pstack)->ptrs;
+    GGC_TLS_SET(ggggc_pstack, NULL);
 
     GGC_RWLOCK_WRLOCK(tmpi, threadLock);
 

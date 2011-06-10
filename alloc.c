@@ -126,17 +126,37 @@ void GGGGC_clear_pool(struct GGGGC_Pool *pool)
     pool->firstobj[c] = ((size_t) pool->top) & GGGGC_CARD_MASK;
 }
 
+/* FIXME: global freelist */
+static struct GGGGC_Pool *pFreelist = NULL;
+
 struct GGGGC_Pool *GGGGC_alloc_pool()
 {
     /* allocate this pool */
     int tmpi;
-    struct GGGGC_Pool *pool = (struct GGGGC_Pool *) allocateAligned(GGGGC_POOL_SIZE);
-    pool->lock = GGC_alloc_mutex();
-    GGC_MUTEX_INIT(tmpi, pool->lock);
+    struct GGGGC_Pool *pool = NULL;
+    while (!pool && pFreelist) {
+        pool = pFreelist;
+        /* FIXME: mutex */
+        if (!GGC_cas(NULL, (void **) &pFreelist, pool, NULL)) pool = NULL;
+        if (pool) {
+            pFreelist = pool->next;
+        }
+    }
+    if (!pool) {
+        pool = (struct GGGGC_Pool *) allocateAligned(GGGGC_POOL_SIZE);
+        pool->lock = GGC_alloc_mutex();
+        GGC_MUTEX_INIT(tmpi, pool->lock);
+    }
     pool->next = NULL;
     GGGGC_clear_pool(pool);
 
     return pool;
+}
+
+void GGGGC_free_pool(struct GGGGC_Pool *pool)
+{
+    pool->next = pFreelist;
+    pFreelist = pool;
 }
 
 static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, size_t sz, unsigned short ptrs)
@@ -144,31 +164,18 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
     /* perform the actual allocation */
     char *top = GGC_inc(gpool->lock, (void **) &gpool->top, (void *) sz);
     if (LIKELY((void *) (((size_t) top + sz) & GGGGC_NOPOOL_MASK) == gpool)) {
-        size_t c1, c2;
         struct GGGGC_Header *ret;
-        void **pt;
+        size_t c1, c2;
 
-        /* sufficient room, just give it */
+        /* current top */
         ret = (struct GGGGC_Header *) top;
         top += sz;
-#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
-        ret->magic = GGGGC_HEADER_MAGIC;
-#endif
-        ret->sz = sz;
-        ret->gen = gen;
-        ret->ptrs = ptrs;
-
-        /* clear out pointers */
-        pt = (void *) (ret + 1);
-        while (ptrs--) *pt++ = NULL;
 
         /* if we allocate at a card boundary, need to mark firstobj */
-        if (gen != 0) {
-            c1 = GGGGC_CARD_OF(ret);
-            c2 = GGGGC_CARD_OF(top);
-            if (c1 != c2)
-                gpool->firstobj[c2] = (unsigned char) ((size_t) top & GGGGC_CARD_MASK);
-        }
+        c1 = GGGGC_CARD_OF(ret);
+        c2 = GGGGC_CARD_OF(top);
+        if (c1 != c2)
+            gpool->firstobj[c2] = (unsigned char) ((size_t) top & GGGGC_CARD_MASK);
 
         return (void *) (ret + 1);
     }
@@ -181,17 +188,59 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
     return NULL;
 }
 
-void *GGGGC_trymalloc_gen(unsigned char gen, int expand, size_t sz, unsigned short ptrs)
+static __inline__ void *GGGGC_trymalloc_pool0(struct GGGGC_Pool *gpool, size_t sz, unsigned short ptrs)
 {
-    struct GGGGC_Pool *gpool = ggggc_gens[gen];
+    /* perform the actual allocation */
+    char *top = GGC_inc(gpool->lock, (void **) &gpool->top, (void *) sz);
+    if (LIKELY((void *) (((size_t) top + sz) & GGGGC_NOPOOL_MASK) == gpool)) {
+        struct GGGGC_Header *ret;
+        void **pt;
+
+        /* current top */
+        ret = (struct GGGGC_Header *) top;
+        top += sz;
+
+        /* configure it if this is a direct mutator allocation */
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+        ret->magic = GGGGC_HEADER_MAGIC;
+#endif
+        ret->sz = sz;
+        ret->gen = 0;
+        ret->ptrs = ptrs;
+
+        pt = (void *) (ret + 1);
+        while (ptrs--) *pt++ = NULL;
+
+        return (void *) (ret + 1);
+    }
+
+    else {
+        /* put it back */
+        (void) GGC_dec(gpool->lock, (void **) &gpool->top, (void *) sz);
+    }
+
+    return NULL;
+}
+
+void *GGGGC_trymalloc_gen(unsigned char gen, int expand, struct GGGGC_Pool **allocpool, size_t sz, unsigned short ptrs)
+{
+    struct GGGGC_Pool *gpool = *allocpool;
     void *ret;
+
+    /* if no allocation pool was provided, default */
+    if (gpool == NULL) {
+        gpool = *allocpool = ggggc_gens[gen];
+    }
 
     if ((ret = GGGGC_trymalloc_pool(gen, gpool, sz, ptrs))) return ret;
 
     /* crazy loops to avoid overchecking */
 retry:
     for (; gpool->next; gpool = gpool->next) {
-        if ((ret = GGGGC_trymalloc_pool(gen, gpool->next, sz, ptrs))) return ret;
+        if ((ret = GGGGC_trymalloc_pool(gen, gpool->next, sz, ptrs))) {
+            *allocpool = gpool->next;
+            return ret;
+        }
     }
 
     /* failed to find, must expand */
@@ -205,18 +254,18 @@ retry:
 
 static __inline__ void *GGGGC_trymalloc_gen0(size_t sz, unsigned short ptrs)
 {
-    struct GGGGC_Pool *gpool = ggggc_gens[0];
+    struct GGGGC_Pool *gpool = ggggc_allocpool;
     void *ret;
 
     /* call this only after trying ggggc_allocpool, so probably pool[0] */
 retry:
     for (; gpool->next; gpool = gpool->next) {
-        if ((ret = GGGGC_trymalloc_pool(0, gpool->next, sz, ptrs))) {
+        if ((ret = GGGGC_trymalloc_pool0(gpool->next, sz, ptrs))) {
             ggggc_allocpool = gpool->next;
             return ret;
         }
     }
-    if ((ret = GGGGC_trymalloc_pool(0, gpool, sz, ptrs))) {
+    if ((ret = GGGGC_trymalloc_pool0(gpool, sz, ptrs))) {
         ggggc_allocpool = gpool;
         return ret;
     }
@@ -234,7 +283,7 @@ retry:
 void *GGGGC_malloc(size_t sz, unsigned short ptrs)
 {
     void *ret;
-    if (LIKELY(ret = GGGGC_trymalloc_pool(0, ggggc_allocpool, sz, ptrs))) return ret;
+    if (LIKELY(ret = GGGGC_trymalloc_pool0(ggggc_allocpool, sz, ptrs))) return ret;
     return GGGGC_trymalloc_gen0(sz, ptrs);
 }
 
