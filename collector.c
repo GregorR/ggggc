@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
+#include <sys/time.h>
 
 #include "ggggc.h"
 #include "ggggc_internal.h"
@@ -49,12 +51,24 @@ void GGGGC_collect(unsigned char gen)
     unsigned char nextgen;
     int nislast;
     struct GGGGC_PStack *p;
+#ifdef RUSAGE_SELF
+    long faultBegin, faultEnd;
+    static int faultingCollections = 0;
+#endif
 #ifdef GGGGC_DEBUG_COLLECTION_TIME
     struct timeval tva, tvb;
 #endif
 
 #ifdef GGGGC_DEBUG_COLLECTION_TIME
     gettimeofday(&tva, NULL);
+#endif
+
+#ifdef RUSAGE_SELF
+    {
+        struct rusage ru;
+        if (getrusage(RUSAGE_SELF, &ru) == 0) faultBegin = ru.ru_minflt;
+        else faultBegin = 0;
+    }
 #endif
 
 retry:
@@ -200,14 +214,45 @@ retry:
         }
     }
 
-    /* and finally, heuristically allocate more space */
-    if (survivors > heapsz / 2) {
+    /* and finally, heuristically allocate more space or restrict */
+#ifdef RUSAGE_SELF
+    {
+        struct rusage ru;
+        if (getrusage(RUSAGE_SELF, &ru) == 0) faultEnd = ru.ru_minflt;
+        else faultEnd = 0;
+    }
+    if (faultEnd > faultBegin) faultingCollections++;
+    else faultingCollections = 0;
+    if (faultingCollections == 0)
+#else
+    if (survivors > heapsz / 2)
+#endif
+    {
         for (i = 0; i <= GGGGC_GENERATIONS; i++) {
             gpool = ggggc_gens[i];
             for (; gpool->next; gpool = gpool->next);
             gpool->next = GGGGC_alloc_pool();
             if (i == 0) {
                 ggggc_heurpool = gpool->next;
+                ggggc_heurpoolmax = (char *) ggggc_heurpool + GGGGC_HEURISTIC_MAX;
+            }
+        }
+    } else
+#ifdef RUSAGE_SELF
+    if (faultingCollections > 1)
+#else
+    if (0)
+#endif
+    {
+        for (i = 0; i <= GGGGC_GENERATIONS; i++) {
+            gpool = ggggc_gens[i];
+            for (; gpool->next && gpool->next->next; gpool = gpool->next);
+            if (gpool->next && (void *) gpool->next->top == (void *) (gpool + 1)) {
+                GGGGC_free_pool(gpool->next);
+                gpool->next = NULL;
+            }
+            if (i == 0) {
+                ggggc_heurpool = gpool->next ? gpool->next : gpool;
                 ggggc_heurpoolmax = (char *) ggggc_heurpool + GGGGC_HEURISTIC_MAX;
             }
         }

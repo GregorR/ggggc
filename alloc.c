@@ -126,14 +126,29 @@ void GGGGC_clear_pool(struct GGGGC_Pool *pool)
     pool->firstobj[c] = ((size_t) pool->top) & GGGGC_CARD_MASK;
 }
 
+/* FIXME: global freelist */
+static struct GGGGC_Pool *pFreelist = NULL;
+
 struct GGGGC_Pool *GGGGC_alloc_pool()
 {
     /* allocate this pool */
-    struct GGGGC_Pool *pool = (struct GGGGC_Pool *) allocateAligned(GGGGC_POOL_SIZE);
+    struct GGGGC_Pool *pool;
+    if (pFreelist) {
+        pool = pFreelist;
+        pFreelist = pool->next;
+    } else {
+        pool = (struct GGGGC_Pool *) allocateAligned(GGGGC_POOL_SIZE);
+    }
     pool->next = NULL;
     GGGGC_clear_pool(pool);
 
     return pool;
+}
+
+void GGGGC_free_pool(struct GGGGC_Pool *pool)
+{
+    pool->next = pFreelist;
+    pFreelist = pool;
 }
 
 static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, size_t sz, unsigned short ptrs)

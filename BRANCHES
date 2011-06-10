@@ -4,11 +4,6 @@ feature branches are:
 default:
     Default options. No thread-safety or threading.
 
-dynamicmemsize:
-    Use OS-specific information to guess when to expand or contract the heap
-    based on pagefaults. The additional complexity is small but convoluted, so
-    it is kept separately.
-
 threads:
     Threadsafe, stop-the-world collector. Collection itself is not done in
     parallel, this branch just gives thread safety.
