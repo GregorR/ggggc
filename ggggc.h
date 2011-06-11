@@ -214,6 +214,19 @@ void GGGGC_collect(unsigned char gen);
 #define GGC_APOP(sct, dct) GGC_YIELD(); \
     GGGGC_POP_CHECK(ggggc_pstack, sct); ggggc_pstack = ggggc_pstack->next; \
     GGGGC_POP_CHECK(ggggc_dpstack, dct); ggggc_dpstack = ggggc_dpstack->next
+#define GGC_ASPOP(sct, dct, s2ct) GGC_YIELD(); \
+    GGGGC_POP_CHECK(ggggc_pstack, sct); ggggc_pstack = ggggc_pstack->next; \
+    GGGGC_POP_CHECK(ggggc_dpstack, dct); ggggc_dpstack = ggggc_dpstack->next; \
+    GGGGC_POP_CHECK(ggggc_pstack, s2ct); ggggc_pstack = ggggc_pstack->next
+#define GGC_ADPOP(sct, dct, d2ct) GGC_YIELD(); \
+    GGGGC_POP_CHECK(ggggc_pstack, sct); ggggc_pstack = ggggc_pstack->next; \
+    GGGGC_POP_CHECK(ggggc_dpstack, dct); ggggc_dpstack = ggggc_dpstack->next; \
+    GGGGC_POP_CHECK(ggggc_pstack, d2ct); ggggc_dpstack = ggggc_dpstack->next
+#define GGC_AAPOP(sct, dct, s2ct, d2ct) GGC_YIELD(); \
+    GGGGC_POP_CHECK(ggggc_pstack, sct); ggggc_pstack = ggggc_pstack->next; \
+    GGGGC_POP_CHECK(ggggc_dpstack, dct); ggggc_dpstack = ggggc_dpstack->next; \
+    GGGGC_POP_CHECK(ggggc_pstack, s2ct); ggggc_pstack = ggggc_pstack->next; \
+    GGGGC_POP_CHECK(ggggc_pstack, d2ct); ggggc_dpstack = ggggc_dpstack->next
 
 /* Get just the tags out of a pointer */
 #define GGC_TAGS(_ptr) ((size_t) (_ptr) & 0x3)
