@@ -63,7 +63,7 @@ static __inline__ void scan(void **ptr, int ct)
 
 void GGGGC_collect(unsigned char gen)
 {
-    int i, j, c;
+    int i, c;
     size_t survivors, heapsz;
     struct GGGGC_Pool *gpool;
     unsigned char nextgen;
