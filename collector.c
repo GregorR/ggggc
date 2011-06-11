@@ -39,41 +39,11 @@ static struct Buffer_voidpp tocheck;
 
 void GGGGC_collector_init()
 {
-    size_t sz = GGGGC_PSTACK_SIZE;
-    ggggc_pstack = (struct GGGGC_PStack *) malloc(sizeof(struct GGGGC_PStack) - sizeof(void *) + sz * sizeof(void *));
-    ggggc_pstack->rem = sz;
-    ggggc_pstack->cur = ggggc_pstack->ptrs;
-    ggggc_dpstack = (struct GGGGC_PStack *) malloc(sizeof(struct GGGGC_PStack) - sizeof(void *) + sz * sizeof(void *));
-    ggggc_dpstack->rem = sz;
-    ggggc_dpstack->cur = ggggc_dpstack->ptrs;
+    ggggc_pstack = NULL;
+    ggggc_dpstack = NULL;
     INIT_BUFFER(tocheck);
 }
 
-/* expand the root stack to support N more variables */
-void GGGGC_pstackExpand(size_t by)
-{
-    size_t cur = (ggggc_pstack->cur - ggggc_pstack->ptrs);
-    size_t sz = cur + ggggc_pstack->rem;
-    size_t newsz = sz;
-    while (newsz < cur + by)
-        newsz *= 2;
-    ggggc_pstack = (struct GGGGC_PStack *) realloc(ggggc_pstack, sizeof(struct GGGGC_PStack) - sizeof(void *) + newsz * sizeof(void *));
-    ggggc_pstack->rem = newsz - cur;
-    ggggc_pstack->cur = ggggc_pstack->ptrs + cur;
-}
-
-/* expand the double root stack to support N more variables */
-void GGGGC_dpstackExpand(size_t by)
-{
-    size_t cur = (ggggc_dpstack->cur - ggggc_dpstack->ptrs);
-    size_t sz = cur + ggggc_dpstack->rem;
-    size_t newsz = sz;
-    while (newsz < cur + by)
-        newsz *= 2;
-    ggggc_dpstack = (struct GGGGC_PStack *) realloc(ggggc_dpstack, sizeof(struct GGGGC_PStack) - sizeof(void *) + newsz * sizeof(void *));
-    ggggc_dpstack->rem = newsz - cur;
-    ggggc_dpstack->cur = ggggc_dpstack->ptrs + cur;
-}
 
 static __inline__ void scan(void **ptr, int ct)
 {
@@ -94,14 +64,24 @@ static __inline__ void scan(void **ptr, int ct)
 void GGGGC_collect(unsigned char gen)
 {
     int i, j, c;
-    size_t p, dp, survivors, heapsz;
+    size_t survivors, heapsz;
     struct GGGGC_Pool *gpool;
     unsigned char nextgen;
     int nislast;
+    struct GGGGC_PStack *p;
 #ifdef RUSAGE_SELF
     long faultBegin, faultEnd;
     static int faultingCollections = 0;
+#endif
+#ifdef GGGGC_DEBUG_COLLECTION_TIME
+    struct timeval tva, tvb;
+#endif
 
+#ifdef GGGGC_DEBUG_COLLECTION_TIME
+    gettimeofday(&tva, NULL);
+#endif
+
+#ifdef RUSAGE_SELF
     {
         struct rusage ru;
         if (getrusage(RUSAGE_SELF, &ru) == 0) faultBegin = ru.ru_minflt;
@@ -119,23 +99,23 @@ retry:
 
     /* first add the roots */
     tocheck.bufused = 0;
-    p = ggggc_pstack->cur - ggggc_pstack->ptrs;
-    dp = ggggc_dpstack->cur - ggggc_dpstack->ptrs;
 
-    while (BUFFER_SPACE(tocheck) < p + dp*2) {
-        EXPAND_BUFFER(tocheck);
+    for (p = ggggc_pstack; p; p = p->next) {
+        void ***ptrs = p->ptrs;
+        for (i = 0; ptrs[i]; i++) {
+            if (*ptrs[i])
+                WRITE_ONE_BUFFER(tocheck, ptrs[i]);
+        }
     }
 
-    for (i = 0; i < p; i++) {
-        if (*ggggc_pstack->ptrs[i])
-            WRITE_ONE_BUFFER(tocheck, ggggc_pstack->ptrs[i]);
-    }
-
-    for (i = 0; i < dp; i++) {
-        if (GGC_UNTAG(*ggggc_dpstack->ptrs[i]))
-            WRITE_ONE_BUFFER(tocheck, ggggc_dpstack->ptrs[i]);
-        if (!GGC_TAGS(*ggggc_dpstack->ptrs[i]) && ggggc_dpstack->ptrs[i][1])
-            WRITE_ONE_BUFFER(tocheck, ggggc_dpstack->ptrs[i] + 1);
+    for (p = ggggc_dpstack; p; p = p->next) {
+        void ***ptrs = p->ptrs;
+        for (i = 0; ptrs[i]; i++) {
+            if (GGC_UNTAG(*ptrs[i]))
+                WRITE_ONE_BUFFER(tocheck, ptrs[i]);
+            if (!GGC_TAGS(*ptrs[i]) && ptrs[i][1])
+                WRITE_ONE_BUFFER(tocheck, ptrs[i] + 1);
+        }
     }
 
     /* get the Fythe register bank */
@@ -171,7 +151,8 @@ retry:
     }
 
     /* now just iterate while we have things to check */
-    for (i = tocheck.bufused - 1; i > 0; i = tocheck.bufused - 1) {
+    gpool = NULL;
+    for (i = tocheck.bufused - 1; i >= 0; i = tocheck.bufused - 1) {
         void **ptoch = tocheck.buf[i];
         struct GGGGC_Header *objtoch = (struct GGGGC_Header *) GGC_UNTAG(*ptoch) - 1;
         tocheck.bufused--;
@@ -195,7 +176,7 @@ retry:
         if (objtoch->gen <= gen) {
             /* nope, get a new one */
             struct GGGGC_Header *newobj =
-                (struct GGGGC_Header *) GGGGC_trymalloc_gen(nextgen, nislast, objtoch->sz, objtoch->ptrs);
+                (struct GGGGC_Header *) GGGGC_trymalloc_gen(nextgen, nislast, &gpool, objtoch->sz, objtoch->ptrs);
             if (newobj == NULL) {
                 /* ACK! Out of memory! Need more GC! */
                 gen++;
@@ -236,7 +217,10 @@ retry:
         memset(gpool->remember, 0, GGGGC_CARDS_PER_POOL);
     }
 
-    /* and if we're doing the last (last+1 really) generation, treat it like two-space copying */
+    /* and if we're doing the last (last+1 really) generation, treat it like two-space copying
+     * NOTE: This step is expensive, but maintaining the same intelligence
+     * during collection proper, particularly due to forwarding pointers from
+     * both generations, seems to be more expensive */
     if (nislast) {
         gpool = ggggc_gens[gen+1];
         ggggc_gens[gen+1] = ggggc_gens[gen];
@@ -246,7 +230,8 @@ retry:
         for (; gpool; gpool = gpool->next) {
             struct GGGGC_Header *upd =
                 (struct GGGGC_Header *) (gpool->firstobj + GGGGC_CARDS_PER_POOL);
-            while ((void *) upd < (void *) gpool->top) {
+            void *top = gpool->top;
+            while ((void *) upd < top) {
                 upd->gen = GGGGC_GENERATIONS - 1;
                 upd = (struct GGGGC_Header *) ((char *) upd + upd->sz);
             }
@@ -271,8 +256,10 @@ retry:
             gpool = ggggc_gens[i];
             for (; gpool->next; gpool = gpool->next);
             gpool->next = GGGGC_alloc_pool();
-            if (i == 0)
+            if (i == 0) {
                 ggggc_heurpool = gpool->next;
+                ggggc_heurpoolmax = (char *) ggggc_heurpool + GGGGC_HEURISTIC_MAX;
+            }
         }
     } else
 #ifdef RUSAGE_SELF
@@ -288,10 +275,19 @@ retry:
                 GGGGC_free_pool(gpool->next);
                 gpool->next = NULL;
             }
-            if (i == 0)
+            if (i == 0) {
                 ggggc_heurpool = gpool->next ? gpool->next : gpool;
+                ggggc_heurpoolmax = (char *) ggggc_heurpool + GGGGC_HEURISTIC_MAX;
+            }
         }
     }
 
     ggggc_allocpool = ggggc_gens[0];
+
+#ifdef GGGGC_DEBUG_COLLECTION_TIME
+    gettimeofday(&tvb, NULL);
+    fprintf(stderr, "Generation %d collection finished in %dus\n",
+            (int) gen,
+            (tvb.tv_sec - tva.tv_sec) * 1000000 + (tvb.tv_usec - tva.tv_usec));
+#endif
 }

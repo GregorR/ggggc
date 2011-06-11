@@ -40,8 +40,8 @@
 #define GGGGC_CARD_SIZE 8 /* also a power of 2 */
 #endif
 
-#ifndef GGGGC_PSTACK_SIZE
-#define GGGGC_PSTACK_SIZE 256 /* # elements */
+#ifndef GGGGC_HEURISTIC_MAX
+#define GGGGC_HEURISTIC_MAX (((size_t) 1 << GGGGC_POOL_SIZE) * 15 / 16)
 #endif
 
 /* Various sizes and masks */
@@ -57,6 +57,12 @@
 #ifdef GGGGC_DEBUG
 #ifndef GGGGC_DEBUG_MEMORY_CORRUPTION
 #define GGGGC_DEBUG_MEMORY_CORRUPTION
+#endif
+#ifndef GGGGC_DEBUG_COLLECTION_TIME
+#define GGGGC_DEBUG_COLLECTION_TIME
+#endif
+#ifndef GGGGC_DEBUG_COLLECTION_TIME
+#define GGGGC_DEBUG_COLLECTION_TIME
 #endif
 #endif
 
@@ -172,7 +178,7 @@ void *GGGGC_realloc_data_array(void *orig, size_t sz);
 #define GGC_YIELD() GGGGC_collect(0)
 #else
 #define GGC_YIELD() do { \
-    if (ggggc_heurpool->remaining <= GGGGC_POOL_BYTES / 10) { \
+    if (ggggc_heurpool->top > ggggc_heurpoolmax) { \
         GGGGC_collect(0); \
     } \
 } while (0)
@@ -185,15 +191,23 @@ void GGGGC_collect(unsigned char gen);
 #include "ggggcpush.h"
 #define GGC_PUSH GGC_PUSH1
 #define GGC_DPUSH GGC_DPUSH1
-void GGGGC_pstackExpand(size_t by);
-void GGGGC_dpstackExpand(size_t by);
 
 /* And when you leave the function, remove them */
-#define GGC_POP(ct) GGC_YIELD(); ggggc_pstack->rem += (ct); ggggc_pstack->cur -= (ct)
-#define GGC_DPOP(ct) GGC_YIELD(); ggggc_dpstack->rem += (ct); ggggc_dpstack->cur -= (ct)
+#ifdef GGGGC_DEBUG_POPS
+#include <stdio.h>
+#define GGGGC_POP_CHECK(stack, sz) if (stack->ptrs[sz] != NULL) { \
+    fprintf(stderr, "Mismatched push-pop.\n"); \
+    *((volatile int *) 0) = 0; \
+}
+#else
+#define GGGGC_POP_CHECK(stack, sz)
+#endif
+
+#define GGC_POP(ct) GGC_YIELD(); GGGGC_POP_CHECK(ggggc_pstack, ct); ggggc_pstack = ggggc_pstack->next
+#define GGC_DPOP(ct) GGC_YIELD(); GGGGC_POP_CHECK(ggggc_dpstack, ct); ggggc_dpstack = ggggc_dpstack->next
 #define GGC_APOP(sct, dct) GGC_YIELD(); \
-    ggggc_pstack->rem += (sct);  ggggc_pstack->cur -= (sct); \
-    ggggc_dpstack->rem += (dct); ggggc_dpstack->cur -= (dct)
+    GGGGC_POP_CHECK(ggggc_pstack, sct); ggggc_pstack = ggggc_pstack->next; \
+    GGGGC_POP_CHECK(ggggc_dpstack, dct); ggggc_dpstack = ggggc_dpstack->next
 
 /* Get just the tags out of a pointer */
 #define GGC_TAGS(_ptr) ((size_t) (_ptr) & 0x3)
@@ -272,17 +286,16 @@ struct GGGGC_Pool {
     char remember[GGGGC_CARDS_PER_POOL];
     struct GGGGC_Pool *next;
     char *top;
-    size_t remaining; /* bytes remaining in the pool */
     char firstobj[GGGGC_CARDS_PER_POOL];
 };
 
 extern struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS+1];
 extern struct GGGGC_Pool *ggggc_heurpool, *ggggc_allocpool;
+extern char *ggggc_heurpoolmax;
 
 /* The pointer stack */
 struct GGGGC_PStack {
-    size_t rem;
-    void ***cur;
+    void *next;
     void **ptrs[1];
 };
 extern struct GGGGC_PStack *ggggc_pstack;

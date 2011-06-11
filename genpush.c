@@ -24,24 +24,34 @@
 
 #include <stdio.h>
 
+#define PSTACK_MAX 20
+
 int main()
 {
     int i, j;
+
+    /* first the pointer stack primitives */
+    for (i = 1; i <= 20; i++) {
+        printf("struct GGGGC_PStack%d { void *next; void **ptrs[%d]; void *term; };\n", i, i);
+    }
+
     for (i = 1; i <= 20; i++) {
         printf("#define GGC_PUSH%d(_obj1", i);
         for (j = 2; j <= i; j++)
             printf(", _obj%d", j);
-        printf(") do { if (ggggc_pstack->rem < %d) GGGGC_pstackExpand(%d); ggggc_pstack->rem -= %d;", i, i, i);
+        printf(") do { struct GGGGC_PStack%d *_ggggc_func_pstack = alloca(sizeof(struct GGGGC_PStack%d)); "
+               "struct GGGGC_PStack%d _ggggc_func_pstack_tmp = { ggggc_pstack", i, i);
         for (j = 1; j <= i; j++)
-            printf(" *(ggggc_pstack->cur++) = (void **) &(_obj%d);", j);
-        printf("} while(0)\n");
+            printf(", (void **) &(_obj%d)", j);
+        printf(", NULL }; *_ggggc_func_pstack = _ggggc_func_pstack_tmp; ggggc_pstack = (void *) _ggggc_func_pstack; } while (0)\n");
 
         printf("#define GGC_DPUSH%d(_obj1", i);
         for (j = 2; j <= i; j++)
             printf(", _obj%d", j);
-        printf(") do { if (ggggc_dpstack->rem < %d) GGGGC_dpstackExpand(%d); ggggc_dpstack->rem -= %d;", i, i, i);
+        printf(") do { struct GGGGC_PStack%d *_ggggc_func_pstack = alloca(sizeof(struct GGGGC_PStack%d)); "
+               "struct GGGGC_PStack%d _ggggc_func_pstack_tmp = { ggggc_dpstack", i, i);
         for (j = 1; j <= i; j++)
-            printf(" *(ggggc_dpstack->cur++) = (void **) &(_obj%d);", j);
-        printf("} while(0)\n");
+            printf(", (void **) &(_obj%d)", j);
+        printf(", NULL }; *_ggggc_func_pstack = _ggggc_func_pstack_tmp; ggggc_dpstack = (void *) _ggggc_func_pstack; } while (0)\n");
     }
 }

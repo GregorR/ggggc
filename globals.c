@@ -26,6 +26,7 @@
 
 struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS+1];
 struct GGGGC_Pool *ggggc_heurpool = NULL, *ggggc_allocpool = NULL;
+char *ggggc_heurpoolmax = NULL;
 struct GGGGC_PStack *ggggc_pstack = NULL;
 struct GGGGC_PStack *ggggc_dpstack = NULL;
 

@@ -20,7 +20,7 @@ GCBENCHOBJS=../gc_bench/GCBench.o
 
 GGGGCBENCHOBJS=../gc_bench/GCBench.ggggc.o
 
-all: bt btgc btggggc badlll remember gcbench ggggcbench
+all: bt btgc btggggc badlll gcbench ggggcbench
 
 bt: $(BTOBJS)
 	$(LD) $(CFLAGS) $(LDFLAGS) $(BTOBJS) $(LIBS) -o bt

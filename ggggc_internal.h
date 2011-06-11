@@ -25,12 +25,17 @@
 #ifndef GGGGC_INTERNAL
 #define GGGGC_INTERNAL
 
-#ifndef __GNUC__
+#ifdef __GNUC__
+#define LIKELY(x) __builtin_expect(!!(x), 1)
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+#define LIKELY(x) x
+#define UNLIKELY(x) x
 #define __inline__
 #endif
 
 void GGGGC_collector_init();
-void *GGGGC_trymalloc_gen(unsigned char gen, int expand, size_t sz, unsigned short ptrs);
+void *GGGGC_trymalloc_gen(unsigned char gen, int expand, struct GGGGC_Pool **allocpool, size_t sz, unsigned short ptrs);
 struct GGGGC_Pool *GGGGC_alloc_pool();
 void GGGGC_clear_pool(struct GGGGC_Pool *pool);
 void GGGGC_free_pool(struct GGGGC_Pool *pool);
