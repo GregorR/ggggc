@@ -30,7 +30,7 @@
 #include "ggggc_internal.h"
 #include "helpers.h"
 
-void GGGGC_init()
+void GGGGC_init(int *stackTop)
 {
     int g;
 
@@ -39,6 +39,8 @@ void GGGGC_init()
     }
     ggggc_heurpool = ggggc_allocpool = ggggc_gens[0];
     ggggc_heurpoolmax = (char *) ggggc_heurpool + GGGGC_HEURISTIC_MAX;
+
+    ggggc_stack.stackTop = (void **) stackTop;
 
     /* other inits */
     GGGGC_collector_init();

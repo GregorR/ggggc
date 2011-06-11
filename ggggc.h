@@ -25,6 +25,7 @@
 #ifndef GGGGC_H
 #define GGGGC_H
 
+#include <setjmp.h>
 #include <stdlib.h>
 #ifdef __WIN32
 #include <malloc.h>
@@ -43,6 +44,10 @@
 
 #ifndef GGGGC_CARD_SIZE
 #define GGGGC_CARD_SIZE 8 /* also a power of 2 */
+#endif
+
+#ifndef GGGGC_PSTACK_SIZE
+#define GGGGC_PSTACK_SIZE 1048572
 #endif
 
 #ifndef GGGGC_HEURISTIC_MAX
@@ -224,8 +229,8 @@ void GGGGC_collect(unsigned char gen);
 #define GGC_PTR_READ(_obj, _ptr) ((_obj)->_ggggc_ptrs._ptr)
 
 /* Initialize GGGGC */
-#define GGC_INIT() GGGGC_init();
-void GGGGC_init();
+#define GGC_INIT() GGGGC_init(&argc);
+void GGGGC_init(int *stackTop);
 
 
 /* The following is mostly internal, but needed for public macros */
@@ -242,12 +247,21 @@ struct GGGGC_Pool {
 extern struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS+1];
 extern struct GGGGC_Pool *ggggc_heurpool, *ggggc_allocpool;
 extern char *ggggc_heurpoolmax;
+extern int ggggc_save, ggggc_restore, ggggc_height;
 
 /* The pointer stack */
 struct GGGGC_PStack {
-    void *next;
-    void **ptrs[1];
+    void **cur, **front;
+    void *ptrs[GGGGC_PSTACK_SIZE];
 };
-extern struct GGGGC_PStack *ggggc_pstack;
+extern struct GGGGC_PStack ggggc_pstack, ggggc_pstack2;
+
+/* The real stack */
+struct GGGGC_Stack {
+    void **stackBottom, **stackTop, **saved;
+};
+extern jmp_buf ggggc_jmp_buf;
+extern struct GGGGC_Stack ggggc_stack;
+void GGGGC_restoreAndZip();
 
 #endif

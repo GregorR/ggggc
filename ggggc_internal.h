@@ -25,6 +25,8 @@
 #ifndef GGGGC_INTERNAL
 #define GGGGC_INTERNAL
 
+#include <setjmp.h>
+
 #ifdef __GNUC__
 #define LIKELY(x) __builtin_expect(!!(x), 1)
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)

@@ -50,18 +50,44 @@ static struct Buffer_voidpp tocheck;
 
 void GGGGC_collector_init()
 {
-    ggggc_pstack = NULL;
+    ggggc_save = ggggc_restore = ggggc_height = 0;
+    ggggc_pstack.cur = ggggc_pstack.front = ggggc_pstack.ptrs;
     INIT_BUFFER(tocheck);
+}
+
+static void GGGGC_saveAndUnzip()
+{
+    void *bottom;
+    ggggc_stack.stackBottom = &bottom;
+    ggggc_stack.saved = malloc((ggggc_stack.stackTop - ggggc_stack.stackBottom) * sizeof(void *));
+    memcpy(ggggc_stack.saved, ggggc_stack.stackBottom, (ggggc_stack.stackTop - ggggc_stack.stackBottom) * sizeof(void *));
+    return;
+}
+
+void GGGGC_restoreAndZipSub()
+{
+    memcpy(ggggc_stack.stackBottom, ggggc_stack.saved, (ggggc_stack.stackTop - ggggc_stack.stackBottom) * sizeof(void *));
+    longjmp(ggggc_jmp_buf, 1);
+}
+
+void GGGGC_restoreAndZip()
+{
+    void *padding[32];
+    if (padding >= ggggc_stack.stackBottom - 32) {
+        /* need more */
+        GGGGC_restoreAndZip();
+    }
+    GGGGC_restoreAndZipSub();
 }
 
 void GGGGC_collect(unsigned char gen)
 {
-    int i, j, c;
+    int i, j, c, real_height;
     size_t survivors, heapsz;
     struct GGGGC_Pool *gpool;
     unsigned char nextgen;
     int nislast;
-    struct GGGGC_PStack *p;
+    void **p;
 #ifdef RUSAGE_SELF
     long faultBegin, faultEnd;
     static int faultingCollections = 0;
@@ -82,6 +108,30 @@ void GGGGC_collect(unsigned char gen)
     }
 #endif
 
+    /* remember our old lazy pointers */
+    if (ggggc_pstack.cur > ggggc_pstack.front) {
+        memcpy(ggggc_pstack2.ptrs, ggggc_pstack.front, (ggggc_pstack.cur - ggggc_pstack.front) * sizeof(void *));
+        ggggc_pstack2.cur = ggggc_pstack2.ptrs + (ggggc_pstack.cur - ggggc_pstack.front);
+    } else {
+        ggggc_pstack2.cur = ggggc_pstack2.ptrs;
+    }
+    ggggc_pstack.cur = ggggc_pstack.front = ggggc_pstack.ptrs;
+
+    /* invoke lazy pointer collection */
+    ggggc_save = 1;
+    real_height = ggggc_height;
+    if (setjmp(ggggc_jmp_buf) == 0) { GGGGC_saveAndUnzip(); return; }
+    ggggc_save = 0;
+    ggggc_height = real_height;
+    free(ggggc_stack.saved);
+
+    /* then combine our old and new lazy pointers */
+    if (ggggc_pstack2.cur > ggggc_pstack2.ptrs) {
+        memcpy(ggggc_pstack.cur, ggggc_pstack2.ptrs, (ggggc_pstack2.cur - ggggc_pstack2.ptrs) * sizeof(void *));
+        ggggc_pstack.cur += (ggggc_pstack2.cur - ggggc_pstack2.ptrs);
+    }
+    ggggc_restore = ggggc_height + 1;
+
 retry:
     survivors = heapsz = 0;
     nextgen = gen+1;
@@ -92,13 +142,13 @@ retry:
 
     /* first add the roots */
     tocheck.bufused = 0;
+    while (BUFFER_SPACE(tocheck) < (ggggc_pstack.cur - ggggc_pstack.ptrs)) {
+        EXPAND_BUFFER(tocheck);
+    }
 
-    for (p = ggggc_pstack; p; p = p->next) {
-        void ***ptrs = p->ptrs;
-        for (i = 0; ptrs[i]; i++) {
-            if (*ptrs[i])
-                WRITE_ONE_BUFFER(tocheck, ptrs[i]);
-        }
+    for (p = ggggc_pstack.ptrs; p < ggggc_pstack.cur; p++) {
+        if (*p)
+            WRITE_ONE_BUFFER(tocheck, p);
     }
 
     /* get all the remembered cards */
