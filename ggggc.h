@@ -61,8 +61,8 @@
 #ifndef GGGGC_DEBUG_COLLECTION_TIME
 #define GGGGC_DEBUG_COLLECTION_TIME
 #endif
-#ifndef GGGGC_DEBUG_COLLECTION_TIME
-#define GGGGC_DEBUG_COLLECTION_TIME
+#ifndef GGGGC_DEBUG_POPS
+#define GGGGC_DEBUG_POPS
 #endif
 #endif
 
@@ -186,7 +186,17 @@ void GGGGC_collect(unsigned char gen);
 #define GGC_PUSH GGC_PUSH1
 
 /* And when you leave the function, remove them */
-#define GGC_POP(ct) GGC_YIELD(); ggggc_pstack = ggggc_pstack->next
+#ifdef GGGGC_DEBUG_POPS
+#include <stdio.h>
+#define GGGGC_POP_CHECK(stack, sz) if (stack->ptrs[sz] != NULL) { \
+    fprintf(stderr, "Mismatched push-pop.\n"); \
+    *((volatile int *) 0) = 0; \
+}
+#else
+#define GGGGC_POP_CHECK(stack, sz)
+#endif
+
+#define GGC_POP(ct) GGC_YIELD(); GGGGC_POP_CHECK(ggggc_pstack, ct); ggggc_pstack = ggggc_pstack->next
 
  /* This is used to determine whether a pointer relationship needs to be added
   * to the remembered set */
