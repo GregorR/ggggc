@@ -39,19 +39,21 @@ int main()
         printf("#define GGC_PUSH%d(_obj1", i);
         for (j = 2; j <= i; j++)
             printf(", _obj%d", j);
-        printf(") do { struct GGGGC_PStack%d *_ggggc_func_pstack = alloca(sizeof(struct GGGGC_PStack%d)); "
-               "struct GGGGC_PStack%d _ggggc_func_pstack_tmp = { ggggc_pstack", i, i);
-        for (j = 1; j <= i; j++)
-            printf(", (void **) &(_obj%d)", j);
-        printf(", NULL }; *_ggggc_func_pstack = _ggggc_func_pstack_tmp; ggggc_pstack = (void *) _ggggc_func_pstack; } while (0)\n");
+        printf(") do { struct GGGGC_PStack%d *_ggggc_func_pstack = alloca(sizeof(struct GGGGC_PStack%d));"
+               " _ggggc_func_pstack->next = ggggc_pstack;", i, i);
+        for (j = 0; j < i; j++)
+            printf(" _ggggc_func_pstack->ptrs[%d] = (void **) &(_obj%d);", j, j+1);
+        printf(" _ggggc_func_pstack->term = NULL;"
+               " ggggc_pstack = (void *) _ggggc_func_pstack; } while (0)\n");
 
         printf("#define GGC_DPUSH%d(_obj1", i);
         for (j = 2; j <= i; j++)
             printf(", _obj%d", j);
-        printf(") do { struct GGGGC_PStack%d *_ggggc_func_pstack = alloca(sizeof(struct GGGGC_PStack%d)); "
-               "struct GGGGC_PStack%d _ggggc_func_pstack_tmp = { ggggc_dpstack", i, i);
-        for (j = 1; j <= i; j++)
-            printf(", (void **) &(_obj%d)", j);
-        printf(", NULL }; *_ggggc_func_pstack = _ggggc_func_pstack_tmp; ggggc_dpstack = (void *) _ggggc_func_pstack; } while (0)\n");
+        printf(") do { struct GGGGC_PStack%d *_ggggc_func_pstack = alloca(sizeof(struct GGGGC_PStack%d));"
+               " _ggggc_func_pstack->next = ggggc_dpstack;", i, i);
+        for (j = 0; j < i; j++)
+            printf(" _ggggc_func_pstack->ptrs[%d] = (void **) &(_obj%d);", j, j+1);
+        printf(" _ggggc_func_pstack->term = NULL;"
+               " ggggc_dpstack = (void *) _ggggc_func_pstack; } while (0)\n");
     }
 }
