@@ -26,6 +26,11 @@
 #define GGGGC_H
 
 #include <stdlib.h>
+#ifdef __WIN32
+#include <malloc.h>
+#else
+#include <alloca.h>
+#endif
 
 /* These can only be changed if they're changed while compiling, so be careful! */
 #ifndef GGGGC_GENERATIONS
