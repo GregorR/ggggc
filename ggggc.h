@@ -61,8 +61,8 @@
 #ifndef GGGGC_DEBUG_COLLECTION_TIME
 #define GGGGC_DEBUG_COLLECTION_TIME
 #endif
-#ifndef GGGGC_DEBUG_COLLECTION_TIME
-#define GGGGC_DEBUG_COLLECTION_TIME
+#ifndef GGGGC_DEBUG_POPS
+#define GGGGC_DEBUG_POPS
 #endif
 #endif
 
@@ -202,6 +202,7 @@ void GGGGC_collect(unsigned char gen);
 #else
 #define GGGGC_POP_CHECK(stack, sz)
 #endif
+
 
 #define GGC_POP(ct) GGC_YIELD(); GGGGC_POP_CHECK(ggggc_pstack, ct); ggggc_pstack = ggggc_pstack->next
 #define GGC_DPOP(ct) GGC_YIELD(); GGGGC_POP_CHECK(ggggc_dpstack, ct); ggggc_dpstack = ggggc_dpstack->next
