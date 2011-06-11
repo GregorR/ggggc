@@ -17,7 +17,7 @@
 #define U ggggc_height++
 #define D ggggc_height--
 #define LPSS if (__builtin_expect(ggggc_save, 0)) { if (ggggc_height >= ggggc_restore)
-#define LPSR(r) return r; } else if (__builtin_expect(ggggc_height < ggggc_restore, 0))
+#define LPSR(r) else { GGGGC_restoreAndZip(); } return r; } else if (__builtin_expect(ggggc_height < ggggc_restore, 0))
 #define LPSE ggggc_restore--
 
 #define SAVE(ptr) (*ggggc_pstack.cur++ = (void *) ptr)
@@ -198,19 +198,13 @@ int realmain(int argc, char* argv[])
     return 0;
 } /* main() */
 
-int deadspace(int argc, char **argv)
-{
-    alloca(4096);
-    return realmain(argc, argv);
-}
-
 int main(int argc, char **argv)
 {
     int ret;
 
     GGC_INIT();
 
-    ret = deadspace(argc, argv);
+    ret = realmain(argc, argv);
     if (ggggc_save) {
         GGGGC_restoreAndZip();
     }
