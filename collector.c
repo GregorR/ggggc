@@ -22,11 +22,22 @@
  * THE SOFTWARE.
  */
 
+/* to get _POSIX_VERSION */
+#define _POSIX_C_SOURCE 200112L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/* are we POSIX? */
+#if defined(unix) || defined(__unix__) || defined(__unix)
+#include <unistd.h>
+#endif
+
+#if _POSIX_VERSION >= 200112L
 #include <sys/resource.h>
 #include <sys/time.h>
+#endif
 
 #include "ggggc.h"
 #include "ggggc_internal.h"
