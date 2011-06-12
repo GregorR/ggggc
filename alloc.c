@@ -139,8 +139,10 @@ struct GGGGC_Pool *GGGGC_alloc_pool()
     } else {
         pool = (struct GGGGC_Pool *) allocateAligned(GGGGC_POOL_SIZE);
     }
-    pool->next = NULL;
-    GGGGC_clear_pool(pool);
+    if (pool) {
+        pool->next = NULL;
+        GGGGC_clear_pool(pool);
+    }
 
     return pool;
 }
