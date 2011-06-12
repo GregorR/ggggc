@@ -314,3 +314,20 @@ void *GGGGC_realloc_data_array(void *orig, size_t sz)
 
     return ret;
 }
+
+/* Globalize a pstack member */
+struct GGGGC_PStack *GGGGC_globalizePStack(struct GGGGC_PStack *pstack)
+{
+    size_t ct, i;
+    struct GGGGC_PStack *ret;
+
+    /* count them */
+    for (ct = 0; pstack->ptrs[ct]; ct++);
+
+    /* then allocate */
+    SF(ret, malloc, NULL, ((ct + 2) * sizeof(void *)));
+    ret->next = pstack->next;
+    for (i = 0; i <= ct; i++) ret->ptrs[i] = pstack->ptrs[i];
+
+    return ret;
+}

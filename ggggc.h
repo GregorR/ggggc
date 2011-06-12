@@ -250,4 +250,8 @@ struct GGGGC_PStack {
 };
 extern struct GGGGC_PStack *ggggc_pstack;
 
+/* Globalize a pstack member */
+struct GGGGC_PStack *GGGGC_globalizePStack(struct GGGGC_PStack *pstack);
+#define GGC_PUSH_GLOBAL() (ggggc_pstack = GGGGC_globalizePStack(ggggc_pstack))
+
 #endif
