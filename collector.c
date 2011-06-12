@@ -39,6 +39,14 @@
 #include <sys/time.h>
 #endif
 
+#if defined(RUSAGE_SELF) && !defined(GGGGC_OPTION_MIN_HEAP)
+#define GGGGC_OPTION_AUTO_HEAP
+#else
+#ifndef GGGGC_OPTION_MIN_HEAP
+#define GGGGC_OPTION_MIN_HEAP
+#endif
+#endif
+
 #include "ggggc.h"
 #include "ggggc_internal.h"
 #include "buffer.h"
@@ -62,7 +70,7 @@ void GGGGC_collect(unsigned char gen)
     unsigned char nextgen;
     int nislast;
     struct GGGGC_PStack *p;
-#ifdef RUSAGE_SELF
+#ifdef GGGGC_OPTION_AUTO_HEAP
     long faultBegin, faultEnd;
     static int faultingCollections = 0;
 #endif
@@ -74,7 +82,7 @@ void GGGGC_collect(unsigned char gen)
     gettimeofday(&tva, NULL);
 #endif
 
-#ifdef RUSAGE_SELF
+#ifdef GGGGC_OPTION_AUTO_HEAP
     {
         struct rusage ru;
         if (getrusage(RUSAGE_SELF, &ru) == 0) faultBegin = ru.ru_minflt;
@@ -226,7 +234,7 @@ retry:
     }
 
     /* and finally, heuristically allocate more space or restrict */
-#ifdef RUSAGE_SELF
+#ifdef GGGGC_OPTION_AUTO_HEAP
     {
         struct rusage ru;
         if (getrusage(RUSAGE_SELF, &ru) == 0) faultEnd = ru.ru_minflt;
@@ -244,12 +252,12 @@ retry:
             for (; gpool->next; gpool = gpool->next);
             gpool->next = GGGGC_alloc_pool();
             if (i == 0) {
-                ggggc_heurpool = gpool->next;
+                ggggc_heurpool = gpool->next ? gpool->next : gpool;
                 ggggc_heurpoolmax = (char *) ggggc_heurpool + GGGGC_HEURISTIC_MAX;
             }
         }
     } else
-#ifdef RUSAGE_SELF
+#ifdef GGGGC_OPTION_AUTO_HEAP
     if (faultingCollections > 1)
 #else
     if (0)
