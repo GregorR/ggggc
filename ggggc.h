@@ -42,7 +42,7 @@
 #endif
 
 #ifndef GGGGC_CARD_SIZE
-#define GGGGC_CARD_SIZE 8 /* also a power of 2 */
+#define GGGGC_CARD_SIZE 12 /* also a power of 2 */
 #endif
 
 #ifndef GGGGC_HEURISTIC_MAX
@@ -325,5 +325,10 @@ extern size_t GGGGC_fytheConstBankPtrs;
 extern void *GGGGC_fytheConstBank;
 extern void *GGGGC_fytheStackBase;
 extern void *GGGGC_fytheStackTop;
+
+/* Globalize a pstack member */
+struct GGGGC_PStack *GGGGC_globalizePStack(struct GGGGC_PStack *pstack);
+#define GGC_PUSH_GLOBAL() (ggggc_pstack = GGGGC_globalizePStack(ggggc_pstack))
+#define GGC_DPUSH_GLOBAL() (ggggc_dpstack = GGGGC_globalizePStack(ggggc_dpstack))
 
 #endif
