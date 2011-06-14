@@ -24,6 +24,7 @@
 
 /* to get _POSIX_VERSION */
 #define _POSIX_C_SOURCE 200112L
+#define _DARWIN_C_SOURCE /* for ru_minflt on OS X */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,7 +40,7 @@
 #include <sys/time.h>
 #endif
 
-#if defined(RUSAGE_SELF) && !defined(GGGGC_OPTION_MIN_HEAP) && !defined(__APPLE__)
+#if defined(RUSAGE_SELF) && !defined(GGGGC_OPTION_MIN_HEAP)
 #define GGGGC_OPTION_AUTO_HEAP
 #else
 #ifndef GGGGC_OPTION_MIN_HEAP
