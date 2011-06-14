@@ -39,7 +39,7 @@
 #include <sys/time.h>
 #endif
 
-#if defined(RUSAGE_SELF) && !defined(GGGGC_OPTION_MIN_HEAP)
+#if defined(RUSAGE_SELF) && !defined(GGGGC_OPTION_MIN_HEAP) && !defined(__APPLE__)
 #define GGGGC_OPTION_AUTO_HEAP
 #else
 #ifndef GGGGC_OPTION_MIN_HEAP

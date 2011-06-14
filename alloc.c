@@ -26,6 +26,7 @@
 /* to get mmap and MAP_ANON, respectively */
 #define _POSIX_C_SOURCE 200112L
 #define _BSD_SOURCE
+#define _DARWIN_C_SOURCE /* for MAP_ANON on OS X */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,10 +37,10 @@
 #include <unistd.h> /* for _POSIX_VERSION */
 #endif
 
-#if _POSIX_VERSION >= 200112L /* should support mmap */
+#if _POSIX_VERSION >= 200112L || defined(__APPLE__) /* should support mmap */
 #include <sys/mman.h>
 
-#ifdef MAP_ANON /* have MAP_ANON, so mmap is fine */
+#if defined(MAP_ANON) /* have MAP_ANON, so mmap is fine */
 #define FOUND_ALLOCATOR mmap
 #define USE_ALLOCATOR_MMAP
 #endif
