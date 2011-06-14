@@ -1,7 +1,8 @@
 /*
  * Allocation functions
  *
- * Copyright (C) 2010 Gregor Richards
+ * Copyright (C) 2010, 2011 Gregor Richards
+ * Copyright (C) 2011 Elliott Hird
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +26,7 @@
 /* to get mmap and MAP_ANON, respectively */
 #define _POSIX_C_SOURCE 200112L
 #define _BSD_SOURCE
+#define _DARWIN_C_SOURCE /* for MAP_ANON on OS X */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,10 +37,10 @@
 #include <unistd.h> /* for _POSIX_VERSION */
 #endif
 
-#if _POSIX_VERSION >= 200112L /* should support mmap */
+#if _POSIX_VERSION >= 200112L || defined(__APPLE__) /* should support mmap */
 #include <sys/mman.h>
 
-#ifdef MAP_ANON /* have MAP_ANON, so mmap is fine */
+#if defined(MAP_ANON) /* have MAP_ANON, so mmap is fine */
 #define FOUND_ALLOCATOR mmap
 #define USE_ALLOCATOR_MMAP
 #endif
@@ -126,19 +128,11 @@ void GGGGC_clear_pool(struct GGGGC_Pool *pool)
     pool->firstobj[c] = ((size_t) pool->top) & GGGGC_CARD_MASK;
 }
 
-/* FIXME: global freelist */
-static struct GGGGC_Pool *pFreelist = NULL;
-
 struct GGGGC_Pool *GGGGC_alloc_pool()
 {
     /* allocate this pool */
-    struct GGGGC_Pool *pool;
-    if (pFreelist) {
-        pool = pFreelist;
-        pFreelist = pool->next;
-    } else {
-        pool = (struct GGGGC_Pool *) allocateAligned(GGGGC_POOL_SIZE);
-    }
+    struct GGGGC_Pool *pool = (struct GGGGC_Pool *) allocateAligned(GGGGC_POOL_SIZE);
+
     if (pool) {
         pool->next = NULL;
         GGGGC_clear_pool(pool);
@@ -149,8 +143,13 @@ struct GGGGC_Pool *GGGGC_alloc_pool()
 
 void GGGGC_free_pool(struct GGGGC_Pool *pool)
 {
-    pool->next = pFreelist;
-    pFreelist = pool;
+#if defined(USE_ALLOCATOR_MMAP)
+    munmap(pool, GGGGC_POOL_BYTES);
+#elif defined(USE_ALLOCATOR_WIN32)
+    VirtualFree(pool, GGGGC_POOL_BYTES, MEM_RELEASE);
+#else
+    free(pool);
+#endif
 }
 
 static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, size_t sz, unsigned short ptrs)

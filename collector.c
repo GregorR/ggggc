@@ -24,6 +24,7 @@
 
 /* to get _POSIX_VERSION */
 #define _POSIX_C_SOURCE 200112L
+#define _DARWIN_C_SOURCE /* for ru_minflt on OS X */
 
 #include <stdio.h>
 #include <stdlib.h>
