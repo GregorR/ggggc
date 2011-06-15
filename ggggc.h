@@ -195,7 +195,7 @@ void GGGGC_collect(unsigned char gen);
 #include <stdio.h>
 #define GGGGC_POP_CHECK(stack, sz) if (stack->ptrs[sz] != NULL) { \
     fprintf(stderr, "Mismatched push-pop.\n"); \
-    *((volatile int *) 0) = 0; \
+    abort(); \
 }
 #else
 #define GGGGC_POP_CHECK(stack, sz)

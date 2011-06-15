@@ -151,7 +151,7 @@ retry:
         /* Make sure it's valid */
         if (objtoch->magic != GGGGC_HEADER_MAGIC) {
             fprintf(stderr, "Memory corruption!\n");
-            *((int *) 0) = 0;
+            abort();
         }
 #endif
 
@@ -174,7 +174,7 @@ retry:
                 gen++;
                 if (gen >= GGGGC_GENERATIONS) {
                     fprintf(stderr, "Memory exhausted during GC???\n");
-                    *((int *) 0) = 0;
+                    abort();
                 }
                 goto retry;
             }
