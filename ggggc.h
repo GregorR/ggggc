@@ -305,7 +305,7 @@ struct GGGGC_Pool {
     char remember[GGGGC_CARDS_PER_POOL];
     struct GGGGC_Pool *next;
     char *top;
-    char firstobj[GGGGC_CARDS_PER_POOL];
+    unsigned short firstobj[GGGGC_CARDS_PER_POOL];
 };
 
 extern struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS+1];

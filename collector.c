@@ -157,7 +157,7 @@ retry:
                     struct GGGGC_Header *obj = first;
 
                     /* walk through this card */
-                    while (base == ((size_t) obj & GGGGC_NOCARD_MASK) && (char *) obj < gpool->top) {
+                    while (base == ((size_t) obj & GGGGC_NOCARD_MASK) && (char *) obj < gpool->top && obj->sz != (size_t) -1) {
                         /* add all its pointers */
                         scan((void **) (obj + 1), obj->ptrs);
 
@@ -181,7 +181,7 @@ retry:
         /* Make sure it's valid */
         if (objtoch->magic != GGGGC_HEADER_MAGIC) {
             fprintf(stderr, "Memory corruption!\n");
-            *((int *) 0) = 0;
+            abort();
         }
 #endif
 
@@ -202,7 +202,7 @@ retry:
                 gen++;
                 if (gen >= GGGGC_GENERATIONS) {
                     fprintf(stderr, "Memory exhausted during GC???\n");
-                    *((int *) 0) = 0;
+                    abort();
                 }
                 goto retry;
             }
