@@ -155,7 +155,7 @@ void GGGGC_free_pool(struct GGGGC_Pool *pool)
 static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Pool *gpool, size_t sz, unsigned short ptrs)
 {
     /* perform the actual allocation */
-    if (LIKELY((void *) (((size_t) gpool->top + sz) & GGGGC_NOPOOL_MASK) == gpool)) {
+    if (LIKELY((void *) (((size_t) gpool->top + sz + sizeof(struct GGGGC_Header)) & GGGGC_NOPOOL_MASK) == gpool)) {
         struct GGGGC_Header *ret;
         size_t c1, c2;
 
@@ -168,12 +168,17 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
         c2 = GGGGC_CARD_OF(ret + 1);
         if (UNLIKELY(c1 != c2)) {
             /* we allocated /right/ on the edge of a card, which means the wrong card will be marked! Choose the next one instead */
-            ret->sz = (size_t) -1;
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+            ret->magic = GGGGC_HEADER_MAGIC;
+#endif
+            ret->sz = sizeof(struct GGGGC_Header);
+            ret->gen = gen;
+            ret->ptrs = 0;
+
             ret++;
-            c1 = GGGGC_CARD_OF(ret);
             gpool->top += sizeof(struct GGGGC_Header);
             c1 = c2;
-            gpool->firstobj[c1] = (unsigned short) ((size_t) gpool->top & GGGGC_CARD_MASK);
+            gpool->firstobj[c1] = (unsigned short) ((size_t) ret & GGGGC_CARD_MASK);
         }
 
         /* if we allocate at a card boundary, need to mark firstobj */
