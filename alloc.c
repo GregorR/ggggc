@@ -168,7 +168,6 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
         c2 = GGGGC_CARD_OF(ret + 1);
         if (UNLIKELY(c1 != c2)) {
             /* we allocated /right/ on the edge of a card, which means the wrong card will be marked! Choose the next one instead */
-            fprintf(stderr, "Whoops %p\n", (void *) (ret+1));
             ret->sz = (size_t) -1;
             ret++;
             c1 = GGGGC_CARD_OF(ret);
