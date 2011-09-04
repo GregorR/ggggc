@@ -123,7 +123,7 @@ retry:
                     struct GGGGC_Header *obj = first;
 
                     /* walk through this card */
-                    while (base == ((size_t) obj & GGGGC_NOCARD_MASK) && (char *) obj < gpool->top) {
+                    while (base == ((size_t) obj & GGGGC_NOCARD_MASK) && (char *) obj < gpool->top && obj->sz != (size_t) -1) {
                         void **ptr = (void **) (obj + 1);
 
                         /* add all its pointers */

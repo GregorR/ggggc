@@ -115,7 +115,7 @@ void GGGGC_clear_pool(struct GGGGC_Pool *pool)
     memset(pool->remember, 0, GGGGC_CARDS_PER_POOL);
 
     /* set up the top pointer */
-    pool->top = pool->firstobj + GGGGC_CARDS_PER_POOL;
+    pool->top = (char *) (pool->firstobj + GGGGC_CARDS_PER_POOL);
 
     /* remaining amount */
 #if defined(GGGGC_DEBUG) || defined(GGGGC_CLEAR_POOLS)
@@ -163,11 +163,27 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
         ret = (struct GGGGC_Header *) gpool->top;
         gpool->top += sz;
 
-        /* if we allocate at a card boundary, need to mark firstobj */
+        /* if we allocate /right/ at a card boundary (header before, content after), need to move */
         c1 = GGGGC_CARD_OF(ret);
+        c2 = GGGGC_CARD_OF(ret + 1);
+        if (UNLIKELY(c1 != c2)) {
+            /* we allocated /right/ on the edge of a card, which means the wrong card will be marked! Choose the next one instead */
+            fprintf(stderr, "Whoops %p\n", (void *) (ret+1));
+            ret->sz = (size_t) -1;
+            ret++;
+            c1 = GGGGC_CARD_OF(ret);
+            gpool->top += sizeof(struct GGGGC_Header);
+            c1 = c2;
+            gpool->firstobj[c1] = (unsigned short) ((size_t) gpool->top & GGGGC_CARD_MASK);
+        }
+
+        /* if we allocate at a card boundary, need to mark firstobj */
         c2 = GGGGC_CARD_OF(gpool->top);
         if (c1 != c2)
-            gpool->firstobj[c2] = (unsigned char) ((size_t) gpool->top & GGGGC_CARD_MASK);
+            gpool->firstobj[c2] = (unsigned short) ((size_t) gpool->top & GGGGC_CARD_MASK);
+
+        /* set this so when we do card-searches, we know when to stop */
+        ((struct GGGGC_Header *) gpool->top)->sz = (size_t) -1;
 
         return (void *) (ret + 1);
     }
