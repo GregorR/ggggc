@@ -26,7 +26,7 @@
 #define GGGGC_H
 
 #include <stdlib.h>
-#ifdef __WIN32
+#ifdef _WIN32
 #include <malloc.h>
 #else
 #include <alloca.h>
