@@ -64,7 +64,7 @@
 #define GGGGC_DEBUG_MEMORY_CORRUPTION
 #endif
 #ifndef GGGGC_DEBUG_COLLECTION_TIME
-#ifndef __WIN32
+#ifndef _WIN32
 #define GGGGC_DEBUG_COLLECTION_TIME
 #endif
 #endif
