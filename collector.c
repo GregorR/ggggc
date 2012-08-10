@@ -65,7 +65,8 @@ void GGGGC_collector_init()
 
 void GGGGC_collect(unsigned char gen)
 {
-    int i, j, c;
+    int i, j;
+    unsigned int c;
     size_t survivors, heapsz;
     struct GGGGC_Pool *gpool;
     unsigned char nextgen;
