@@ -232,7 +232,12 @@ static __inline__ void *GGGGC_trymalloc_pool0(struct GGGGC_Pool *gpool, size_t s
         ret->ptrs = ptrs;
 
         pt = (void *) (ret + 1);
-        while (ptrs--) *pt++ = NULL;
+        while (ptrs--) {
+            /* this may seem unintuitive, but is faster since it avoids writing
+             * when the memory is already zero */
+            if (*pt) *pt = NULL;
+            pt++;
+        }
 
         return (void *) (ret + 1);
     }
