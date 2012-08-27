@@ -33,14 +33,12 @@
 
 #if __STDC_VERSION__ >= 201112L
 
-#define FOUND_ALLOCATOR c11
 #define USE_ALLOCATOR_C11
 #define ALLOCATOR_ALWAYS_ALIGNED
 
 #elif _POSIX_VERSION >= 200112L && !defined(GGGGC_OPTION_NO_POSIX_MEMALIGN)
 #include <errno.h>
 
-#define FOUND_ALLOCATOR posix
 #define USE_ALLOCATOR_POSIX
 #define ALLOCATOR_ALWAYS_ALIGNED
 
@@ -48,7 +46,6 @@
 #include <sys/mman.h>
 
 #if defined(MAP_ANON) /* have MAP_ANON, so mmap is fine */
-#define FOUND_ALLOCATOR mmap
 #define USE_ALLOCATOR_MMAP
 #endif
 
@@ -58,7 +55,6 @@
 #endif
 #include <windows.h>
 
-#define FOUND_ALLOCATOR win32
 #define USE_ALLOCATOR_WIN32
 
 #else
