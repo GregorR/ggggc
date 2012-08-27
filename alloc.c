@@ -31,7 +31,20 @@
 #include <unistd.h> /* for _POSIX_VERSION */
 #endif
 
-#if _POSIX_VERSION >= 200112L || defined(__APPLE__) /* should support mmap */
+#if __STDC_VERSION__ >= 201112L
+
+#define FOUND_ALLOCATOR c11
+#define USE_ALLOCATOR_C11
+#define ALLOCATOR_ALWAYS_ALIGNED
+
+#elif _POSIX_VERSION >= 200112L && !defined(GGGGC_OPTION_NO_POSIX_MEMALIGN)
+#include <errno.h>
+
+#define FOUND_ALLOCATOR posix
+#define USE_ALLOCATOR_POSIX
+#define ALLOCATOR_ALWAYS_ALIGNED
+
+#elif _POSIX_VERSION >= 200112L || defined(__APPLE__) /* should support mmap */
 #include <sys/mman.h>
 
 #if defined(MAP_ANON) /* have MAP_ANON, so mmap is fine */
@@ -39,17 +52,16 @@
 #define USE_ALLOCATOR_MMAP
 #endif
 
-#endif
-
-#if defined(_WIN32) /* use Windows allocators */
+#elif defined(_WIN32) /* use Windows allocators */
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+
 #define FOUND_ALLOCATOR win32
 #define USE_ALLOCATOR_WIN32
 
-#elif !defined(FOUND_ALLOCATOR)
+#else
 /* don't know what to use, so malloc */
 #ifndef GGGGC_MALLOC_OK
 #error Cannot find an allocator for this system. Define GGGGC_MALLOC_OK to use malloc.
@@ -67,7 +79,18 @@ static void *allocateAligned(size_t sz2)
     void *ret;
     size_t sz = 1<<sz2;
 
-#if defined(USE_ALLOCATOR_MMAP)
+#if defined(USE_ALLOCATOR_C11)
+    SF(ret, aligned_alloc, NULL, (sz, sz));
+#elif defined(USE_ALLOCATOR_POSIX)
+    {
+        int err;
+        if ((err = posix_memalign(&ret, sz, sz))) {
+            errno = err;
+            perror("posix_memalign");
+            exit(1);
+        }
+    }
+#elif defined(USE_ALLOCATOR_MMAP)
     /* mmap double */
     SF(ret, mmap, NULL, (NULL, sz*2, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0));
 #elif defined(USE_ALLOCATOR_WIN32)
@@ -76,6 +99,7 @@ static void *allocateAligned(size_t sz2)
     SF(ret, malloc, NULL, (sz*2));
 #endif
 
+#ifndef ALLOCATOR_ALWAYS_ALIGNED
     /* check for alignment */
     if (((size_t) ret & ~((size_t) -1 << sz2)) != 0) {
         /* not aligned, figure out the proper alignment */
@@ -97,6 +121,7 @@ static void *allocateAligned(size_t sz2)
         VirtualFree((void *) ((char *) ret + sz), sz, MEM_RELEASE);
 #endif
     }
+#endif
 
     return ret;
 }
@@ -137,7 +162,9 @@ struct GGGGC_Pool *GGGGC_alloc_pool()
 
 void GGGGC_free_pool(struct GGGGC_Pool *pool)
 {
-#if defined(USE_ALLOCATOR_MMAP)
+#if defined(USE_ALLOCATOR_C11) || defined(USE_ALLOCATOR_POSIX)
+    free(pool);
+#elif defined(USE_ALLOCATOR_MMAP)
     munmap(pool, GGGGC_POOL_BYTES);
 #elif defined(USE_ALLOCATOR_WIN32)
     VirtualFree(pool, GGGGC_POOL_BYTES, MEM_RELEASE);
