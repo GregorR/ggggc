@@ -142,13 +142,13 @@ GGC_DEFN_DATA_STRUCT(name, data)
 /* Allocate a fresh object of the given type */
 #define GGC_NEW(type) ((type) GGGGC_malloc( \
     sizeof(struct _GGGGC__ ## type) + sizeof(struct GGGGC_Header) - sizeof(void *), \
-    _ggggc_ptrs_ct__ ## type))
-void *GGGGC_malloc(size_t sz, unsigned short ptrs);
+    _ggggc_ptrs_ct__ ## type, 1))
+void *GGGGC_malloc(size_t sz, unsigned short ptrs, int init);
 
 /* Allocate an array of the given kind of pointers */
-#define GGC_NEW_PTR_ARRAY(type, sz) ((type ## Array) GGGGC_malloc_ptr_array(sz))
-#define GGC_NEW_PTR_ARRAY_VOIDP(sz) (GGGGC_malloc_ptr_array(sz))
-void *GGGGC_malloc_ptr_array(size_t sz);
+#define GGC_NEW_PTR_ARRAY(type, sz) ((type ## Array) GGGGC_malloc_ptr_array(sz, 1))
+#define GGC_NEW_PTR_ARRAY_VOIDP(sz) (GGGGC_malloc_ptr_array(sz, 1))
+void *GGGGC_malloc_ptr_array(size_t sz, int init);
 
 /* The ever-unpopular realloc for pointer arrays */
 #define GGC_REALLOC_PTR_ARRAY(type, orig, sz) ((type ## Array) GGGGC_realloc_ptr_array((orig), (sz)))

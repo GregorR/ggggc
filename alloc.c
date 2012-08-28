@@ -212,7 +212,7 @@ static __inline__ void *GGGGC_trymalloc_pool(unsigned char gen, struct GGGGC_Poo
     return NULL;
 }
 
-static __inline__ void *GGGGC_trymalloc_pool0(struct GGGGC_Pool *gpool, size_t sz, unsigned short ptrs)
+static __inline__ void *GGGGC_trymalloc_pool0(struct GGGGC_Pool *gpool, size_t sz, unsigned short ptrs, int init)
 {
     /* perform the actual allocation in gen0 */
     if (LIKELY((void *) (((size_t) gpool->top + sz) & GGGGC_NOPOOL_MASK) == gpool)) {
@@ -231,8 +231,10 @@ static __inline__ void *GGGGC_trymalloc_pool0(struct GGGGC_Pool *gpool, size_t s
         ret->gen = 0;
         ret->ptrs = ptrs;
 
-        pt = (void *) (ret + 1);
-        while (ptrs--) *pt++ = NULL;
+        if (init) {
+            pt = (void *) (ret + 1);
+            while (ptrs--) *pt++ = NULL;
+        }
 
         return (void *) (ret + 1);
     }
@@ -278,12 +280,12 @@ static __inline__ void *GGGGC_trymalloc_gen0(size_t sz, unsigned short ptrs)
     /* call this only after trying ggggc_allocpool, so probably pool[0] */
 retry:
     for (; gpool->next; gpool = gpool->next) {
-        if ((ret = GGGGC_trymalloc_pool0(gpool->next, sz, ptrs))) {
+        if ((ret = GGGGC_trymalloc_pool0(gpool->next, sz, ptrs, 1))) {
             ggggc_allocpool = gpool->next;
             return ret;
         }
     }
-    if ((ret = GGGGC_trymalloc_pool0(gpool, sz, ptrs))) {
+    if ((ret = GGGGC_trymalloc_pool0(gpool, sz, ptrs, 1))) {
         ggggc_allocpool = gpool;
         return ret;
     }
@@ -298,16 +300,16 @@ retry:
     goto retry;
 }
 
-void *GGGGC_malloc(size_t sz, unsigned short ptrs)
+void *GGGGC_malloc(size_t sz, unsigned short ptrs, int init)
 {
     void *ret;
-    if (LIKELY(ret = GGGGC_trymalloc_pool0(ggggc_allocpool, sz, ptrs))) return ret;
+    if (LIKELY(ret = GGGGC_trymalloc_pool0(ggggc_allocpool, sz, ptrs, init))) return ret;
     return GGGGC_trymalloc_gen0(sz, ptrs);
 }
 
-void *GGGGC_malloc_ptr_array(size_t sz)
+void *GGGGC_malloc_ptr_array(size_t sz, int init)
 {
-    return GGGGC_malloc(sizeof(struct GGGGC_Header) + sz * sizeof(void *), sz);
+    return GGGGC_malloc(sizeof(struct GGGGC_Header) + sz * sizeof(void *), sz, init);
 }
 
 void *GGGGC_realloc_ptr_array(void *orig, size_t sz)
@@ -316,7 +318,7 @@ void *GGGGC_realloc_ptr_array(void *orig, size_t sz)
     void *ret;
 
     /* just allocate and copy out the original */
-    ret = GGGGC_malloc_ptr_array(sz);
+    ret = GGGGC_malloc_ptr_array(sz, 1);
     sz = sz * sizeof(void *);
     if (header->sz - sizeof(struct GGGGC_Header) < sz) {
         memcpy(ret, orig, header->sz - sizeof(struct GGGGC_Header));
@@ -334,7 +336,7 @@ void *GGGGC_malloc_data_array(size_t sz)
         sz += sizeof(void *);
         sz -= sz % sizeof(void *);
     }
-    return GGGGC_malloc(sz, 0);
+    return GGGGC_malloc(sz, 0, 0);
 }
 
 void *GGGGC_realloc_data_array(void *orig, size_t sz)
