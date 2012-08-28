@@ -146,7 +146,7 @@ GGC_DEFN_DATA_STRUCT(name, data)
 void *GGGGC_malloc(size_t sz, unsigned short ptrs, int init);
 
 /* Allocate an object uninitialized (DANGEROUS) */
-#define GGC_NEW(type) ((type) GGGGC_malloc( \
+#define GGC_NEW_UNINIT(type) ((type) GGGGC_malloc( \
     sizeof(struct _GGGGC__ ## type) + sizeof(struct GGGGC_Header) - sizeof(void *), \
     _ggggc_ptrs_ct__ ## type, 0))
 
