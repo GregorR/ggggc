@@ -28,9 +28,9 @@
 #define __inline__
 #endif
 
-void GGGGC_collector_init();
+void GGGGC_collector_init(void);
 void *GGGGC_trymalloc_gen(unsigned char gen, int expand, struct GGGGC_Pool **allocpool, size_t sz, unsigned short ptrs);
-struct GGGGC_Pool *GGGGC_alloc_pool();
+struct GGGGC_Pool *GGGGC_alloc_pool(void);
 void GGGGC_clear_pool(struct GGGGC_Pool *pool);
 void GGGGC_free_pool(struct GGGGC_Pool *pool);
 

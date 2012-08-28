@@ -9,7 +9,7 @@ GGC_STRUCT(Test,
     int val;
 );
 
-int main()
+int main(void)
 {
     Test old;
     Test test, test2;

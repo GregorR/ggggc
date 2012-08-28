@@ -24,7 +24,7 @@
 #include "ggggc_internal.h"
 #include "helpers.h"
 
-void GGGGC_init()
+void GGGGC_init(void)
 {
     int g;
 

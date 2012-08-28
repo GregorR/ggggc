@@ -220,8 +220,8 @@ void GGGGC_collect(unsigned char gen);
 #define GGC_PTR_READ(_obj, _ptr) ((_obj)->_ggggc_ptrs._ptr)
 
 /* Initialize GGGGC */
-#define GGC_INIT() GGGGC_init();
-void GGGGC_init();
+#define GGC_INIT() GGGGC_init()
+void GGGGC_init(void);
 
 
 /* The following is mostly internal, but needed for public macros */

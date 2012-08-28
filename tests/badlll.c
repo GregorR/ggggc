@@ -51,7 +51,7 @@ next:
     printf("\n");
 }
 
-int main()
+int main(void)
 {
     LLL mylll = NULL;
 
