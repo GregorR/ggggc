@@ -143,7 +143,7 @@ void GGGGC_clear_pool(struct GGGGC_Pool *pool)
     pool->firstobj[c] = ((size_t) pool->top) & GGGGC_CARD_MASK;
 }
 
-struct GGGGC_Pool *GGGGC_alloc_pool()
+struct GGGGC_Pool *GGGGC_alloc_pool(void)
 {
     /* allocate this pool */
     struct GGGGC_Pool *pool = (struct GGGGC_Pool *) allocateAligned(GGGGC_POOL_SIZE);

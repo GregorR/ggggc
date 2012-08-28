@@ -20,7 +20,7 @@
 
 #define PSTACK_MAX 20
 
-int main()
+int main(void)
 {
     int i, j;
 

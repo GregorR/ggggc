@@ -289,8 +289,8 @@ void GGGGC_collect(unsigned char gen);
 #define GGC_PTR_READ_DATA GGC_PTR_READ
 
 /* Initialize GGGGC */
-#define GGC_INIT() GGGGC_init();
-void GGGGC_init();
+#define GGC_INIT() GGGGC_init()
+void GGGGC_init(void);
 
 
 /* The following is mostly internal, but needed for public macros */

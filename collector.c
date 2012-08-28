@@ -51,7 +51,7 @@ BUFFER(voidpp, void **);
 /* one global tocheck, so we don't have to re-init and re-free it */
 static struct Buffer_voidpp tocheck;
 
-void GGGGC_collector_init()
+void GGGGC_collector_init(void)
 {
     ggggc_pstack = NULL;
     ggggc_dpstack = NULL;
