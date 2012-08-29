@@ -244,7 +244,7 @@ void GGGGC_collect(unsigned char gen);
     struct GGGGC_Header *_fromhdr = (struct GGGGC_Header *) (_from) - 1; \
     if (_fromhdr->gen > 0) { \
         struct GGGGC_Pool *_pool = (struct GGGGC_Pool *) ((size_t) (_fromhdr) & GGGGC_NOPOOL_MASK); \
-        _pool->remember[GGGGC_CARD_OF(_fromhdr)] = 1; \
+        _pool->remember[GGGGC_CARD_OF(_fromhdr)] = 0; \
     } \
 } while (0)
 
@@ -306,7 +306,7 @@ void GGGGC_init(void);
 /* A GGGGC pool (header) */
 struct GGGGC_Pool {
     /* at the beginning to simplify GGGGC_REMEMBER's math */
-    char remember[GGGGC_CARDS_PER_POOL];
+    char remember[GGGGC_CARDS_PER_POOL+1];
     struct GGGGC_Pool *next;
     char *top;
     unsigned short firstobj[GGGGC_CARDS_PER_POOL];
