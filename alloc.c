@@ -126,8 +126,9 @@ void GGGGC_clear_pool(struct GGGGC_Pool *pool)
 {
     size_t c;
 
-    /* clear it out */
-    memset(pool->remember, 0, GGGGC_CARDS_PER_POOL);
+    /* 1 means forget, 0 means remember */
+    memset(pool->remember, 1, GGGGC_CARDS_PER_POOL);
+    pool->remember[GGGGC_CARDS_PER_POOL] = 0;
 
     /* set up the top pointer */
     pool->top = (char *) (pool->firstobj + GGGGC_CARDS_PER_POOL);

@@ -110,27 +110,28 @@ retry:
         gpool = ggggc_gens[i];
 
         for (; gpool; gpool = gpool->next) {
-            for (c = 0; c < GGGGC_CARDS_PER_POOL; c++) {
-                if (gpool->remember[c]) {
-                    /* remembered, add the card */
-                    size_t base = (size_t) (((char *) gpool) + (GGGGC_CARD_BYTES * c));
-                    struct GGGGC_Header *first = (struct GGGGC_Header *) ((char *) base + gpool->firstobj[c]);
-                    struct GGGGC_Header *obj = first;
+            for (c = strlen(gpool->remember);
+                 c < GGGGC_CARDS_PER_POOL;
+                 c += 1 + strlen(gpool->remember + c + 1)) {
+                /* remembered, add the card */
+                size_t base = (size_t) (((char *) gpool) + (GGGGC_CARD_BYTES * c));
+                struct GGGGC_Header *first = (struct GGGGC_Header *) ((char *) base + gpool->firstobj[c]);
+                struct GGGGC_Header *obj = first;
 
-                    /* walk through this card */
-                    while (base == ((size_t) obj & GGGGC_NOCARD_MASK) && (char *) obj < gpool->top && obj->sz != (size_t) -1) {
-                        void **ptr = (void **) (obj + 1);
+                /* walk through this card */
+                while (base == ((size_t) obj & GGGGC_NOCARD_MASK) && (char *)
+                    obj < gpool->top && obj->sz != (size_t) -1) {
+                    void **ptr = (void **) (obj + 1);
 
-                        /* add all its pointers */
-                        for (j = 0; j < obj->ptrs; j++, ptr++) {
-                            if (*ptr)
-                                WRITE_ONE_BUFFER(tocheck, ptr);
-                        }
-
-                        obj = (struct GGGGC_Header *) ((char *) obj + obj->sz);
+                    /* add all its pointers */
+                    for (j = 0; j < obj->ptrs; j++, ptr++) {
+                        if (*ptr)
+                            WRITE_ONE_BUFFER(tocheck, ptr);
                     }
 
+                    obj = (struct GGGGC_Header *) ((char *) obj + obj->sz);
                 }
+
             }
         }
     }
@@ -205,7 +206,7 @@ retry:
     /* clear the remember set of the next one */
     gpool = ggggc_gens[gen+1];
     for (; gpool; gpool = gpool->next) {
-        memset(gpool->remember, 0, GGGGC_CARDS_PER_POOL);
+        memset(gpool->remember, 1, GGGGC_CARDS_PER_POOL);
     }
 
     /* and if we're doing the last (last+1 really) generation, treat it like two-space copying
