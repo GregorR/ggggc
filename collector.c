@@ -1,7 +1,7 @@
 /*
  * The collector proper
  *
- * Copyright (c) 2010 Gregor Richards
+ * Copyright (c) 2010-2012 Gregor Richards
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -280,6 +280,6 @@ retry:
     gettimeofday(&tvb, NULL);
     fprintf(stderr, "Generation %d collection finished in %dus\n",
             (int) gen,
-            (tvb.tv_sec - tva.tv_sec) * 1000000 + (tvb.tv_usec - tva.tv_usec));
+            (int) ((tvb.tv_sec - tva.tv_sec) * 1000000 + (tvb.tv_usec - tva.tv_usec)));
 #endif
 }
