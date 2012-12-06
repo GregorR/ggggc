@@ -13,31 +13,25 @@ GGC_STRUCT(LLL,
 LLL buildLLL(int sz)
 {
     int i;
-    LLL *lll, llr;
-    lll = malloc(sz * sizeof(LLL));
+    LLL ll0, lll, llc;
 
-    for (i = 0; i < sz; i++) {
-        lll[i] = NULL;
-        GGC_PUSH(lll[i]);
-    }
+    GGC_PUSH3(ll0, lll, llc);
 
-    for (i = 0; i < sz; i++) {
-        lll[i] = GGC_NEW(LLL);
-        lll[i]->val = i;
+    ll0 = GGC_NEW(LLL);
+    ll0->val = 0;
+    lll = ll0;
+
+    for (i = 1; i < sz; i++) {
+        llc = GGC_NEW(LLL);
+        llc->val = i;
+        GGC_PTR_WRITE(lll, next, llc);
+        lll = llc;
         GGC_YIELD();
     }
 
-    for (i = sz - 2; i >= 0; i--) {
-        GGC_PTR_WRITE(lll[i], next, lll[i+1]);
-        GGC_POP(1);
-        GGC_YIELD();
-    }
-    GGC_POP(1);
+    GGC_POP(3);
 
-    llr = lll[0];
-    free(lll);
-
-    return llr;
+    return ll0;
 }
 
 #if 0
