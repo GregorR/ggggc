@@ -40,6 +40,7 @@ LLL buildLLL(int sz)
     return llr;
 }
 
+#if 0
 void dumpLLL(LLL lll)
 {
 next:
@@ -49,6 +50,26 @@ next:
         goto next;
     }
     printf("\n");
+}
+#endif
+
+void testLLL(LLL lll)
+{
+    unsigned char *counted;
+
+    GGC_PUSH(lll);
+
+    counted = calloc(MAX, sizeof(unsigned char));
+    while (lll) {
+        counted[lll->val]++;
+        if (counted[lll->val] > 1) {
+            fprintf(stderr, "ERROR! Encountered %d twice!\n", lll->val);
+            exit(1);
+        }
+        lll = GGC_PTR_READ(lll, next);
+    }
+
+    GGC_POP(1);
 }
 
 int main(void)
@@ -60,7 +81,10 @@ int main(void)
     GGC_PUSH(mylll);
 
     mylll = buildLLL(MAX);
+#if 0
     dumpLLL(mylll);
+#endif
+    testLLL(mylll);
 
     GGC_YIELD();
     GGC_POP(1);
