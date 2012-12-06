@@ -1,7 +1,7 @@
 /*
  * Allocation functions
  *
- * Copyright (c) 2010, 2011 Gregor Richards
+ * Copyright (c) 2010-2012 Gregor Richards
  * Copyright (c) 2011 Elliott Hird
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -31,12 +31,12 @@
 #include <unistd.h> /* for _POSIX_VERSION */
 #endif
 
-#if __STDC_VERSION__ >= 201112L
+#if __STDC_VERSION__ >= 201112L && 0
 
 #define USE_ALLOCATOR_C11
 #define ALLOCATOR_ALWAYS_ALIGNED
 
-#elif _POSIX_VERSION >= 200112L && !defined(GGGGC_OPTION_NO_POSIX_MEMALIGN)
+#elif _POSIX_VERSION >= 200112L && !defined(GGGGC_OPTION_NO_POSIX_MEMALIGN) && 0
 #include <errno.h>
 
 #define USE_ALLOCATOR_POSIX
