@@ -1,0 +1,6 @@
+language: c
+
+script: ./tests/test.sh
+
+notifications:
+    irc: "irc.freenode.net#plof"
