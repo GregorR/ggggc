@@ -116,8 +116,8 @@ static void Populate(int iDepth, Node thisNode) {
                 iDepth--;
                   GGC_PTR_WRITE_UNTAGGED_PTR(thisNode, left, GGC_NEW(Node)); HOLE();
                   GGC_PTR_WRITE_UNTAGGED_PTR(thisNode, right, GGC_NEW(Node)); HOLE();
-                Populate (iDepth, GGC_PTR_READ_UNTAGGING_PTR(thisNode, left));
-                Populate (iDepth, GGC_PTR_READ_UNTAGGING_PTR(thisNode, right));
+                Populate (iDepth, GGC_PTR_READ_NONTAGGING_PTR(thisNode, left));
+                Populate (iDepth, GGC_PTR_READ_NONTAGGING_PTR(thisNode, right));
         }
         GGC_POP(1);
 }

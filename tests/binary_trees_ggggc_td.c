@@ -41,12 +41,12 @@ treeNode NewTreeNode(treeNode left, treeNode right, long item)
 long ItemCheck(treeNode tree)
 {
     GGC_PUSH(tree);
-    if (GGC_PTR_READ_UNTAGGING_PTR(tree, left) == NULL) {
+    if (GGC_PTR_READ_NONTAGGING_PTR(tree, left) == NULL) {
         GGC_POP(1);
         return tree->item;
     } else {
         GGC_POP(1);
-        return tree->item + ItemCheck(GGC_PTR_READ_UNTAGGING_PTR(tree, left)) - ItemCheck(GGC_PTR_READ_UNTAGGING_PTR(tree, right));
+        return tree->item + ItemCheck(GGC_PTR_READ_NONTAGGING_PTR(tree, left)) - ItemCheck(GGC_PTR_READ_NONTAGGING_PTR(tree, right));
     }
 } /* ItemCheck() */
 
