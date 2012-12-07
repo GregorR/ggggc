@@ -31,12 +31,12 @@
 #include <unistd.h> /* for _POSIX_VERSION */
 #endif
 
-#if __STDC_VERSION__ >= 201112L && 0
+#if __STDC_VERSION__ >= 201112L
 
 #define USE_ALLOCATOR_C11
 #define ALLOCATOR_ALWAYS_ALIGNED
 
-#elif _POSIX_VERSION >= 200112L && !defined(GGGGC_OPTION_NO_POSIX_MEMALIGN) && 0
+#elif _POSIX_VERSION >= 200112L && !defined(GGGGC_OPTION_NO_POSIX_MEMALIGN)
 #include <errno.h>
 
 #define USE_ALLOCATOR_POSIX
