@@ -335,4 +335,9 @@ struct GGGGC_PStack *GGGGC_globalizePStack(struct GGGGC_PStack *pstack);
 #define GGC_PUSH_GLOBAL() (ggggc_pstack = GGGGC_globalizePStack(ggggc_pstack))
 #define GGC_DPUSH_GLOBAL() (ggggc_dpstack = GGGGC_globalizePStack(ggggc_dpstack))
 
+/* If necessary, use the Boehm redirection header */
+#ifdef GGGGC_USE_BOEHM_GC
+#include "ggggc_boehm.h"
+#endif
+
 #endif
