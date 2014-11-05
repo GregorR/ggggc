@@ -111,13 +111,16 @@ static int NumIters(int i) {
 
 // Build tree top down, assigning to older objects.
 static void Populate(int iDepth, Node thisNode) {
-    GGC_PUSH_1(thisNode);
+    Node tmp = NULL;
+    GGC_PUSH_2(thisNode, tmp);
         if (iDepth<=0) {
                 return;
         } else {
                 iDepth--;
-                  GGC_W(thisNode, left, GGC_NEW(Node)); HOLE();
-                  GGC_W(thisNode, right, GGC_NEW(Node)); HOLE();
+                tmp = GGC_NEW(Node);
+                  GGC_W(thisNode, left, tmp); HOLE();
+                tmp = GGC_NEW(Node);
+                  GGC_W(thisNode, right, tmp); HOLE();
                 Populate (iDepth, GGC_R(thisNode, left));
                 Populate (iDepth, GGC_R(thisNode, right));
         }

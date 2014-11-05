@@ -180,6 +180,11 @@ GGC_DA_TYPE(double);
 #define GGC_W(object, member, value) do { \
     size_t ggggc_o = (size_t) (object); \
     struct GGGGC_Pool *ggggc_pool = GGGGC_POOL_OF(ggggc_o); \
+    /* assert that both 'object' and 'value' are just identifiers */ \
+    void *object ## _must_be_an_identifier, \
+         *value ## _must_be_an_identifier; \
+    (void) object ## _must_be_an_identifier; \
+    (void) value ## _must_be_an_identifier; \
     if (ggggc_pool->gen) { \
         /* a high-gen object, let's remember it */ \
         ggggc_pool->remember[GGGGC_CARD_OF(ggggc_o)] = 1; \
