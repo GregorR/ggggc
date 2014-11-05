@@ -15,7 +15,15 @@ struct ToSearch {
 #define TOSEARCH_INIT() do { \
     toSearch.sz = 128; \
     toSearch.used = 0; \
-    toSearch.buf = NULL; \
+    toSearch.buf = malloc(toSearch.sz * sizeof(void *)); \
+    if (toSearch.buf == NULL) { \
+        /* FIXME: handle somehow? */ \
+        perror("malloc"); \
+        exit(1); \
+    } \
+} while(0)
+#define TOSEARCH_FREE() do { \
+    free(toSearch.buf); \
 } while(0)
 #define TOSEARCH_EXPAND() do { \
     toSearch.sz *= 2; \
@@ -89,6 +97,12 @@ void ggggc_collect(unsigned char gen)
         GGC_YIELD();
     }
 
+    /* if nobody ever initialized the barrier, do so */
+    if (ggggc_threadCount == 0) {
+        ggggc_threadCount = 1;
+        ggc_barrier_init(&ggggc_worldBarrier, NULL, ggggc_threadCount);
+    }
+
     /* initialize our roots */
     ggc_mutex_lock(&ggggc_rootsLock);
     pool0Node.pool = ggggc_gen0;
@@ -131,6 +145,7 @@ collect:
                         ADD_OBJECT_POINTERS(obj);
                         obj = (struct GGGGC_Header *)
                             ((size_t) obj + obj->descriptor__ptr->size * sizeof(size_t));
+                        if (obj->descriptor__ptr == NULL) break;
                     }
                 }
             }
@@ -212,6 +227,8 @@ collect:
     ggc_barrier_wait(&ggggc_worldBarrier);
     ggggc_stopTheWorld = 0;
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
+
+    TOSEARCH_FREE();
 }
 
 /* explicitly yield to the collector */

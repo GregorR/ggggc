@@ -7,6 +7,7 @@ ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerSt
 size_t ggggc_threadCt;
 volatile int ggggc_stopTheWorld;
 ggc_barrier_t ggggc_worldBarrier;
+size_t ggggc_threadCount;
 ggc_mutex_t ggggc_worldBarrierLock;
 ggc_mutex_t ggggc_rootsLock;
 struct GGGGC_PoolList *ggggc_rootPool0List;

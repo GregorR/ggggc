@@ -20,6 +20,7 @@ extern volatile int ggggc_stopTheWorld;
 
 /* global world-stopping barrier */
 extern ggc_barrier_t ggggc_worldBarrier;
+extern size_t ggggc_threadCount;
 extern ggc_mutex_t ggggc_worldBarrierLock;
 
 /* during stop-the-world, need a queue of pools and pointer stacks to scan */

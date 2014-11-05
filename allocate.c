@@ -10,14 +10,24 @@
 /* allocate a pool */
 static struct GGGGC_Pool *newPool(unsigned char gen)
 {
+    unsigned char *space, *aspace;
     struct GGGGC_Pool *ret;
 
-    ret = mmap(NULL, GGGGC_POOL_BYTES, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
+    space = mmap(NULL, GGGGC_POOL_BYTES*2, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
     if (ret == NULL) {
         /* FIXME: shouldn't just die */
         perror("mmap");
         exit(1);
     }
+
+    /* align it */
+    ret = GGGGC_POOL_OF(space + GGGGC_POOL_BYTES - 1);
+    aspace = (unsigned char *) ret;
+
+    /* free unused space */
+    if (aspace > space)
+        munmap(space, aspace - space);
+    munmap(aspace + GGGGC_POOL_BYTES, space + GGGGC_POOL_BYTES - aspace);
 
     /* space reserved, now set it up */
     ret->gen = gen;
@@ -47,7 +57,7 @@ retry:
     if (ggggc_pool0) {
         pool = ggggc_pool0;
     } else {
-        ggggc_gen0 = ggggc_pool0 = newPool(0);
+        ggggc_gen0 = ggggc_pool0 = pool = newPool(0);
     }
 
     /* do we have enough space? */
@@ -90,7 +100,7 @@ retry:
     if (ggggc_pools[gen]) {
         pool = ggggc_pools[gen];
     } else {
-        ggggc_gens[gen] = ggggc_pools[gen] = newPool(gen);
+        ggggc_gens[gen] = ggggc_pools[gen] = pool = newPool(gen);
     }
 
     /* do we have enough space? */
@@ -183,7 +193,6 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(size_t size)
     ggc_mutex_unlock(&ggggc_descriptorDescriptorsLock);
     GGC_PUSH_1(ggggc_descriptorDescriptors[ddSize]);
     GGC_GLOBALIZE();
-    GGC_POP();
 
     /* and give it a proper descriptor */
     ret->header.descriptor__ptr = ggggc_allocateDescriptorDescriptor(ddSize);
@@ -219,6 +228,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(size_t size, const size_t *po
 
     /* use that to allocate the descriptor */
     ret = ggggc_mallocGen0(dd, 1);
+    ret->size = size;
 
     /* and set it up */
     if (pointers) {
@@ -264,6 +274,11 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlo
     }
 
     slot->descriptor = ggggc_allocateDescriptor(slot->size, slot->pointers);
+
+    /* make the slot descriptor a root */
+    GGC_PUSH_1(slot->descriptor);
+    GGC_GLOBALIZE();
+
     ggc_mutex_unlock(&slot->lock);
     return slot->descriptor;
 }
