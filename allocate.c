@@ -100,6 +100,9 @@ retry:
         /* set its descriptor (no need for write barrier, as this is generation 0) */
         ret->descriptor__ptr = descriptor;
 
+        /* and clear the rest (necessary since this goes to the untrusted mutator) */
+        memset(ret + 1, 0, (descriptor->size - 1) * sizeof(size_t));
+
     } else if (pool->next) {
         ggggc_pool0 = pool = pool->next;
         goto retry;
@@ -155,6 +158,10 @@ retry:
 
         /* set its descriptor */
         GGC_W(ret, descriptor, descriptor);
+
+        /* and clear the next descriptor so that it's clear there's no object
+         * there (yet) */
+        if (pool->free < pool->end) *pool->free = 0;
 
     } else if (pool->next) {
         ggggc_pools[gen] = pool = pool->next;

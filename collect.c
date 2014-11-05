@@ -204,14 +204,12 @@ collect:
     for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
         for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
             poolCur->free = poolCur->start;
-            memset(poolCur->start, 0, (poolCur->end - poolCur->start) * sizeof(size_t));
         }
     }
     for (genCur = 1; genCur < gen; genCur++) {
         for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
             memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
             poolCur->free = poolCur->start;
-            memset(poolCur->start, 0, (poolCur->end - poolCur->start) * sizeof(size_t));
         }
         ggggc_pools[genCur] = ggggc_gens[genCur];
     }
