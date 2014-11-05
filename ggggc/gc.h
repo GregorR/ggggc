@@ -98,14 +98,14 @@ struct GGGGC_PointerStack {
 void *ggggc_malloc(struct GGGGC_Descriptor *descriptor);
 
 /* allocate a pointer array (size is in words) */
-void *ggggc_malloc_ptr_array(size_t sz);
-#define GGC_NEW_PTR_ARRAY(type, size) \
-    ((type*) ggggc_malloc_ptr_array((size)))
+void *ggggc_mallocPointerArray(size_t sz);
+#define GGC_NEW_PA(type, size) \
+    ((type ## Array) ggggc_mallocPointerArray((size)))
 
 /* allocate a data array (size is in words, macro turns it into elements) */
-void *ggggc_malloc_data_array(size_t sz);
-#define GGC_NEW_DATA_ARRAY(type, size) \
-    ((type*) ggggc_malloc_data_array(((size)*sizeof(type)+sizeof(size_t)-1)/sizeof(size_t)))
+void *ggggc_mallocDataArray(size_t sz);
+#define GGC_NEW_DA(type, size) \
+    ((GGC_ ## type ## _Array) ggggc_mallocDataArray(((size)*sizeof(type)+sizeof(size_t)-1)/sizeof(size_t)))
 
 /* allocate a descriptor for an object of the given size in words with the
  * given pointer layout */
@@ -143,8 +143,21 @@ void *ggggc_mallocSlot(struct GGGGC_DescriptorSlot *slot);
     | (1<<GGGGC_OFFSETOF(type, member))
 
 /* macros for defining types */
+#define GGC_DA_TYPE(type) \
+    typedef struct type ## __ggggc_array *GGC_ ## type ## _Array; \
+    struct type ## __ggggc_array { \
+        struct GGGGC_Header header; \
+        type a[1]; \
+    }
+#define GGC_PA_TYPE(type) \
+    typedef struct type ## __ggggc_array *type ## Array; \
+    struct type ## __ggggc_array { \
+        struct GGGGC_Header header; \
+        type a[1]; \
+    }
 #define GGC_TYPE(type) \
     typedef struct type ## __struct *type; \
+    GGC_PA_TYPE(type); \
     struct type ## __struct { \
         struct GGGGC_Header header;
 #define GGC_MDATA(type, name) \
@@ -154,6 +167,14 @@ void *ggggc_mallocSlot(struct GGGGC_DescriptorSlot *slot);
 #define GGC_END_TYPE(type, pointers) \
     }; \
     GGC_DESCRIPTOR(type, pointers)
+
+/* a few simple builtin types */
+GGC_DA_TYPE(char);
+GGC_DA_TYPE(short);
+GGC_DA_TYPE(int);
+GGC_DA_TYPE(long);
+GGC_DA_TYPE(float);
+GGC_DA_TYPE(double);
 
 /* write barrier for pointers (NOTE: double-evaluates object, and there's
  * nothing portable that can be done about that :( ) */

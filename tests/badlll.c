@@ -1,12 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "ggggc.h"
+#include "ggggc/gc.h"
 
-GGC_STRUCT(LLL,
-    LLL next;,
-    int val;
-);
+GGC_TYPE(LLL)
+    GGC_MPTR(LLL, next);
+    GGC_MDATA(int, val);
+GGC_END_TYPE(LLL,
+    GGC_PTR(LLL, next)
+    );
 
 #define MAX (1024 * 1024)
 
@@ -15,7 +17,7 @@ LLL buildLLL(int sz)
     int i;
     LLL ll0, lll, llc;
 
-    GGC_PUSH3(ll0, lll, llc);
+    GGC_PUSH_3(ll0, lll, llc);
 
     ll0 = GGC_NEW(LLL);
     ll0->val = 0;
@@ -24,12 +26,10 @@ LLL buildLLL(int sz)
     for (i = 1; i < sz; i++) {
         llc = GGC_NEW(LLL);
         llc->val = i;
-        GGC_PTR_WRITE(lll, next, llc);
+        GGC_W(lll, next, llc);
         lll = llc;
         GGC_YIELD();
     }
-
-    GGC_POP(3);
 
     return ll0;
 }
@@ -51,7 +51,7 @@ void testLLL(LLL lll)
 {
     unsigned char *counted;
 
-    GGC_PUSH(lll);
+    GGC_PUSH_1(lll);
 
     counted = calloc(MAX, sizeof(unsigned char));
     while (lll) {
@@ -60,28 +60,23 @@ void testLLL(LLL lll)
             fprintf(stderr, "ERROR! Encountered %d twice!\n", lll->val);
             exit(1);
         }
-        lll = GGC_PTR_READ(lll, next);
+        lll = GGC_R(lll, next);
     }
 
-    GGC_POP(1);
+    return;
 }
 
 int main(void)
 {
     LLL mylll = NULL;
 
-    GGC_INIT();
-
-    GGC_PUSH(mylll);
+    GGC_PUSH_1(mylll);
 
     mylll = buildLLL(MAX);
 #if 0
     dumpLLL(mylll);
 #endif
     testLLL(mylll);
-
-    GGC_YIELD();
-    GGC_POP(1);
 
     return 0;
 }

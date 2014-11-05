@@ -16,9 +16,9 @@ BADLLLOBJS=badlll.o
 
 REMEMBEROBJS=remember.o
 
-GCBENCHOBJS=../gc_bench/GCBench.o
+GCBENCHOBJS=gc_bench/GCBench.o
 
-GGGGCBENCHOBJS=../gc_bench/GCBench.ggggc.o
+GGGGCBENCHOBJS=gc_bench/GCBench.ggggc.o
 
 all: bt btgc btggggc badlll gcbench ggggcbench
 

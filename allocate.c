@@ -189,14 +189,14 @@ void *ggggc_malloc(struct GGGGC_Descriptor *descriptor)
 }
 
 /* allocate a pointer array (size is in words) */
-void *ggggc_malloc_ptr_array(size_t sz)
+void *ggggc_mallocPointerArray(size_t sz)
 {
     struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorPA(sz + 1);
     return ggggc_malloc(descriptor);
 }
 
 /* allocate a data array (size is in words) */
-void *ggggc_malloc_data_array(size_t sz)
+void *ggggc_mallocDataArray(size_t sz)
 {
     struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorDA(sz + 1);
     return ggggc_malloc(descriptor);
