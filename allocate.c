@@ -1,10 +1,29 @@
 #define _BSD_SOURCE /* for MAP_ANON */
 
+/* for standards info */
+#if defined(unix) || defined(__unix) || defined(__unix__)
+#include <unistd.h>
+#endif
+
+#include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/types.h>
+
+/* figure out which allocator to use */
+#if _POSIX_ADVISORY_INFO >= 200112L
+#define GGGGC_ALLOCATOR_POSIX_MEMALIGN 1
+
+#elif defined(MAP_ANON)
+#define GGGGC_ALLOCATOR_MMAP 1
+
+#else
+#warning GGGGC: No allocator available other than malloc!
+#define GGGGC_ALLOCATOR_MALLOC 1
+
+#endif
 
 #include "ggggc/gc.h"
 #include "ggggc-internals.h"
@@ -12,9 +31,19 @@
 /* allocate a pool */
 static struct GGGGC_Pool *newPool(unsigned char gen)
 {
-    unsigned char *space, *aspace;
     struct GGGGC_Pool *ret;
 
+#if GGGGC_ALLOCATOR_POSIX_MEMALIGN
+    if ((errno = posix_memalign((void **) &ret, GGGGC_POOL_BYTES, GGGGC_POOL_BYTES))) {
+        /* FIXME: be smarter */
+        perror("posix_memalign");
+        exit(1);
+    }
+
+#elif GGGGC_ALLOCATOR_MMAP
+    unsigned char *space, *aspace;
+
+    /* allocate enough space that we can align it later */
     space = mmap(NULL, GGGGC_POOL_BYTES*2, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
     if (space == NULL) {
         /* FIXME: shouldn't just die */
@@ -31,10 +60,29 @@ static struct GGGGC_Pool *newPool(unsigned char gen)
         munmap(space, aspace - space);
     munmap(aspace + GGGGC_POOL_BYTES, space + GGGGC_POOL_BYTES - aspace);
 
+#elif GGGGC_ALLOCATOR_MALLOC
+    unsigned char *space;
+
+    space = malloc(GGGGC_POOL_BYTES*2);
+    if (space == NULL) {
+        perror("malloc");
+        exit(1);
+    }
+
+    ret = GGGGC_POOL_OF(space + GGGGC_POOL_BYTES - 1);
+
+#else
+#error Unknown allocator.
+#endif
+
     /* space reserved, now set it up */
     ret->gen = gen;
     ret->free = ret->start;
     ret->end = (size_t *) ((unsigned char *) ret + GGGGC_POOL_BYTES);
+
+    /* clear the remembered set */
+    if (gen > 0)
+        memset(ret->remember, 0, GGGGC_CARDS_PER_POOL);
 
     /* the first object in the first usable card */
     ret->firstObject[GGGGC_CARD_OF(ret->start)] =
