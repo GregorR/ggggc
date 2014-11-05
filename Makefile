@@ -19,9 +19,9 @@ libggggc.a: $(OBJS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJS) libggggc.a
+	rm -f $(OBJS) libggggc.a deps
 
 include deps
 
 deps:
-	$(CC) -MM *.c > deps
+	-$(CC) -MM *.c > deps
