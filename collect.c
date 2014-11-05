@@ -158,6 +158,14 @@ collect:
         struct GGGGC_Header *obj = *ptr;
         if (obj == NULL) continue;
 
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+        /* check for pre-corruption */
+        if (obj->ggggc_memoryCorruptionCheck != GGGGC_MEMORY_CORRUPTION_VAL) {
+            fprintf(stderr, "GGGGC: Memory corruption (precheck)!\n");
+            abort();
+        }
+#endif
+
         /* is the object already forwarded? */
         if (IS_FORWARDED_OBJECT(obj)) {
             FOLLOW_FORWARDED_OBJECT(obj);
@@ -187,11 +195,19 @@ collect:
 
             /* mark it as forwarded */
             obj->descriptor__ptr = (struct GGGGC_Descriptor *) (((size_t) nobj) | 1);
-            *ptr = nobj;
+            *ptr = obj = nobj;
 
             /* and add its pointers */
-            ADD_OBJECT_POINTERS(nobj);
+            ADD_OBJECT_POINTERS(obj);
         }
+
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+        /* check for post-corruption */
+        if (obj->ggggc_memoryCorruptionCheck != GGGGC_MEMORY_CORRUPTION_VAL) {
+            fprintf(stderr, "GGGGC: Memory corruption (postcheck)!\n");
+            abort();
+        }
+#endif
     }
 
     /* heuristically expand too-small generations */
@@ -206,6 +222,7 @@ collect:
             poolCur->free = poolCur->start;
         }
     }
+    ggggc_pool0 = ggggc_gen0;
     for (genCur = 1; genCur < gen; genCur++) {
         for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
             memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);

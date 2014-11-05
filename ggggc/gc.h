@@ -38,6 +38,11 @@
 #define GGGGC_BITS_PER_WORD (8*sizeof(size_t))
 #define GGGGC_WORDS_PER_POOL (GGGGC_POOL_BYTES/sizeof(size_t))
 
+/* debugging flags */
+#ifdef GGGGC_DEBUG
+#define GGGGC_DEBUG_MEMORY_CORRUPTION
+#endif
+
 /* GC pool (forms a list) */
 struct GGGGC_Pool {
     /* the next pool in this generation */
@@ -62,9 +67,16 @@ struct GGGGC_Pool {
     size_t start[1];
 };
 
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+#define GGGGC_MEMORY_CORRUPTION_VAL 0x0DEFACED
+#endif
+
 /* GC header (this shape must be shared by all GC'd objects */
 struct GGGGC_Header {
     struct GGGGC_Descriptor *descriptor__ptr;
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+    size_t ggggc_memoryCorruptionCheck;
+#endif
 };
 
 /* GGGGC descriptors are GC objects that describe the shape of other GC objects */
@@ -75,7 +87,11 @@ struct GGGGC_Descriptor {
     size_t pointers[1]; /* location of pointers within the object (as a special
                          * case, if pointers[0]|1==0, this means "no pointers") */
 };
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+#define GGGGC_DESCRIPTOR_DESCRIPTION 0x5 /* first and third words are pointers */
+#else
 #define GGGGC_DESCRIPTOR_DESCRIPTION 0x3 /* first two words are pointers */
+#endif
 #define GGGGC_DESCRIPTOR_WORDS_REQ(sz) (((sz) + GGGGC_BITS_PER_WORD - 1) / GGGGC_BITS_PER_WORD)
 
 /* descriptor slots are global locations where descriptors may eventually be
@@ -94,55 +110,38 @@ struct GGGGC_PointerStack {
     void *pointers[1];
 };
 
-/* allocate an object */
-void *ggggc_malloc(struct GGGGC_Descriptor *descriptor);
-
-/* allocate a pointer array (size is in words) */
-void *ggggc_mallocPointerArray(size_t sz);
-#define GGC_NEW_PA(type, size) \
-    ((type ## Array) ggggc_mallocPointerArray((size)))
-
-/* allocate a data array (size is in words, macro turns it into elements) */
-void *ggggc_mallocDataArray(size_t sz);
-#define GGC_NEW_DA(type, size) \
-    ((GGC_ ## type ## _Array) ggggc_mallocDataArray(((size)*sizeof(type)+sizeof(size_t)-1)/sizeof(size_t)))
-
-/* allocate a descriptor for an object of the given size in words with the
- * given pointer layout */
-struct GGGGC_Descriptor *ggggc_allocateDescriptor(size_t size, size_t pointers);
-
-/* descriptor allocator when more than one word is required to describe the
- * pointers */
-struct GGGGC_Descriptor *ggggc_allocateDescriptorL(size_t size, const size_t *pointers);
-
-/* descriptor allocator for pointer arrays */
-struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(size_t size);
-
-/* descriptor allocator for data arrays */
-struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(size_t size);
-
-/* allocate a descriptor from a descriptor slot */
-struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot);
-
-/* combined malloc + allocateDescriptorSlot */
-void *ggggc_mallocSlot(struct GGGGC_DescriptorSlot *slot);
-#define GGC_NEW(type) \
-    ((type) ggggc_mallocSlot(&type ## __descriptorSlot))
-
 /* macro for making descriptors of types */
+#ifdef __GNUC__
+#define GGGGC_DESCRIPTORS_CONSTRUCTED
+#define GGGGC_DESCRIPTOR_CONSTRUCTOR(type) \
+static void __attribute__((constructor)) type ## __descriptorSlotConstructor() { \
+    ggggc_allocateDescriptorSlot(&type ## __descriptorSlot); \
+}
+#else
+#define GGGGC_DESCRIPTOR_CONSTRUCTOR(type)
+#endif
 #define GGC_DESCRIPTOR(type, pointers) \
     static struct GGGGC_DescriptorSlot type ## __descriptorSlot = { \
         GGC_MUTEX_INITIALIZER, \
         NULL, \
         (sizeof(struct type ## __struct) + sizeof(size_t) - 1) / sizeof(size_t), \
         ((size_t)0) pointers \
-    }
+    }; \
+    GGGGC_DESCRIPTOR_CONSTRUCTOR(type)
 #define GGGGC_OFFSETOF(type, member) \
     ((size_t) &((type) 0)->member ## __ptr / sizeof(size_t))
 #define GGC_PTR(type, member) \
     | (1<<GGGGC_OFFSETOF(type, member))
 
-/* macros for defining types */
+/* macros for defining types 
+ * Example:
+ * GGC_TYPE(Foo)
+ *     GGC_MPTR(Bar, fooMemberOfTypeBar);
+ *     GGC_MDATA(int, fooMemberOfTypeInt);
+ * GGC_END_TYPE(Foo,
+ *     GGC_PTR(Foo, fooMemberOfTypeBar)
+ *     );
+ */
 #define GGC_DA_TYPE(type) \
     typedef struct type ## __ggggc_array *GGC_ ## type ## _Array; \
     struct type ## __ggggc_array { \
@@ -190,6 +189,46 @@ GGC_DA_TYPE(double);
 
 /* although pointers don't need a read barrier, the renaming sort of forces one */
 #define GGC_R(object, member) ((object)->member ## __ptr)
+
+/* allocate an object */
+void *ggggc_malloc(struct GGGGC_Descriptor *descriptor);
+
+/* combined malloc + allocateDescriptorSlot */
+void *ggggc_mallocSlot(struct GGGGC_DescriptorSlot *slot);
+
+/* general allocator */
+#ifdef GGGGC_DESCRIPTORS_CONSTRUCTED
+#define GGC_NEW(type) ((type) ggggc_malloc(type ## __descriptorSlot.descriptor))
+#else
+#define GGC_NEW(type) ((type) ggggc_mallocSlot(&type ## __descriptorSlot))
+#endif
+
+/* allocate a pointer array (size is in words) */
+void *ggggc_mallocPointerArray(size_t sz);
+#define GGC_NEW_PA(type, size) \
+    ((type ## Array) ggggc_mallocPointerArray((size)))
+
+/* allocate a data array (size is in words, macro turns it into elements) */
+void *ggggc_mallocDataArray(size_t sz);
+#define GGC_NEW_DA(type, size) \
+    ((GGC_ ## type ## _Array) ggggc_mallocDataArray(((size)*sizeof(type)+sizeof(size_t)-1)/sizeof(size_t)))
+
+/* allocate a descriptor for an object of the given size in words with the
+ * given pointer layout */
+struct GGGGC_Descriptor *ggggc_allocateDescriptor(size_t size, size_t pointers);
+
+/* descriptor allocator when more than one word is required to describe the
+ * pointers */
+struct GGGGC_Descriptor *ggggc_allocateDescriptorL(size_t size, const size_t *pointers);
+
+/* descriptor allocator for pointer arrays */
+struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(size_t size);
+
+/* descriptor allocator for data arrays */
+struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(size_t size);
+
+/* allocate a descriptor from a descriptor slot */
+struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot);
 
 /* macros to push and pop pointers from the pointer stack */
 #include "push.h"

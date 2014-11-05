@@ -101,9 +101,12 @@ retry:
 
         /* set its descriptor (no need for write barrier, as this is generation 0) */
         ret->descriptor__ptr = descriptor;
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+        ret->ggggc_memoryCorruptionCheck = GGGGC_MEMORY_CORRUPTION_VAL;
+#endif
 
         /* and clear the rest (necessary since this goes to the untrusted mutator) */
-        memset(ret + 1, 0, (descriptor->size - 1) * sizeof(size_t));
+        memset(ret + 1, 0, descriptor->size * sizeof(size_t) - sizeof(struct GGGGC_Header));
 
     } else if (pool->next) {
         ggggc_pool0 = pool = pool->next;
@@ -121,6 +124,7 @@ retry:
         (void) ggggc_local_push;
         ggggc_collect(0);
         GGC_POP();
+        pool = ggggc_pool0;
         goto retry;
 
     }
