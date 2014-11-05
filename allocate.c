@@ -100,8 +100,8 @@ retry:
         /* good, allocate here */
         ret = (struct GGGGC_Header *) pool->free;
         pool->free += descriptor->size;
-        retCard = GGC_CARD_OF(ret);
-        freeCard = GGC_CARD_OF(pool->free);
+        retCard = GGGGC_CARD_OF(ret);
+        freeCard = GGGGC_CARD_OF(pool->free);
 
         /* if we passed a card, mark the first object */
         if (retCard != freeCard && pool->free < pool->end)
@@ -251,4 +251,25 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(size_t size)
 {
     /* and allocate */
     return ggggc_allocateDescriptorL(size, NULL);
+}
+
+/* allocate a descriptor from a descriptor slot */
+struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot)
+{
+    if (slot->descriptor) return slot->descriptor;
+    ggc_mutex_lock(&slot->lock);
+    if (slot->descriptor) {
+        ggc_mutex_unlock(&slot->lock);
+        return slot->descriptor;
+    }
+
+    slot->descriptor = ggggc_allocateDescriptor(slot->size, slot->pointers);
+    ggc_mutex_unlock(&slot->lock);
+    return slot->descriptor;
+}
+
+/* and a combined malloc/allocslot */
+void *ggggc_mallocSlot(struct GGGGC_DescriptorSlot *slot)
+{
+    return ggggc_malloc(ggggc_allocateDescriptorSlot(slot));
 }

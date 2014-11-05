@@ -81,7 +81,7 @@ struct GGGGC_DescriptorSlot {
     ggc_mutex_t lock;
     struct GGGGC_Descriptor *descriptor;
     size_t size;
-    size_t typeDescriptor;
+    size_t pointers;
 };
 
 /* pointer stacks are used to assure that pointers on the stack are known */
@@ -93,8 +93,6 @@ struct GGGGC_PointerStack {
 
 /* allocate an object */
 void *ggggc_malloc(struct GGGGC_Descriptor *descriptor);
-#define GGC_NEW(type) \
-    ((type) ggggc_malloc(type ## __descriptor))
 
 /* allocate a pointer array (size is in words) */
 void *ggggc_malloc_ptr_array(size_t sz);
@@ -120,9 +118,17 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(size_t size);
 /* descriptor allocator for data arrays */
 struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(size_t size);
 
+/* allocate a descriptor from a descriptor slot */
+struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot);
+
+/* combined malloc + allocateDescriptorSlot */
+void *ggggc_mallocSlot(struct GGGGC_DescriptorSlot *slot);
+#define GGC_NEW(type) \
+    ((type) ggggc_mallocSlot(&type ## __descriptorSlot))
+
 /* macro for making descriptors of types */
 #define GGC_DESCRIPTOR(type, pointers) \
-    extern sruct GGGGC_DescriptorSlot type ## __descriptorSlot = { \
+    static struct GGGGC_DescriptorSlot type ## __descriptorSlot = { \
         GGC_MUTEX_INITIALIZER, \
         NULL, \
         (sizeof(struct type ## __struct) + sizeof(size_t) - 1) / sizeof(size_t), \
@@ -131,16 +137,16 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(size_t size);
 #define GGGGC_OFFSETOF(type, member) \
     ((size_t) &((type) 0)->member ## __ptr / sizeof(size_t))
 #define GGC_PTR(type, member) \
-    | (1<<GGC_OFFSETOF(type, member))
+    | (1<<GGGGC_OFFSETOF(type, member))
 
 /* macros for defining types */
 #define GGC_TYPE(type) \
-    typedef struct type ## __struct type; \
+    typedef struct type ## __struct *type; \
     struct type ## __struct { \
         struct GGGGC_Header header;
 #define GGC_MDATA(type, name) \
         type name
-#define GGC_MPTR (type, name) \
+#define GGC_MPTR(type, name) \
         type name ## __ptr
 #define GGC_END_TYPE(type, pointers) \
     }; \

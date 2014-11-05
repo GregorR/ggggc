@@ -35,7 +35,7 @@ struct ToSearch {
 /* follow a forwarding pointer to the object it actually represents */
 #define IS_FORWARDED_OBJECT(obj) (((size_t) (obj)->descriptor__ptr) & 1)
 #define FOLLOW_FORWARDED_OBJECT(obj) do { \
-    while (IS_FORWARDING_POINTER(obj)) \
+    while (IS_FORWARDED_OBJECT(obj)) \
         obj = (struct GGGGC_Header *) (((size_t) (obj)->descriptor__ptr) & (size_t) ~1); \
 } while(0)
 
