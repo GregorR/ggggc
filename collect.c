@@ -200,12 +200,16 @@ collect:
     }
     for (genCur = 1; genCur < gen; genCur++) {
         for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
-            if (genCur == gen + 1) memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
+            memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
             poolCur->free = poolCur->start;
             memset(poolCur->start, 0, (poolCur->end - poolCur->start) * sizeof(size_t));
         }
         ggggc_pools[genCur] = ggggc_gens[genCur];
     }
+
+    /* and the remembered sets */
+    for (poolCur = ggggc_gens[gen+1]; poolCur; poolCur = poolCur->next)
+        memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
 
     /* if we're collecting the last generation, we act like two-space copying */
     if (gen == GGGGC_GENERATIONS - 1) {
