@@ -92,7 +92,7 @@ void ggggc_collect(unsigned char gen)
     TOSEARCH_INIT();
 
     /* first, make sure we stop the world */
-    while (!ggc_mutex_trylock(&ggggc_worldBarrierLock)) {
+    while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0) {
         /* somebody else is collecting; wait for them */
         GGC_YIELD();
     }

@@ -147,16 +147,16 @@ static void __attribute__((constructor)) type ## __descriptorSlotConstructor() {
     struct type ## __ggggc_array { \
         struct GGGGC_Header header; \
         type a[1]; \
-    }
+    };
 #define GGC_PA_TYPE(type) \
     typedef struct type ## __ggggc_array *type ## Array; \
     struct type ## __ggggc_array { \
         struct GGGGC_Header header; \
         type a[1]; \
-    }
+    };
 #define GGC_TYPE(type) \
     typedef struct type ## __struct *type; \
-    GGC_PA_TYPE(type); \
+    GGC_PA_TYPE(type) \
     struct type ## __struct { \
         struct GGGGC_Header header;
 #define GGC_MDATA(type, name) \
@@ -168,12 +168,13 @@ static void __attribute__((constructor)) type ## __descriptorSlotConstructor() {
     GGC_DESCRIPTOR(type, pointers)
 
 /* a few simple builtin types */
-GGC_DA_TYPE(char);
-GGC_DA_TYPE(short);
-GGC_DA_TYPE(int);
-GGC_DA_TYPE(long);
-GGC_DA_TYPE(float);
-GGC_DA_TYPE(double);
+GGC_DA_TYPE(char)
+GGC_DA_TYPE(short)
+GGC_DA_TYPE(int)
+GGC_DA_TYPE(unsigned)
+GGC_DA_TYPE(long)
+GGC_DA_TYPE(float)
+GGC_DA_TYPE(double)
 
 /* write barrier for pointers (NOTE: double-evaluates object, and there's
  * nothing portable that can be done about that :( ) */
@@ -267,5 +268,13 @@ extern ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_po
 #ifndef GGGGC_NO_REDEFINE_RETURN
 static const int ggggc_local_push = 0;
 #endif
+
+/* the type passed to threads, which allows both GC and non-GC args */
+GGC_TYPE(ThreadArg)
+    GGC_MPTR(void *, parg);
+    GGC_MDATA(void *, darg);
+GGC_END_TYPE(ThreadArg,
+    GGC_PTR(ThreadArg, parg)
+    )
 
 #endif

@@ -18,4 +18,10 @@
 /* predefs */
 #define GGC_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
 
+/* real code below */
+
+/* functions */
+int ggc_thread_create(ggc_thread_t *thread, void (*func)(struct ThreadArg__struct *), struct ThreadArg__struct *arg);
+int ggc_thread_join(ggc_thread_t thread);
+
 #endif
