@@ -1,5 +1,5 @@
 CC=gcc
-ECFLAGS=-O0 -g
+ECFLAGS=-O3 -g
 CFLAGS=$(ECFLAGS)
 AR=ar
 ARFLAGS=rc

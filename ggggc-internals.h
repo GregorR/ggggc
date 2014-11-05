@@ -9,6 +9,9 @@ void *ggggc_mallocGen0(struct GGGGC_Descriptor *descriptor, int force);
 /* allocate an object in the requested generation >= 0, returning NULL if impossible */
 void *ggggc_mallocGen1(struct GGGGC_Descriptor *descriptor, unsigned char gen, int force);
 
+/* heuristically expand a generation if it has too many survivors */
+void ggggc_expandGeneration(struct GGGGC_Pool *pool);
+
 /* run a collection */
 void ggggc_collect(unsigned char gen);
 

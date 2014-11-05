@@ -170,6 +170,9 @@ collect:
             struct GGGGC_Descriptor *descriptor = obj->descriptor__ptr;
             FOLLOW_FORWARDED_DESCRIPTOR(descriptor);
 
+            /* mark it as surviving */
+            GGGGC_POOL_OF(obj)->survivors += descriptor->size;
+
             /* allocate in the new generation */
             nobj = ggggc_mallocGen1(descriptor, gen + 1, (gen == GGGGC_GENERATIONS));
             if (!nobj) {
@@ -190,6 +193,12 @@ collect:
             ADD_OBJECT_POINTERS(nobj);
         }
     }
+
+    /* heuristically expand too-small generations */
+    for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next)
+        ggggc_expandGeneration(plCur->pool);
+    for (genCur = 1; genCur <= gen; genCur++)
+        ggggc_expandGeneration(ggggc_gens[genCur]);
 
     /* now clear out all the generations */
     for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {

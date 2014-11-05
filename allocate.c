@@ -14,7 +14,7 @@ static struct GGGGC_Pool *newPool(unsigned char gen)
     struct GGGGC_Pool *ret;
 
     space = mmap(NULL, GGGGC_POOL_BYTES*2, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
-    if (ret == NULL) {
+    if (space == NULL) {
         /* FIXME: shouldn't just die */
         perror("mmap");
         exit(1);
@@ -39,6 +39,37 @@ static struct GGGGC_Pool *newPool(unsigned char gen)
         (((size_t) ret->start) & GGGGC_CARD_INNER_MASK) / sizeof(size_t);
 
     return ret;
+}
+
+/* heuristically expand a generation if it has too many survivors */
+void ggggc_expandGeneration(struct GGGGC_Pool *pool)
+{
+    size_t space, survivors, poolCt;
+
+    if (!pool) return;
+
+    /* first figure out how much space was used */
+    space = 0;
+    survivors = 0;
+    poolCt = 0;
+    while (1) {
+        space += pool->end - pool->start;
+        survivors += pool->survivors;
+        pool->survivors = 0;
+        poolCt++;
+        if (!pool->next) break;
+        pool = pool->next;
+    }
+
+    /* now decide if it's too much */
+    if (survivors > space/2) {
+        /* allocate more */
+        size_t i;
+        for (i = 0; i < poolCt; i++) {
+            pool->next = newPool(pool->gen);
+            pool = pool->next;
+        }
+    }
 }
 
 /* NOTE: there is code duplication between ggggc_mallocGen0 and
@@ -68,6 +99,10 @@ retry:
 
         /* set its descriptor (no need for write barrier, as this is generation 0) */
         ret->descriptor__ptr = descriptor;
+
+    } else if (pool->next) {
+        ggggc_pool0 = pool = pool->next;
+        goto retry;
 
     } else if (force) {
         /* get a new pool */
@@ -120,6 +155,10 @@ retry:
 
         /* set its descriptor */
         GGC_W(ret, descriptor, descriptor);
+
+    } else if (pool->next) {
+        ggggc_pools[gen] = pool = pool->next;
+        goto retry;
 
     } else if (force) {
         /* get a new pool */

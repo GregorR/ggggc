@@ -49,6 +49,9 @@ struct GGGGC_Pool {
     /* the current free space and end of the pool */
     size_t *free, *end;
 
+    /* how much survived the last collection */
+    size_t survivors;
+
     /* the remembered set for this pool */
     unsigned char remember[GGGGC_CARDS_PER_POOL];
 
