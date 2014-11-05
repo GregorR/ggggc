@@ -59,7 +59,7 @@ struct ToSearch {
 #define ADD_OBJECT_POINTERS(obj) do { \
     void **objVp = (void **) (obj); \
     struct GGGGC_Descriptor *descriptor = objVp[0]; \
-    size_t curWord, curDescription, curDescriptorWord; \
+    size_t curWord, curDescription = 0, curDescriptorWord; \
     FOLLOW_FORWARDED_DESCRIPTOR(descriptor); \
     if (descriptor->pointers[0] & 1) { \
         /* it has pointers */ \

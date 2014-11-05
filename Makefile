@@ -1,5 +1,5 @@
 CC=gcc
-ECFLAGS=-O3 -g
+ECFLAGS=-O3 -g -Wall -Werror -std=c99 -pedantic -D_XOPEN_SOURCE=600
 CFLAGS=$(ECFLAGS)
 AR=ar
 ARFLAGS=rc

@@ -1,3 +1,5 @@
+#define _BSD_SOURCE /* for MAP_ANON */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -116,6 +118,7 @@ retry:
     } else {
         /* need to collect, which means we need to actually be a GC-safe function */
         GGC_PUSH_1(descriptor);
+        (void) ggggc_local_push;
         ggggc_collect(0);
         GGC_POP();
         goto retry;
