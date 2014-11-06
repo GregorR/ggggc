@@ -114,7 +114,7 @@ void ggggc_collect(unsigned char gen)
     ggggc_rootPointerStackList = &pointerStackNode;
     ggc_mutex_unlock(&ggggc_rootsLock);
 
-    /* now let the others fill in the roots */
+    /* stop the world */
     ggggc_stopTheWorld = 1;
     ggc_barrier_wait(&ggggc_worldBarrier);
     ggggc_stopTheWorld = 0;
@@ -281,10 +281,10 @@ void ggggc_yield()
         /* wait for the barrier once to allow collection */
         ggc_barrier_wait(&ggggc_worldBarrier);
 
-        /* now we can reset our pool */
-        ggggc_pool0 = ggggc_gen0;
-
         /* wait for the barrier to know when collection is done */
         ggc_barrier_wait(&ggggc_worldBarrier);
+
+        /* now we can reset our pool */
+        ggggc_pool0 = ggggc_gen0;
     }
 }
