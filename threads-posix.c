@@ -46,32 +46,12 @@ int ggc_thread_join(ggc_thread_t thread)
 {
     int ret, err;
 
-    /* when we join a thread, we are effectively removing ourselves from GC
-     * contention. First we need to make sure our pool is 100% clean */
     ggggc_collect(0);
 
-    /* then we need to reduce the thread count */
-    while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)
-        GGC_YIELD();
-    ggggc_threadCount--;
-    if (ggggc_threadCount > 0) {
-        ggc_barrier_destroy(&ggggc_worldBarrier);
-        ggc_barrier_init(&ggggc_worldBarrier, NULL, ggggc_threadCount);
-    }
-    ggc_mutex_unlock(&ggggc_worldBarrierLock);
-
-    /* FIXME: My pointer stack and pool 0 are not GC'd! */
-
-    /* now we can actually join */
+    ggc_pre_blocking();
     err = pthread_join(thread, NULL);
+    ggc_post_blocking();
     ret = err ? -1 : 0;
-
-    /* then we rejoin the thread pool */
-    while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)
-        GGC_YIELD();
-    ggc_barrier_destroy(&ggggc_worldBarrier);
-    ggc_barrier_init(&ggggc_worldBarrier, NULL, ++ggggc_threadCount);
-    ggc_mutex_unlock(&ggggc_worldBarrierLock);
 
     errno = err;
     return ret;

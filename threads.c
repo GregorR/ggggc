@@ -54,6 +54,77 @@ static void *ggggcThreadWrapper(void *arg)
     return NULL;
 }
 
+static ggc_thread_local struct GGGGC_PoolList blockedPoolListNode;
+static ggc_thread_local struct GGGGC_PointerStackList blockedPointerStackListNode;
+
+/* call this before blocking */
+void ggc_pre_blocking()
+{
+    /* get a lock on the thread count etc */
+    while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)
+        GGC_YIELD();
+
+    /* take ourselves out of contention */
+    ggggc_threadCount--;
+    if (ggggc_threadCount > 0) {
+        ggc_barrier_destroy(&ggggc_worldBarrier);
+        ggc_barrier_init(&ggggc_worldBarrier, NULL, ggggc_threadCount);
+    }
+
+    /* add our roots and pools */
+    blockedPoolListNode.pool = ggggc_gen0;
+    blockedPoolListNode.next = ggggc_blockedThreadPool0s;
+    ggggc_blockedThreadPool0s = &blockedPoolListNode;
+    blockedPointerStackListNode.pointerStack = ggggc_pointerStack;
+    blockedPointerStackListNode.next = ggggc_blockedThreadPointerStacks;
+    ggggc_blockedThreadPointerStacks = &blockedPointerStackListNode;
+
+    ggc_mutex_unlock(&ggggc_worldBarrierLock);
+}
+
+/* and this after */
+void ggc_post_blocking()
+{
+    struct GGGGC_PoolList *plCur;
+    struct GGGGC_PointerStackList *pslCur;
+
+    /* get a lock on the thread count etc */
+    while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)
+        GGC_YIELD();
+
+    /* add ourselves back to the world barrier */
+    ggc_barrier_destroy(&ggggc_worldBarrier);
+    ggc_barrier_init(&ggggc_worldBarrier, NULL, ++ggggc_threadCount);
+
+    /* remove our roots and pools from the list */
+    if (ggggc_blockedThreadPool0s == &blockedPoolListNode) {
+        ggggc_blockedThreadPool0s = ggggc_blockedThreadPool0s->next;
+
+    } else {
+        for (plCur = ggggc_blockedThreadPool0s; plCur->next; plCur = plCur->next) {
+            if (plCur->next == &blockedPoolListNode) {
+                plCur->next = plCur->next->next;
+                break;
+            }
+        }
+
+    }
+    if (ggggc_blockedThreadPointerStacks == &blockedPointerStackListNode) {
+        ggggc_blockedThreadPointerStacks = ggggc_blockedThreadPointerStacks->next;
+
+    } else {
+        for (pslCur = ggggc_blockedThreadPointerStacks; pslCur->next; pslCur = pslCur->next) {
+            if (pslCur->next == &blockedPointerStackListNode) {
+                pslCur->next = pslCur->next->next;
+                break;
+            }
+        }
+
+    }
+
+    ggc_mutex_unlock(&ggggc_worldBarrierLock);
+}
+
 #if GGGGC_THREADS_POSIX
 #include "threads-posix.c"
 

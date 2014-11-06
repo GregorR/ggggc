@@ -125,10 +125,10 @@ void ggggc_collect(unsigned char gen)
     /* initialize our roots */
     ggc_mutex_lock(&ggggc_rootsLock);
     pool0Node.pool = ggggc_gen0;
-    pool0Node.next = NULL;
+    pool0Node.next = ggggc_blockedThreadPool0s;
     ggggc_rootPool0List = &pool0Node;
     pointerStackNode.pointerStack = ggggc_pointerStack;
-    pointerStackNode.next = NULL;
+    pointerStackNode.next = ggggc_blockedThreadPointerStacks;
     ggggc_rootPointerStackList = &pointerStackNode;
     ggc_mutex_unlock(&ggggc_rootsLock);
 

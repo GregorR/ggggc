@@ -11,6 +11,8 @@ ggc_mutex_t ggggc_worldBarrierLock;
 ggc_mutex_t ggggc_rootsLock;
 struct GGGGC_PoolList *ggggc_rootPool0List;
 struct GGGGC_PointerStackList *ggggc_rootPointerStackList;
+struct GGGGC_PoolList *ggggc_blockedThreadPool0s;
+struct GGGGC_PointerStackList *ggggc_blockedThreadPointerStacks;
 ggc_thread_local struct GGGGC_Pool *ggggc_gen0;
 ggc_thread_local struct GGGGC_Pool *ggggc_pool0;
 struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS + 1];

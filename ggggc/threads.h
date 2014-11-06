@@ -6,6 +6,10 @@
 #include <unistd.h>
 #endif
 
+/* blocking on thread behaviors is unsafe unless the GC is informed */
+void ggc_pre_blocking(void);
+void ggc_post_blocking(void);
+
 /* ThreadArg will be defined later, but is needed immediately */
 struct ThreadArg__struct;
 
