@@ -1,0 +1,8 @@
+language: c
+
+script: ./tests/test.sh
+
+notifications:
+    irc:
+        channels: "irc.freenode.net#plof"
+        template: "%{repository} (%{branch} - %{commit} : %{author}): %{message}"

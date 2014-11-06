@@ -7,9 +7,10 @@ make
 
 cd tests
 make clean
-make btggggc badlll ggggcbench
+make btggggc btggggcth badlll ggggcbench
 
 ./btggggc 16
+./btggggcth 18
 ./badlll
 ./ggggcbench
 
