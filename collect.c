@@ -13,17 +13,16 @@ struct ToSearch {
 };
 
 #define TOSEARCH_INIT() do { \
-    toSearch.sz = 128; \
-    toSearch.used = 0; \
-    toSearch.buf = malloc(toSearch.sz * sizeof(void *)); \
     if (toSearch.buf == NULL) { \
-        /* FIXME: handle somehow? */ \
-        perror("malloc"); \
-        exit(1); \
+        toSearch.sz = 128; \
+        toSearch.used = 0; \
+        toSearch.buf = malloc(toSearch.sz * sizeof(void *)); \
+        if (toSearch.buf == NULL) { \
+            /* FIXME: handle somehow? */ \
+            perror("malloc"); \
+            exit(1); \
+        } \
     } \
-} while(0)
-#define TOSEARCH_FREE() do { \
-    free(toSearch.buf); \
 } while(0)
 #define TOSEARCH_EXPAND() do { \
     toSearch.sz *= 2; \
@@ -78,6 +77,8 @@ struct ToSearch {
     } \
 } while(0)
 
+static struct ToSearch toSearch;
+
 /* run a collection */
 void ggggc_collect(unsigned char gen)
 {
@@ -85,7 +86,6 @@ void ggggc_collect(unsigned char gen)
     struct GGGGC_Pool *poolCur;
     struct GGGGC_PointerStackList pointerStackNode, *pslCur;
     struct GGGGC_PointerStack *psCur;
-    struct ToSearch toSearch;
     unsigned char genCur;
     size_t i;
 
@@ -255,8 +255,6 @@ collect:
     /* free the other threads */
     ggc_barrier_wait(&ggggc_worldBarrier);
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
-
-    TOSEARCH_FREE();
 }
 
 /* explicitly yield to the collector */
