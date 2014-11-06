@@ -13,6 +13,7 @@ int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg a
     while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)
         GGC_YIELD();
     if (ggggc_threadCount == 0) ggggc_threadCount++;
+    else ggc_barrier_destroy(&ggggc_worldBarrier);
     ggc_barrier_init(&ggggc_worldBarrier, NULL, ++ggggc_threadCount);
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
 
@@ -34,8 +35,14 @@ int ggc_thread_join(ggc_thread_t thread)
     /* then we need to reduce the thread count */
     while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)
         GGC_YIELD();
-    ggc_barrier_init(&ggggc_worldBarrier, NULL, --ggggc_threadCount);
+    ggggc_threadCount--;
+    if (ggggc_threadCount > 0) {
+        ggc_barrier_destroy(&ggggc_worldBarrier);
+        ggc_barrier_init(&ggggc_worldBarrier, NULL, ggggc_threadCount);
+    }
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
+
+    /* FIXME: My pointer stack and pool 0 are not GC'd! */
 
     /* now we can actually join */
     err = pthread_join(thread, NULL);
@@ -44,6 +51,7 @@ int ggc_thread_join(ggc_thread_t thread)
     /* then we rejoin the thread pool */
     while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)
         GGC_YIELD();
+    ggc_barrier_destroy(&ggggc_worldBarrier);
     ggc_barrier_init(&ggggc_worldBarrier, NULL, ++ggggc_threadCount);
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
 

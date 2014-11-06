@@ -116,6 +116,7 @@ void ggggc_collect(unsigned char gen)
     /* now let the others fill in the roots */
     ggggc_stopTheWorld = 1;
     ggc_barrier_wait(&ggggc_worldBarrier);
+    ggggc_stopTheWorld = 0;
 
     /* wait for them to fill roots */
     ggc_barrier_wait(&ggggc_worldBarrier);
@@ -253,7 +254,6 @@ collect:
 
     /* free the other threads */
     ggc_barrier_wait(&ggggc_worldBarrier);
-    ggggc_stopTheWorld = 0;
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
 
     TOSEARCH_FREE();

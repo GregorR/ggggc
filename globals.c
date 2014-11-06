@@ -4,7 +4,6 @@
 ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerStackGlobals;
 
 /* internals */
-size_t ggggc_threadCt;
 volatile int ggggc_stopTheWorld;
 ggc_barrier_t ggggc_worldBarrier;
 size_t ggggc_threadCount;

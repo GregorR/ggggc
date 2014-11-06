@@ -26,8 +26,11 @@ static void *ggggcThreadWrapper(void *arg)
     /* now remove this thread from the thread barrier */
     while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)
         GGC_YIELD();
-    fprintf(stderr, "Goodbye, cruel world, with such threads in it!\n");
-    ggc_barrier_init(&ggggc_worldBarrier, NULL, --ggggc_threadCount);
+    ggggc_threadCount--;
+    if (ggggc_threadCount > 0) {
+        ggc_barrier_destroy(&ggggc_worldBarrier);
+        ggc_barrier_init(&ggggc_worldBarrier, NULL, ggggc_threadCount);
+    }
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
 
     return NULL;

@@ -4,6 +4,7 @@
 #include <pthread.h>
 
 /* functions */
+#define ggc_barrier_destroy pthread_barrier_destroy
 #define ggc_barrier_init    pthread_barrier_init
 #define ggc_barrier_wait    pthread_barrier_wait
 #define ggc_mutex_lock      pthread_mutex_lock

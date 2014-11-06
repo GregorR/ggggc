@@ -15,9 +15,6 @@ void ggggc_expandGeneration(struct GGGGC_Pool *pool);
 /* run a collection */
 void ggggc_collect(unsigned char gen);
 
-/* number of GGGGC threads currently in the system */
-extern size_t ggggc_threadCt;
-
 /* global heuristic for "please stop the world" */
 extern volatile int ggggc_stopTheWorld;
 
