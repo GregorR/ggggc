@@ -93,8 +93,9 @@ void ggggc_collect(unsigned char gen)
 
     /* first, make sure we stop the world */
     while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0) {
-        /* somebody else is collecting; wait for them */
+        /* somebody else is collecting */
         GGC_YIELD();
+        return;
     }
 
     /* if nobody ever initialized the barrier, do so */
