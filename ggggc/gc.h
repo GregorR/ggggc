@@ -254,9 +254,16 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(size_t size);
 /* allocate a descriptor from a descriptor slot */
 struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot);
 
+/* usually malloc/NEW and return will yield for you, but if you want to
+ * explicitly yield to the garbage collector (e.g. if you're in a tight loop
+ * that doesn't allocate in a multithreaded program), call this */
+int ggggc_yield(void);
+#define GGC_YIELD() do { if (ggggc_stopTheWorld) ggggc_yield(); } while(0)
+
 /* macros to push and pop pointers from the pointer stack */
 #include "push.h"
 #define GGC_POP() do { \
+    GGC_YIELD(); \
     ggggc_pointerStack = ggggc_pointerStack->next; \
 } while(0)
 #ifndef GGGGC_NO_REDEFINE_RETURN
@@ -265,18 +272,21 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlo
 #undef return
 #endif
 #define return \
-    if ((ggggc_local_push && (ggggc_pointerStack = ggggc_pointerStack->next)) || 1) return
+    if (ggggc_local_push ? \
+        ((ggggc_stopTheWorld ? ggggc_yield() : 0), (ggggc_pointerStack = ggggc_pointerStack->next), 0) : \
+        0) {} else return
+
+/* make sure GCC doesn't complain about ambiguous else */
+#pragma GCC diagnostic ignored "-Wparentheses"
+
 #endif
 
 /* to handle global variables, GGC_PUSH them then GGC_GLOBALIZE */
 void ggggc_globalize(void);
 #define GGC_GLOBALIZE() ggggc_globalize()
 
-/* usually malloc/NEW will yield for you, but if you want to explicitly yield
- * to the garbage collector (e.g. if you're in a tight loop that doesn't
- * allocate in a multithreaded program), call this */
-void ggggc_yield(void);
-#define GGC_YIELD() ggggc_yield()
+/* global heuristic for "please stop the world" */
+extern volatile int ggggc_stopTheWorld;
 
 /* each thread has its own pointer stack, including global references */
 extern ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerStackGlobals;

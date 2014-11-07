@@ -277,7 +277,7 @@ collect:
 }
 
 /* explicitly yield to the collector */
-void ggggc_yield()
+int ggggc_yield()
 {
     struct GGGGC_PoolList pool0Node;
     struct GGGGC_PointerStackList pointerStackNode;
@@ -305,4 +305,6 @@ void ggggc_yield()
         /* now we can reset our pool */
         ggggc_pool0 = ggggc_gen0;
     }
+
+    return 0;
 }
