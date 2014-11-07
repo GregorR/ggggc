@@ -289,7 +289,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(size_t size)
         return ggggc_descriptorDescriptors[ddSize];
 
     /* otherwise, need to allocate one. First lock the space */
-    ggc_mutex_lock(&ggggc_descriptorDescriptorsLock);
+    ggc_mutex_lock_raw(&ggggc_descriptorDescriptorsLock);
     if (ggggc_descriptorDescriptors[ddSize]) {
         ggc_mutex_unlock(&ggggc_descriptorDescriptorsLock);
         return ggggc_descriptorDescriptors[ddSize];
@@ -386,7 +386,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(size_t size)
 struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot)
 {
     if (slot->descriptor) return slot->descriptor;
-    ggc_mutex_lock(&slot->lock);
+    ggc_mutex_lock_raw(&slot->lock);
     if (slot->descriptor) {
         ggc_mutex_unlock(&slot->lock);
         return slot->descriptor;

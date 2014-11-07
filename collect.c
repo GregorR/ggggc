@@ -123,7 +123,7 @@ void ggggc_collect(unsigned char gen)
     }
 
     /* initialize our roots */
-    ggc_mutex_lock(&ggggc_rootsLock);
+    ggc_mutex_lock_raw(&ggggc_rootsLock);
     pool0Node.pool = ggggc_gen0;
     pool0Node.next = ggggc_blockedThreadPool0s;
     ggggc_rootPool0List = &pool0Node;
@@ -287,7 +287,7 @@ void ggggc_yield()
         ggc_barrier_wait(&ggggc_worldBarrier);
 
         /* feed it my globals */
-        ggc_mutex_lock(&ggggc_rootsLock);
+        ggc_mutex_lock_raw(&ggggc_rootsLock);
         pool0Node.pool = ggggc_gen0;
         pool0Node.next = ggggc_rootPool0List;
         ggggc_rootPool0List = &pool0Node;

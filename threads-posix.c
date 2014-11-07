@@ -16,6 +16,17 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+int ggc_mutex_lock(ggc_mutex_t *mutex)
+{
+    int ret, err;
+    ggc_pre_blocking();
+    err = pthread_mutex_lock(mutex);
+    ggc_post_blocking();
+    ret = err ? -1 : 0;
+    errno = err;
+    return ret;
+}
+
 int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg arg)
 {
     ThreadInfo ti = NULL;
@@ -45,8 +56,6 @@ int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg a
 int ggc_thread_join(ggc_thread_t thread)
 {
     int ret, err;
-
-    ggggc_collect(0);
 
     ggc_pre_blocking();
     err = pthread_join(thread, NULL);

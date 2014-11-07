@@ -33,13 +33,22 @@ void ggggc_expandGeneration(struct GGGGC_Pool *pool);
 /* run a collection */
 void ggggc_collect(unsigned char gen);
 
-/* global heuristic for "please stop the world" */
-extern volatile int ggggc_stopTheWorld;
+/* ggggc_worldBarrierLock protects:
+ *  ggggc_worldBarrier
+ *  ggggc_threadCount
+ *  ggggc_blockedThreadPool0s
+ *  ggggc_blockedThreadPointerStacks
+ *
+ * It should be acquired to change any of these, and by the main thread during
+ * collection, for the ENTIRE duration of collection
+ */
+extern ggc_mutex_t ggggc_worldBarrierLock;
 
 /* global world-stopping barrier */
 extern ggc_barrier_t ggggc_worldBarrier;
+
+/* number of threads in the system */
 extern size_t ggggc_threadCount;
-extern ggc_mutex_t ggggc_worldBarrierLock;
 
 /* during stop-the-world, need a queue of pools and pointer stacks to scan */
 extern ggc_mutex_t ggggc_rootsLock;
