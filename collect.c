@@ -24,6 +24,10 @@
 #include "ggggc/gc.h"
 #include "ggggc-internals.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* list of pointers to search and associated macros */
 struct ToSearch {
     size_t sz, used;
@@ -34,7 +38,7 @@ struct ToSearch {
     if (toSearch.buf == NULL) { \
         toSearch.sz = 128; \
         toSearch.used = 0; \
-        toSearch.buf = malloc(toSearch.sz * sizeof(void *)); \
+        toSearch.buf = (void **) malloc(toSearch.sz * sizeof(void *)); \
         if (toSearch.buf == NULL) { \
             /* FIXME: handle somehow? */ \
             perror("malloc"); \
@@ -44,7 +48,7 @@ struct ToSearch {
 } while(0)
 #define TOSEARCH_EXPAND() do { \
     toSearch.sz *= 2; \
-    toSearch.buf = realloc(toSearch.buf, toSearch.sz * sizeof(size_t)); \
+    toSearch.buf = (void **) realloc(toSearch.buf, toSearch.sz * sizeof(size_t)); \
     if (toSearch.buf == NULL) { \
         /* FIXME: handle somehow? */ \
         perror("realloc"); \
@@ -83,7 +87,8 @@ struct ToSearch {
 /* macro to add an object's pointers to the tosearch list */
 #define ADD_OBJECT_POINTERS(obj) do { \
     void **objVp = (void **) (obj); \
-    struct GGGGC_UserTypeInfo *uti = objVp[0]; \
+    struct GGGGC_UserTypeInfo *uti = \
+        (struct GGGGC_UserTypeInfo *) objVp[0]; \
     struct GGGGC_Descriptor *descriptor; \
     size_t curWord, curDescription = 0, curDescriptorWord = 0; \
     FOLLOW_FORWARDED_UTI(uti); \
@@ -200,8 +205,8 @@ collect:
 
     /* now test all our pointers */
     while (toSearch.used) {
-        void **ptr = TOSEARCH_POP();
-        struct GGGGC_Header *obj = *ptr;
+        void **ptr = (void **) TOSEARCH_POP();
+        struct GGGGC_Header *obj = (struct GGGGC_Header *) *ptr;
         if (obj == NULL) continue;
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
@@ -232,7 +237,7 @@ collect:
             GGGGC_POOL_OF(obj)->survivors += descriptor->size;
 
             /* allocate in the new generation */
-            nobj = ggggc_mallocGen1(descriptor, gen + 1, (gen == GGGGC_GENERATIONS));
+            nobj = (struct GGGGC_Header *) ggggc_mallocGen1(descriptor, gen + 1, (gen == GGGGC_GENERATIONS));
             if (!nobj) {
                 /* failed to allocate, need to collect gen+1 too */
                 gen += 1;
@@ -338,3 +343,7 @@ int ggggc_yield()
 
     return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif

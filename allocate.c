@@ -46,6 +46,10 @@
 #include "ggggc/gc.h"
 #include "ggggc-internals.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* allocate a pool */
 static struct GGGGC_Pool *newPool(unsigned char gen)
 {
@@ -191,7 +195,6 @@ retry:
     } else {
         /* need to collect, which means we need to actually be a GC-safe function */
         GGC_PUSH_1(uti);
-        (void) ggggc_local_push;
         ggggc_collect(0);
         GGC_POP();
         pool = ggggc_pool0;
@@ -303,7 +306,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(size_t size)
     tmpDescriptor.pointers[0] = GGGGC_DESCRIPTOR_DESCRIPTION;
 
     /* allocate the descriptor descriptor */
-    ret = ggggc_mallocGen0(&tmpDescriptor.uti, 1);
+    ret = (struct GGGGC_Descriptor *) ggggc_mallocGen0(&tmpDescriptor.uti, 1);
 
     /* make it correct */
     ret->uti.descriptor__ptr = ret;
@@ -349,7 +352,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(size_t size, const size_t *po
     dd = ggggc_allocateDescriptorDescriptor(dSize);
 
     /* use that to allocate the descriptor */
-    ret = ggggc_mallocGen0(&dd->uti, 1);
+    ret = (struct GGGGC_Descriptor *) ggggc_mallocGen0(&dd->uti, 1);
     ret->uti.descriptor__ptr = ret;
     ret->size = size;
 
@@ -372,7 +375,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(size_t size)
 
     /* fill our pointer-words with 1s */
     dPWords = GGGGC_DESCRIPTOR_WORDS_REQ(size);
-    pointers = alloca(sizeof(size_t) * dPWords);
+    pointers = (size_t *) alloca(sizeof(size_t) * dPWords);
     for (i = 0; i < dPWords; i++) pointers[i] = (size_t) -1;
 
     /* and allocate */
@@ -411,3 +414,7 @@ void *ggggc_mallocSlot(struct GGGGC_DescriptorSlot *slot)
 {
     return ggggc_malloc(ggggc_allocateDescriptorSlot(slot));
 }
+
+#ifdef __cplusplus
+}
+#endif

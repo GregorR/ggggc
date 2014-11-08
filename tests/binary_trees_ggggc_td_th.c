@@ -26,17 +26,17 @@ GGC_DA_TYPE(ggc_thread_t)
 
 treeNode NewTreeNode(treeNode left, treeNode right, long item)
 {
-    treeNode    new = NULL;
+    treeNode    newT = NULL;
 
-    GGC_PUSH_3(left, right, new);
+    GGC_PUSH_3(left, right, newT);
 
-    new = GGC_NEW(treeNode);
+    newT = GGC_NEW(treeNode);
 
-    GGC_W(new, left, left);
-    GGC_W(new, right, right);
-    new->item = item;
+    GGC_W(newT, left, left);
+    GGC_W(newT, right, right);
+    newT->item = item;
 
-    return new;
+    return newT;
 } /* NewTreeNode() */
 
 
@@ -79,7 +79,7 @@ void treeThread(ThreadArg arg)
 
         GGC_PUSH_3(arg, tempTree, aa);
 
-        aa = GGC_R(arg, parg);
+        aa = (GGC_unsigned_Array) GGC_R(arg, parg);
         minDepth = aa->a[0];
         depth = aa->a[1];
         maxDepth = aa->a[2];

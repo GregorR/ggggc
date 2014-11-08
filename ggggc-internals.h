@@ -21,6 +21,10 @@
 
 #include "ggggc/gc.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* allocate an object in generation 0, collecting if impossible */
 void *ggggc_mallocGen0(struct GGGGC_UserTypeInfo *uti, int force);
 
@@ -84,5 +88,9 @@ extern struct GGGGC_Descriptor *ggggc_descriptorDescriptors[GGGGC_WORDS_PER_POOL
 
 /* and a lock for the descriptor descriptors */
 extern ggc_mutex_t ggggc_descriptorDescriptorsLock;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

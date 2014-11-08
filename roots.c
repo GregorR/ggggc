@@ -23,13 +23,18 @@
 
 #include "ggggc/gc.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* globalize some local elements in the pointer stack */
 void ggggc_globalize()
 {
     struct GGGGC_PointerStack *gPointerStack;
 
     /* make a global copy */
-    gPointerStack = malloc(sizeof(struct GGGGC_PointerStack) + ggggc_pointerStack->size * sizeof(void *));
+    gPointerStack = (struct GGGGC_PointerStack *)
+        malloc(sizeof(struct GGGGC_PointerStack) + ggggc_pointerStack->size * sizeof(void *));
     gPointerStack->next = NULL;
     gPointerStack->size = ggggc_pointerStack->size;
     memcpy(gPointerStack->pointers, ggggc_pointerStack->pointers, ggggc_pointerStack->size * sizeof(void *));
@@ -44,3 +49,7 @@ void ggggc_globalize()
     ggggc_pointerStackGlobals->next = gPointerStack;
     ggggc_pointerStackGlobals = gPointerStack;
 }
+
+#ifdef __cplusplus
+}
+#endif

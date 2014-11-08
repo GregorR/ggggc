@@ -45,13 +45,6 @@ collector (GGC_NEW) before pushing pointers. For example:
         return sum;
     }
 
-`GGC_POP()` is also necessary, but GGGGC redefines `return` to assure that it
-is done automatically. This has two implications: (1) It is necessary to
-`return` from every function in which you push, even if the return type is
-`void`, and (2) if another library also redefines `return`, it is necessary to
-pop manually in files which use both libraries. The behavior of overriding
-`return` can be disabled by defining `GGC_NO_REDEFINE_RETURN`.
-
 You must be careful in C to not store pointers to GC'd objects in temporary
 locations through function calls; in particular, do not call functions within
 the arguments of other functions, as those function calls may yield and destroy

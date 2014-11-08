@@ -24,17 +24,17 @@ GGC_END_TYPE(treeNode,
 
 treeNode NewTreeNode(treeNode left, treeNode right, long item)
 {
-    treeNode    new = NULL;
+    treeNode    newT = NULL;
 
-    GGC_PUSH_3(left, right, new);
+    GGC_PUSH_3(left, right, newT);
 
-    new = GGC_NEW(treeNode);
+    newT = GGC_NEW(treeNode);
 
-    GGC_W(new, left, left);
-    GGC_W(new, right, right);
-    new->item = item;
+    GGC_W(newT, left, left);
+    GGC_W(newT, right, right);
+    newT->item = item;
 
-    return new;
+    return newT;
 } /* NewTreeNode() */
 
 

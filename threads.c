@@ -24,6 +24,10 @@
 #include "ggggc/gc.h"
 #include "ggggc-internals.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* general purpose thread info */
 typedef void (*ggggc_threadFunc)(ThreadArg arg);
 GGC_TYPE(ThreadInfo)
@@ -36,7 +40,7 @@ GGC_END_TYPE(ThreadInfo,
 /* general purpose thread wrapper */
 static void *ggggcThreadWrapper(void *arg)
 {
-    ThreadInfo ti = arg;
+    ThreadInfo ti = (ThreadInfo) arg;
     GGC_PUSH_1(ti);
 
     ti->func(GGC_R(ti, arg));
@@ -131,4 +135,8 @@ void ggc_post_blocking()
 #else
 #error Unknown threading platform.
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif

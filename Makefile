@@ -18,6 +18,11 @@ libggggc.a: $(OBJS)
 .c.o:
 	$(CC) $(CFLAGS) -c $< -o $@
 
+push:
+	$(CC) $(CFLAGS) pushgen.c -o pushgen
+	./pushgen > ggggc/push.h
+	rm -f pushgen
+
 clean:
 	rm -f $(OBJS) libggggc.a deps
 

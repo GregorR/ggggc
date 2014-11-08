@@ -2,16 +2,31 @@
 cd "`dirname $0`"/..
 set -e
 
-make clean
-make
+eRun() {
+    echo "$@"
+    "$@"
+}
 
-cd tests
-make clean
-make btggggc btggggcth badlll ggggcbench
+doTests() {
+    make clean
+    make CC="$1" ECFLAGS="-O3 -g $2"
 
-./btggggc 16
-./btggggcth 18
-./badlll
-./ggggcbench
+    cd tests
+    make clean
+    make btggggc btggggcth badlll ggggcbench \
+        CC="$1" ECFLAGS="$2"
+
+    eRun ./btggggc 16
+    eRun ./btggggcth 18
+    eRun ./badlll
+    eRun ./ggggcbench
+
+    cd ..
+}
+
+doTests gcc ''
+#doTests g++ ''
+doTests gcc '-DGGGGC_NO_GNUC_CLEANUP'
+#doTests g++ '-DGGGGC_NO_GNUC_CLEANUP'
 
 exit 0

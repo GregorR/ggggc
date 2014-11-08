@@ -19,6 +19,10 @@
 #ifndef GGGGC_GC_H
 #define GGGGC_GC_H 1
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdlib.h>
 #ifdef _WIN32
 #include <malloc.h>
@@ -262,50 +266,67 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(size_t size);
 /* allocate a descriptor from a descriptor slot */
 struct GGGGC_UserTypeInfo *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot);
 
+/* global heuristic for "please stop the world" */
+extern volatile int ggggc_stopTheWorld;
+
 /* usually malloc/NEW and return will yield for you, but if you want to
  * explicitly yield to the garbage collector (e.g. if you're in a tight loop
  * that doesn't allocate in a multithreaded program), call this */
 int ggggc_yield(void);
 #define GGC_YIELD() (ggggc_stopTheWorld ? ggggc_yield() : 0)
 
+/* to handle global variables, GGC_PUSH them then GGC_GLOBALIZE */
+void ggggc_globalize(void);
+#define GGC_GLOBALIZE() ggggc_globalize()
+
+/* each thread has its own pointer stack, including global references */
+extern ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerStackGlobals;
+
 /* macros to push and pop pointers from the pointer stack */
-#include "push.h"
-#define GGC_POP() do { \
+#define GGGGC_POP() do { \
     GGC_YIELD(); \
     ggggc_pointerStack = ggggc_pointerStack->next; \
 } while(0)
-#ifndef GGGGC_NO_REDEFINE_RETURN
+
+#if defined(__GNUC__) && !defined(GGGGC_NO_GNUC_CLEANUP)
+static inline void ggggc_pop(void *i) {
+    GGGGC_POP();
+}
+#define GGGGC_LOCAL_PUSH void * __attribute__((cleanup(ggggc_pop))) ggggc_localPush;
+#define GGC_POP() do {} while(0)
+
+#elif defined(__cplusplus)
+} /* end extern "C" */
+
+class GGGGC_LocalPush {
+    public:
+    ~GGGGC_LocalPush() {
+        GGGGC_POP();
+    }
+};
+#define GGGGC_LOCAL_PUSH GGGGC_LocalPush ggggc_localPush;
+#define GGC_POP() do {} while(0)
+
+extern "C" {
+
+#else
+/* we have to be hacky to approximate this for other compilers */
+static const int ggggc_localPush = 0;
+#define GGGGC_LOCAL_PUSH const int ggggc_localPush = 1;
+#define GGC_POP() GGGGC_POP()
+
 #ifdef return
 #warning return redefined, being redefined again by GGGGC. Old definition will be discarded!
 #undef return
 #endif
 #define return \
-    if (ggggc_local_push ? \
+    if (ggggc_localPush ? \
         ((GGC_YIELD()), (ggggc_pointerStack = ggggc_pointerStack->next), 0) : \
         0) {} else return
 
-/* make sure GCC doesn't complain about ambiguous else or thinking the function
- * doesn't return */
-#pragma GCC diagnostic ignored "-Wparentheses"
-#pragma GCC diagnostic ignored "-Wreturn-type"
-
 #endif
 
-/* to handle global variables, GGC_PUSH them then GGC_GLOBALIZE */
-void ggggc_globalize(void);
-#define GGC_GLOBALIZE() ggggc_globalize()
-
-/* global heuristic for "please stop the world" */
-extern volatile int ggggc_stopTheWorld;
-
-/* each thread has its own pointer stack, including global references */
-extern ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerStackGlobals;
-
-/* in order for our #define return to work, we need a global way of knowing we
- * didn't push any local pointers */
-#ifndef GGGGC_NO_REDEFINE_RETURN
-static const int ggggc_local_push = 0;
-#endif
+#include "push.h"
 
 /* the type passed to threads, which allows both GC and non-GC args */
 GGC_TYPE(ThreadArg)
@@ -314,5 +335,9 @@ GGC_TYPE(ThreadArg)
 GGC_END_TYPE(ThreadArg,
     GGC_PTR(ThreadArg, parg)
     )
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
