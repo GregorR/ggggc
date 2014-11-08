@@ -1,5 +1,5 @@
 CC=gcc
-ECFLAGS=-O0 -g -Wall -Werror -std=c99 -pedantic -D_XOPEN_SOURCE=600 -DGGGGC_DEBUG_MEMORY_CORRUPTION=1
+ECFLAGS=-O0 -g -Wall -Werror -std=c99 -pedantic -D_XOPEN_SOURCE=600
 CFLAGS=$(ECFLAGS)
 AR=ar
 ARFLAGS=rc
