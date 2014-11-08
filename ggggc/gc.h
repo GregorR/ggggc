@@ -91,16 +91,25 @@ struct GGGGC_Pool {
 
 /* GC header (this shape must be shared by all GC'd objects */
 struct GGGGC_Header {
-    struct GGGGC_Descriptor *descriptor__ptr;
+    struct GGGGC_UserTypeInfo *uti__ptr;
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
     size_t ggggc_memoryCorruptionCheck;
 #endif
 };
 
-/* GGGGC descriptors are GC objects that describe the shape of other GC objects */
-struct GGGGC_Descriptor {
+/* GC user type information. An optional level of indirection which users may
+ * use for their own type/classinfo if they please, which points to the
+ * descriptor GGGGC uses. */
+struct GGGGC_UserTypeInfo {
     struct GGGGC_Header header;
-    void *userPointer; /* for general use */
+    struct GGGGC_Descriptor *descriptor__ptr;
+};
+
+/* GGGGC descriptors are GC objects that describe the shape of other GC
+ * objects. Descriptors chould have uti.descriptor__ptr set to themself, so
+ * that it can be used as a UTI directly. */
+struct GGGGC_Descriptor {
+    struct GGGGC_UserTypeInfo uti;
     size_t size; /* size of the described object in words */
     size_t pointers[1]; /* location of pointers within the object (as a special
                          * case, if pointers[0]|1==0, this means "no pointers") */
@@ -116,7 +125,7 @@ struct GGGGC_Descriptor {
  * stored */
 struct GGGGC_DescriptorSlot {
     ggc_mutex_t lock;
-    struct GGGGC_Descriptor *descriptor;
+    struct GGGGC_UserTypeInfo *uti;
     size_t size;
     size_t pointers;
 };
@@ -194,8 +203,7 @@ GGC_DA_TYPE(long)
 GGC_DA_TYPE(float)
 GGC_DA_TYPE(double)
 
-/* write barrier for pointers (NOTE: double-evaluates object, and there's
- * nothing portable that can be done about that :( ) */
+/* write barrier for pointers */
 #define GGC_W(object, member, value) do { \
     size_t ggggc_o = (size_t) (object); \
     struct GGGGC_Pool *ggggc_pool = GGGGC_POOL_OF(ggggc_o); \
@@ -215,14 +223,14 @@ GGC_DA_TYPE(double)
 #define GGC_R(object, member) ((object)->member ## __ptr)
 
 /* allocate an object */
-void *ggggc_malloc(struct GGGGC_Descriptor *descriptor);
+void *ggggc_malloc(struct GGGGC_UserTypeInfo *uti);
 
 /* combined malloc + allocateDescriptorSlot */
 void *ggggc_mallocSlot(struct GGGGC_DescriptorSlot *slot);
 
 /* general allocator */
 #ifdef GGGGC_DESCRIPTORS_CONSTRUCTED
-#define GGC_NEW(type) ((type) ggggc_malloc(type ## __descriptorSlot.descriptor))
+#define GGC_NEW(type) ((type) ggggc_malloc(type ## __descriptorSlot.uti))
 #else
 #define GGC_NEW(type) ((type) ggggc_mallocSlot(&type ## __descriptorSlot))
 #endif
@@ -252,13 +260,13 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(size_t size);
 struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(size_t size);
 
 /* allocate a descriptor from a descriptor slot */
-struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot);
+struct GGGGC_UserTypeInfo *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot);
 
 /* usually malloc/NEW and return will yield for you, but if you want to
  * explicitly yield to the garbage collector (e.g. if you're in a tight loop
  * that doesn't allocate in a multithreaded program), call this */
 int ggggc_yield(void);
-#define GGC_YIELD() do { if (ggggc_stopTheWorld) ggggc_yield(); } while(0)
+#define GGC_YIELD() (ggggc_stopTheWorld ? ggggc_yield() : 0)
 
 /* macros to push and pop pointers from the pointer stack */
 #include "push.h"
@@ -273,11 +281,13 @@ int ggggc_yield(void);
 #endif
 #define return \
     if (ggggc_local_push ? \
-        ((ggggc_stopTheWorld ? ggggc_yield() : 0), (ggggc_pointerStack = ggggc_pointerStack->next), 0) : \
+        ((GGC_YIELD()), (ggggc_pointerStack = ggggc_pointerStack->next), 0) : \
         0) {} else return
 
-/* make sure GCC doesn't complain about ambiguous else */
+/* make sure GCC doesn't complain about ambiguous else or thinking the function
+ * doesn't return */
 #pragma GCC diagnostic ignored "-Wparentheses"
+#pragma GCC diagnostic ignored "-Wreturn-type"
 
 #endif
 

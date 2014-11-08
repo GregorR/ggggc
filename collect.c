@@ -58,16 +58,24 @@ struct ToSearch {
 #define TOSEARCH_POP() (toSearch.buf[--toSearch.used])
 
 /* follow a forwarding pointer to the object it actually represents */
-#define IS_FORWARDED_OBJECT(obj) (((size_t) (obj)->descriptor__ptr) & 1)
+#define IS_FORWARDED_OBJECT(obj) (((size_t) (obj)->uti__ptr) & 1)
 #define FOLLOW_FORWARDED_OBJECT(obj) do { \
     while (IS_FORWARDED_OBJECT(obj)) \
-        obj = (struct GGGGC_Header *) (((size_t) (obj)->descriptor__ptr) & (size_t) ~1); \
+        obj = (struct GGGGC_Header *) (((size_t) (obj)->uti__ptr) & (size_t) ~1); \
+} while(0)
+
+/* same for UserTypeInfos as a special case of objects */
+#define IS_FORWARDED_UTI(u) IS_FORWARDED_OBJECT(&(u)->header)
+#define FOLLOW_FORWARDED_UTI(u) do { \
+    struct GGGGC_Header *uobj = &(u)->header; \
+    FOLLOW_FORWARDED_OBJECT(uobj); \
+    u = (struct GGGGC_UserTypeInfo *) uobj; \
 } while(0)
 
 /* same for descriptors as a special case of objects */
-#define IS_FORWARDED_DESCRIPTOR(d) IS_FORWARDED_OBJECT(&(d)->header)
+#define IS_FORWARDED_DESCRIPTOR(d) IS_FORWARDED_OBJECT(&(d)->uti.header)
 #define FOLLOW_FORWARDED_DESCRIPTOR(d) do { \
-    struct GGGGC_Header *dobj = &(d)->header; \
+    struct GGGGC_Header *dobj = &(d)->uti.header; \
     FOLLOW_FORWARDED_OBJECT(dobj); \
     d = (struct GGGGC_Descriptor *) dobj; \
 } while(0)
@@ -75,12 +83,14 @@ struct ToSearch {
 /* macro to add an object's pointers to the tosearch list */
 #define ADD_OBJECT_POINTERS(obj) do { \
     void **objVp = (void **) (obj); \
-    struct GGGGC_Descriptor *descriptor = objVp[0]; \
-    size_t curWord, curDescription = 0, curDescriptorWord; \
+    struct GGGGC_UserTypeInfo *uti = objVp[0]; \
+    struct GGGGC_Descriptor *descriptor; \
+    size_t curWord, curDescription = 0, curDescriptorWord = 0; \
+    FOLLOW_FORWARDED_UTI(uti); \
+    descriptor = uti->descriptor__ptr; \
     FOLLOW_FORWARDED_DESCRIPTOR(descriptor); \
     if (descriptor->pointers[0] & 1) { \
         /* it has pointers */ \
-        curDescriptorWord = 0; \
         for (curWord = 0; curWord < descriptor->size; curWord++) { \
             if (curWord % GGGGC_BITS_PER_WORD == 0) \
                 curDescription = descriptor->pointers[curDescriptorWord++]; \
@@ -107,14 +117,14 @@ void ggggc_collect(unsigned char gen)
     unsigned char genCur;
     size_t i;
 
-    TOSEARCH_INIT();
-
     /* first, make sure we stop the world */
     while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0) {
         /* somebody else is collecting */
         GGC_YIELD();
         return;
     }
+
+    TOSEARCH_INIT();
 
     /* if nobody ever initialized the barrier, do so */
     if (ggggc_threadCount == 0) {
@@ -140,6 +150,22 @@ void ggggc_collect(unsigned char gen)
     /* wait for them to fill roots */
     ggc_barrier_wait(&ggggc_worldBarrier);
 
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+    /* look for memory corruption */
+    for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
+        for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
+            struct GGGGC_Header *obj = (struct GGGGC_Header *) poolCur->start;
+            for (; obj < (struct GGGGC_Header *) poolCur->free;
+                 obj = (struct GGGGC_Header *) (((size_t) obj) + obj->uti__ptr->descriptor__ptr->size * sizeof(size_t))) {
+                if (obj->ggggc_memoryCorruptionCheck != GGGGC_MEMORY_CORRUPTION_VAL) {
+                    fprintf(stderr, "GGGGC: Memory corruption (pre-collection)!\n");
+                    abort();
+                }
+            }
+        }
+    }
+#endif
+
     /************************************************************
      * COLLECTION
      ***********************************************************/
@@ -164,8 +190,8 @@ collect:
                     while (GGGGC_CARD_OF(obj) == i) {
                         ADD_OBJECT_POINTERS(obj);
                         obj = (struct GGGGC_Header *)
-                            ((size_t) obj + obj->descriptor__ptr->size * sizeof(size_t));
-                        if (obj->descriptor__ptr == NULL) break;
+                            ((size_t) obj + obj->uti__ptr->descriptor__ptr->size * sizeof(size_t));
+                        if (obj->uti__ptr == NULL) break;
                     }
                 }
             }
@@ -195,7 +221,11 @@ collect:
         /* does it need to be moved? */
         if (GGGGC_GEN_OF(obj) <= gen) {
             struct GGGGC_Header *nobj;
-            struct GGGGC_Descriptor *descriptor = obj->descriptor__ptr;
+            struct GGGGC_UserTypeInfo *uti = obj->uti__ptr;
+            struct GGGGC_Descriptor *descriptor;
+
+            FOLLOW_FORWARDED_UTI(uti);
+            descriptor = uti->descriptor__ptr;
             FOLLOW_FORWARDED_DESCRIPTOR(descriptor);
 
             /* mark it as surviving */
@@ -214,7 +244,7 @@ collect:
             memcpy(nobj, obj, descriptor->size * sizeof(size_t));
 
             /* mark it as forwarded */
-            obj->descriptor__ptr = (struct GGGGC_Descriptor *) (((size_t) nobj) | 1);
+            obj->uti__ptr = (struct GGGGC_UserTypeInfo *) (((size_t) nobj) | 1);
             *ptr = obj = nobj;
 
             /* and add its pointers */
