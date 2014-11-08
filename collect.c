@@ -237,7 +237,7 @@ collect:
             GGGGC_POOL_OF(obj)->survivors += descriptor->size;
 
             /* allocate in the new generation */
-            nobj = (struct GGGGC_Header *) ggggc_mallocGen1(descriptor, gen + 1, (gen == GGGGC_GENERATIONS));
+            nobj = (struct GGGGC_Header *) ggggc_mallocGen1(descriptor, gen + 1, (gen == GGGGC_GENERATIONS-1));
             if (!nobj) {
                 /* failed to allocate, need to collect gen+1 too */
                 gen += 1;
@@ -296,8 +296,8 @@ collect:
         struct GGGGC_Pool *to = ggggc_gens[gen+1];
 
         /* swap them */
-        ggggc_gens[gen] = to;
-        ggggc_gens[gen+1] = from;
+        ggggc_gens[gen] = ggggc_pools[gen] = to;
+        ggggc_gens[gen+1] = ggggc_pools[gen+1] = from;
 
         /* and relabel them */
         for (poolCur = to; poolCur; poolCur = poolCur->next)
