@@ -24,9 +24,21 @@ doTests() {
     cd ..
 }
 
-doTests gcc ''
-doTests g++ ''
-doTests gcc '-DGGGGC_NO_GNUC_FEATURES'
-doTests g++ '-DGGGGC_NO_GNUC_FEATURES'
+if [ "$1" ]
+then
+    # User-requested test compilers
+    for cc in "$@"
+    do
+        doTests "$cc" ''
+    done
+
+else
+    # Default GCC tests
+    doTests gcc ''
+    doTests g++ ''
+    doTests gcc '-DGGGGC_NO_GNUC_FEATURES'
+    doTests g++ '-DGGGGC_NO_GNUC_FEATURES'
+
+fi
 
 exit 0

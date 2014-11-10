@@ -30,8 +30,8 @@ extern "C" {
 #include <alloca.h>
 #endif
 
-#include "threads.h"
 #include "thread-locals.h"
+#include "threads.h"
 
 #ifndef GGGGC_GENERATIONS
 #define GGGGC_GENERATIONS 2

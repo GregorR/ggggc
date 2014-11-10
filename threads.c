@@ -129,10 +129,10 @@ void ggc_post_blocking()
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
 }
 
-#if GGGGC_THREADS_POSIX
+#ifdef GGGGC_THREADS_POSIX
 #include "threads-posix.c"
 
-#else
+#elif !defined(GGGGC_NO_THREADS)
 #error Unknown threading platform.
 
 #endif
