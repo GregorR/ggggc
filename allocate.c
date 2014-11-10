@@ -27,11 +27,17 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <sys/types.h>
 
+#if _POSIX_VERSION
+#include <sys/mman.h>
+#endif
+
 /* figure out which allocator to use */
-#if _POSIX_ADVISORY_INFO >= 200112L
+#if defined(GGGGC_USE_MALLOC)
+#define GGGGC_ALLOCATOR_MALLOC 1
+
+#elif _POSIX_ADVISORY_INFO >= 200112L
 #define GGGGC_ALLOCATOR_POSIX_MEMALIGN 1
 
 #elif defined(MAP_ANON)
@@ -51,15 +57,17 @@ extern "C" {
 #endif
 
 /* allocate a pool */
-static struct GGGGC_Pool *newPool(unsigned char gen)
+static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
 {
     struct GGGGC_Pool *ret;
 
 #if GGGGC_ALLOCATOR_POSIX_MEMALIGN
     if ((errno = posix_memalign((void **) &ret, GGGGC_POOL_BYTES, GGGGC_POOL_BYTES))) {
-        /* FIXME: be smarter */
-        perror("posix_memalign");
-        exit(1);
+        if (mustSucceed) {
+            perror("posix_memalign");
+            exit(1);
+        }
+        return NULL;
     }
 
 #elif GGGGC_ALLOCATOR_MMAP
@@ -68,9 +76,11 @@ static struct GGGGC_Pool *newPool(unsigned char gen)
     /* allocate enough space that we can align it later */
     space = mmap(NULL, GGGGC_POOL_BYTES*2, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
     if (space == NULL) {
-        /* FIXME: shouldn't just die */
-        perror("mmap");
-        exit(1);
+        if (mustSucceed) {
+            perror("mmap");
+            exit(1);
+        }
+        return NULL;
     }
 
     /* align it */
@@ -87,8 +97,11 @@ static struct GGGGC_Pool *newPool(unsigned char gen)
 
     space = malloc(GGGGC_POOL_BYTES*2);
     if (space == NULL) {
-        perror("malloc");
-        exit(1);
+        if (mustSucceed) {
+            perror("malloc");
+            exit(1);
+        }
+        return NULL;
     }
 
     ret = GGGGC_POOL_OF(space + GGGGC_POOL_BYTES - 1);
@@ -138,8 +151,9 @@ void ggggc_expandGeneration(struct GGGGC_Pool *pool)
         /* allocate more */
         size_t i;
         for (i = 0; i < poolCt; i++) {
-            pool->next = newPool(pool->gen);
+            pool->next = newPool(pool->gen, 0);
             pool = pool->next;
+            if (!pool) break;
         }
     }
 }
@@ -161,7 +175,7 @@ retry:
     if (ggggc_pool0) {
         pool = ggggc_pool0;
     } else {
-        ggggc_gen0 = ggggc_pool0 = pool = newPool(0);
+        ggggc_gen0 = ggggc_pool0 = pool = newPool(0, 1);
     }
 
     /* get the descriptor */
@@ -188,7 +202,7 @@ retry:
 
     } else if (force) {
         /* get a new pool */
-        pool->next = newPool(0);
+        pool->next = newPool(0, 1);
         ggggc_pool0 = pool = pool->next;
         goto retry;
 
@@ -218,7 +232,7 @@ retry:
     if (ggggc_pools[gen]) {
         pool = ggggc_pools[gen];
     } else {
-        ggggc_gens[gen] = ggggc_pools[gen] = pool = newPool(gen);
+        ggggc_gens[gen] = ggggc_pools[gen] = pool = newPool(gen, 1);
     }
 
     /* do we have enough space? */
@@ -246,7 +260,7 @@ retry:
 
     } else if (force) {
         /* get a new pool */
-        pool->next = newPool(gen);
+        pool->next = newPool(gen, 1);
         ggggc_pools[gen] = pool = pool->next;
         goto retry;
 
