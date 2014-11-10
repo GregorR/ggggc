@@ -50,5 +50,35 @@ locations through function calls; in particular, do not call functions within
 the arguments of other functions, as those function calls may yield and destroy
 your pointers.
 
+Some of GGGGC's behavior is configurable through preprocessor definitions. The
+following definitions are available:
+
+ * `GGGGC_POOL_SIZE`: Sets the size of allocation pools, as a power of two.
+   Default is 24 (16MB).
+
+ * `GGGGC_CARD_SIZE`: Sets the size of remembered set cards, as a power of two.
+   Default is 12 (4KB).
+
+ * `GGGGC_DEBUG`: Enables all debugging options.
+
+ * `GGGGC_DEBUG_MEMORY_CORRUPTION`: Enables debugging checks for memory
+   corruption.
+
+ * `GGGGC_NO_GNUC_FEATURES`: Disables all GNU C features when `__GNUC__` is
+   defined. (GNU C features are, naturally, disabled on non-GNU-compatible
+   compilers regardless)
+
+ * `GGGGC_NO_GNUC_CLEANUP`: Disable use of `__attribute__((cleanup(x)))`
+
+ * `GGGGC_NO_GNUC_CONSTRUCTOR`: Disable use of `__attribute__((constructor))`
+
+ * `GGGGC_NO_THREADS`: Disables all threading code. This will be set by default
+   if no thread-local storage or no threading library can be found, but may be
+   set explicitly to avoid the preprocessor warning in these cases.
+
+ * `GGGGC_USE_MALLOC`: Use `malloc` instead of a smarter allocator. `malloc`
+   will be used by default if no smarter allocator can be found, but this may
+   be set explicitly to avoid the preprocessor warning in this case.
+
 Beyond the above, there is no further documentation. Please read ggggc/gc.h
 itself to get further clues.
