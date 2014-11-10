@@ -45,6 +45,17 @@ extern "C" {
 #define GGGGC_CARD_SIZE 12 /* also a power of 2 */
 #endif
 
+/* debugging flags */
+#ifdef GGGGC_DEBUG
+#define GGGGC_DEBUG_MEMORY_CORRUPTION
+#endif
+
+/* flags to disable GCC features */
+#ifdef GGGGC_NO_GNUC_FEATURES
+#define GGGGC_NO_GNUC_CLEANUP
+#define GGGGC_NO_GNUC_CONSTRUCTOR
+#endif
+
 /* various sizes and masks */
 #define GGGGC_WORD_SIZEOF(x) ((sizeof(x) + sizeof(size_t) - 1) / sizeof(size_t))
 #define GGGGC_POOL_BYTES ((size_t) 1 << GGGGC_POOL_SIZE)
@@ -59,11 +70,6 @@ extern "C" {
 #define GGGGC_CARD_OF(ptr) (((size_t) (ptr) & GGGGC_POOL_INNER_MASK) >> GGGGC_CARD_SIZE)
 #define GGGGC_BITS_PER_WORD (8*sizeof(size_t))
 #define GGGGC_WORDS_PER_POOL (GGGGC_POOL_BYTES/sizeof(size_t))
-
-/* debugging flags */
-#ifdef GGGGC_DEBUG
-#define GGGGC_DEBUG_MEMORY_CORRUPTION
-#endif
 
 /* GC pool (forms a list) */
 struct GGGGC_Pool {
@@ -142,15 +148,29 @@ struct GGGGC_PointerStack {
 };
 
 /* macro for making descriptors of types */
-#ifdef __GNUC__
+#if defined(__GNUC__) && !defined(GGGGC_NO_GNUC_CONSTRUCTOR)
 #define GGGGC_DESCRIPTORS_CONSTRUCTED
 #define GGGGC_DESCRIPTOR_CONSTRUCTOR(type) \
 static void __attribute__((constructor)) type ## __descriptorSlotConstructor() { \
     ggggc_allocateDescriptorSlot(&type ## __descriptorSlot); \
 }
+
+#elif defined(__cplusplus)
+#define GGGGC_DESCRIPTORS_CONSTRUCTED
+#define GGGGC_DESCRIPTOR_CONSTRUCTOR(type) \
+class type ## __descriptorSlotConstructor { \
+    public: \
+    type ## __descriptorSlotConstructor() { \
+        ggggc_allocateDescriptorSlot(&type ## __descriptorSlot); \
+    } \
+}; \
+static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorInstance; \
+
 #else
 #define GGGGC_DESCRIPTOR_CONSTRUCTOR(type)
+
 #endif
+
 #define GGC_DESCRIPTOR(type, pointers) \
     static struct GGGGC_DescriptorSlot type ## __descriptorSlot = { \
         GGC_MUTEX_INITIALIZER, \

@@ -26,7 +26,7 @@ doTests() {
 
 doTests gcc ''
 doTests g++ ''
-doTests gcc '-DGGGGC_NO_GNUC_CLEANUP'
-doTests g++ '-DGGGGC_NO_GNUC_CLEANUP'
+doTests gcc '-DGGGGC_NO_GNUC_FEATURES'
+doTests g++ '-DGGGGC_NO_GNUC_FEATURES'
 
 exit 0
