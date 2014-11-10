@@ -33,6 +33,18 @@ extern "C" {
 #include "thread-locals.h"
 #include "threads.h"
 
+/* debugging flags */
+#ifdef GGGGC_DEBUG
+#define GGGGC_DEBUG_MEMORY_CORRUPTION
+#define GGGGC_DEBUG_TINY_HEAP
+#endif
+
+/* flags to disable GCC features */
+#ifdef GGGGC_NO_GNUC_FEATURES
+#define GGGGC_NO_GNUC_CLEANUP
+#define GGGGC_NO_GNUC_CONSTRUCTOR
+#endif
+
 #ifndef GGGGC_GENERATIONS
 #define GGGGC_GENERATIONS 2
 #endif
@@ -43,17 +55,6 @@ extern "C" {
 
 #ifndef GGGGC_CARD_SIZE
 #define GGGGC_CARD_SIZE 12 /* also a power of 2 */
-#endif
-
-/* debugging flags */
-#ifdef GGGGC_DEBUG
-#define GGGGC_DEBUG_MEMORY_CORRUPTION
-#endif
-
-/* flags to disable GCC features */
-#ifdef GGGGC_NO_GNUC_FEATURES
-#define GGGGC_NO_GNUC_CLEANUP
-#define GGGGC_NO_GNUC_CONSTRUCTOR
 #endif
 
 /* various sizes and masks */

@@ -36,6 +36,7 @@ else
     # Default GCC tests
     doTests gcc ''
     doTests g++ ''
+    #doTests gcc '-DGGGGC_DEBUG_TINY_HEAP'
     doTests gcc '-DGGGGC_NO_GNUC_FEATURES'
     doTests g++ '-DGGGGC_NO_GNUC_FEATURES'
 

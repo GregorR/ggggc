@@ -64,6 +64,10 @@ following definitions are available:
  * `GGGGC_DEBUG_MEMORY_CORRUPTION`: Enables debugging checks for memory
    corruption.
 
+ * `GGGGC_DEBUG_TINY_HEAP`: Restrict the heap size to the smallest feasible
+   size. Note that if the program strictly requires more space, it will fail.
+   This is essentially a stress test.
+
  * `GGGGC_NO_GNUC_FEATURES`: Disables all GNU C features when `__GNUC__` is
    defined. (GNU C features are, naturally, disabled on non-GNU-compatible
    compilers regardless)

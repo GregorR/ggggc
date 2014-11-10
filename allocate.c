@@ -60,6 +60,18 @@ extern "C" {
 static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
 {
     struct GGGGC_Pool *ret;
+#ifdef GGGGC_DEBUG_TINY_HEAP
+    static int allocationsLeft = GGGGC_GENERATIONS + 1;
+
+    if (allocationsLeft-- <= 0) {
+        allocationsLeft = 0;
+        if (mustSucceed) {
+            fprintf(stderr, "GGGGC: exceeded tiny heap size\n");
+            exit(1);
+        }
+        return NULL;
+    }
+#endif
 
 #if GGGGC_ALLOCATOR_POSIX_MEMALIGN
     if ((errno = posix_memalign((void **) &ret, GGGGC_POOL_BYTES, GGGGC_POOL_BYTES))) {
