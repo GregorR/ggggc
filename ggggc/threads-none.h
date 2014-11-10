@@ -19,8 +19,6 @@
 #ifndef GGGGC_THREADS_NONE_H
 #define GGGGC_THREADS_NONE_H 1
 
-#include <pthread.h>
-
 /* functions */
 #define ggc_barrier_destroy(x)          0
 #define ggc_barrier_init(x,y,z)         0
