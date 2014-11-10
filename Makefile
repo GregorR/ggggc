@@ -1,6 +1,6 @@
 CC=gcc
-ECFLAGS=-O0 -g -Wall -Werror -std=c99 -pedantic -D_XOPEN_SOURCE=600
-CFLAGS=$(ECFLAGS)
+ECFLAGS=-O3 -g
+CFLAGS=-D_XOPEN_SOURCE=600 $(ECFLAGS)
 AR=ar
 ARFLAGS=rc
 RANLIB=ranlib
