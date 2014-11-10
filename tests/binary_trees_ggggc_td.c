@@ -20,7 +20,7 @@ GGC_TYPE(treeNode)
 GGC_END_TYPE(treeNode,
     GGC_PTR(treeNode, left)
     GGC_PTR(treeNode, right)
-    );
+    )
 
 treeNode NewTreeNode(treeNode left, treeNode right, long item)
 {

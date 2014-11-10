@@ -34,7 +34,7 @@ then
 
 else
     # Default GCC tests
-    doTests gcc '-O3 -g -Wall -Werror -std=c99 -pedantic'
+    doTests gcc '-O3 -g -Wall -Werror -std=c99 -pedantic -Wno-array-bounds'
     doTests gcc ''
     doTests g++ ''
     #doTests gcc '-DGGGGC_DEBUG_TINY_HEAP'

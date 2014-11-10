@@ -63,9 +63,8 @@ unsigned
 stats_rtclock( void )
 {
   struct timeval t;
-  struct timezone tz;
 
-  if (gettimeofday( &t, &tz ) == -1)
+  if (gettimeofday( &t, NULL ) == -1)
     return 0;
   return (t.tv_sec * 1000 + t.tv_usec / 1000);
 }
@@ -84,7 +83,7 @@ GGC_TYPE(Node)
 GGC_END_TYPE(Node,
     GGC_PTR(Node, left)
     GGC_PTR(Node, right)
-    );
+    )
 
 #ifdef HOLES
 #   define HOLE() GGC_NEW(Node);
@@ -177,7 +176,7 @@ static void TimeConstruction(int depth) {
         }
         tFinish = currentTime();
         printf("\tTop down construction took %d msec\n",
-               elapsedTime(tFinish - tStart));
+               (int) elapsedTime(tFinish - tStart));
              
         tStart = currentTime();
         for (i = 0; i < iNumIters; ++i) {
@@ -186,7 +185,7 @@ static void TimeConstruction(int depth) {
         }
         tFinish = currentTime();
         printf("\tBottom up construction took %d msec\n",
-               elapsedTime(tFinish - tStart));
+               (int) elapsedTime(tFinish - tStart));
 
     return;
 
@@ -205,8 +204,8 @@ int main() {
 
 	printf("Garbage Collector Test\n");
  	printf(" Live storage will peak at %d bytes.\n\n",
-               2 * sizeof(Node) * TreeSize(kLongLivedTreeDepth) +
-               sizeof(double) * kArraySize);
+               (int) (2 * sizeof(Node) * TreeSize(kLongLivedTreeDepth) +
+               sizeof(double) * kArraySize));
         printf(" Stretching memory with a binary tree of depth %d\n",
                kStretchTreeDepth);
         PrintDiagnostics();
@@ -247,7 +246,7 @@ int main() {
         tFinish = currentTime();
         tElapsed = elapsedTime(tFinish-tStart);
         PrintDiagnostics();
-        printf("Completed in %d msec\n", tElapsed);
+        printf("Completed in %d msec\n", (int) tElapsed);
 #	ifdef LIBGC
 	  printf("Completed %d collections\n", GC_gc_no);
 	  printf("Heap size is %d\n", GC_get_heap_size());

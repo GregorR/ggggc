@@ -8,7 +8,7 @@ GGC_TYPE(LLL)
     GGC_MDATA(int, val);
 GGC_END_TYPE(LLL,
     GGC_PTR(LLL, next)
-    );
+    )
 
 #define MAX (1024 * 1024)
 
