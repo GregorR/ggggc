@@ -13,9 +13,7 @@ libggggc.a: $(OBJS)
 	$(AR) $(ARFLAGS) libggggc.a $(OBJS)
 	$(RANLIB) libggggc.a
 
-.SUFFIXES: .c .o
-
-.c.o:
+%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 push:
