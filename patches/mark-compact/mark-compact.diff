@@ -1,10 +1,10 @@
 # HG changeset patch
-# Parent 0d33e6b59b8aa696d1bbcd4c7f13af2aacdf4323
+# Parent 77f0b68e81a57e659fd0bd0daa7f10ee85a5a38f
 Make the final generation use mark-compact collection.
 
-diff -r 0d33e6b59b8a allocate.c
---- a/allocate.c	Tue Nov 11 13:43:17 2014 -0500
-+++ b/allocate.c	Tue Nov 11 13:46:24 2014 -0500
+diff -r 77f0b68e81a5 allocate.c
+--- a/allocate.c	Tue Nov 11 13:46:48 2014 -0500
++++ b/allocate.c	Tue Nov 11 18:52:33 2014 -0500
 @@ -217,7 +217,7 @@
      } else {
          /* need to collect, which means we need to actually be a GC-safe function */
@@ -31,9 +31,9 @@ diff -r 0d33e6b59b8a allocate.c
      return ggggc_malloc(descriptor);
  }
  
-diff -r 0d33e6b59b8a collect.c
---- a/collect.c	Tue Nov 11 13:43:17 2014 -0500
-+++ b/collect.c	Tue Nov 11 13:46:24 2014 -0500
+diff -r 77f0b68e81a5 collect.c
+--- a/collect.c	Tue Nov 11 13:46:48 2014 -0500
++++ b/collect.c	Tue Nov 11 18:52:33 2014 -0500
 @@ -28,6 +28,14 @@
  extern "C" {
  #endif
@@ -95,7 +95,7 @@ diff -r 0d33e6b59b8a collect.c
              }
  
              /* copy to the new object */
-@@ -315,25 +338,29 @@
+@@ -315,47 +338,35 @@
  #endif
      }
  
@@ -136,7 +136,29 @@ diff -r 0d33e6b59b8a collect.c
      }
  
      /* and the remembered sets */
-@@ -375,6 +402,407 @@
+     for (poolCur = ggggc_gens[gen+1]; poolCur; poolCur = poolCur->next)
+         memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
+ 
+-    /* if we're collecting the last generation, we act like two-space copying */
+-    if (gen == GGGGC_GENERATIONS - 1) {
+-        struct GGGGC_Pool *from = ggggc_gens[gen];
+-        struct GGGGC_Pool *to = ggggc_gens[gen+1];
+-
+-        /* swap them */
+-        ggggc_gens[gen] = ggggc_pools[gen] = to;
+-        ggggc_gens[gen+1] = ggggc_pools[gen+1] = from;
+-
+-        /* and relabel them */
+-        for (poolCur = to; poolCur; poolCur = poolCur->next)
+-            poolCur->gen = gen;
+-        for (poolCur = from; poolCur; poolCur = poolCur->next)
+-            poolCur->gen = gen + 1;
+-    }
+-
+ #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+     for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
+         for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
+@@ -375,6 +386,444 @@
      ggc_mutex_unlock(&ggggc_worldBarrierLock);
  }
  
@@ -199,9 +221,10 @@ diff -r 0d33e6b59b8a collect.c
 +    struct BreakTableEl *bel = findBreakTableEntry( \
 +        cpool->breakTable, cpool->breakTableSize, \
 +        dobj); \
-+    if (bel) \
++    if (bel) { \
 +        dobj -= bel->orig - bel->newL; \
-+    obj = dobj; \
++        obj = dobj; \
++    } \
 +} while(0)
 +
 +/* special case for compacted descriptors */
@@ -299,8 +322,7 @@ diff -r 0d33e6b59b8a collect.c
 +
 +        /* if the object isn't already marked... */
 +        if (!IS_MARKED(obj)) {
-+            struct GGGGC_Descriptor *descriptor;
-+            descriptor = MARKED_DESCRIPTOR(obj);
++            struct GGGGC_Descriptor *descriptor = obj->descriptor__ptr;
 +
 +            /* then mark it */
 +            MARK(obj);
@@ -360,7 +382,6 @@ diff -r 0d33e6b59b8a collect.c
 +    ggggc_pool0 = ggggc_gen0;
 +    for (genCur = 1; genCur < GGGGC_GENERATIONS; genCur++) {
 +        for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
-+            memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
 +            if (poolCur->free < poolCur->end) *poolCur->free = 0;
 +        }
 +        ggggc_pools[genCur] = ggggc_gens[genCur];
@@ -416,11 +437,7 @@ diff -r 0d33e6b59b8a collect.c
 +                 * old data is still intact */
 +            }
 +
-+            if (obj->descriptor__ptr)
-+                next += MARKED_DESCRIPTOR(obj)->size;
-+            else
-+                /* we've reached the end of this pool */
-+                next = pool->end;
++            next += MARKED_DESCRIPTOR(obj)->size;
 +        }
 +        if (next >= pool->free) next = pool->end;
 +
@@ -512,10 +529,23 @@ diff -r 0d33e6b59b8a collect.c
 +void ggggc_postCompact(struct GGGGC_Pool *pool)
 +{
 +    size_t **obj;
++    size_t card, lastCard = (size_t) -1;
++
++    /* this is going to fill in the remembered sets */
++    if (pool->gen) memset(pool->remember, 0, GGGGC_CARDS_PER_POOL);
 +
 +    for (obj = (size_t **) pool->start; obj < (size_t **) pool->free;) {
 +        struct GGGGC_Descriptor *descriptor;
 +        size_t curWord, curDescription = 0, curDescriptorWord = 0;
++
++        /* set its card metadata */
++        if (pool->gen) {
++            card = GGGGC_CARD_OF(obj);
++            if (card != lastCard) {
++                pool->firstObject[card] = ((size_t) obj & GGGGC_CARD_INNER_MASK) / sizeof(size_t);
++                lastCard = card;
++            }
++        }
 +
 +        /* get the descriptor */
 +        descriptor = (struct GGGGC_Descriptor *) obj[0];
@@ -527,26 +557,55 @@ diff -r 0d33e6b59b8a collect.c
 +            for (curWord = 0; curWord < descriptor->size; curWord++) {
 +                if (curWord % GGGGC_BITS_PER_WORD == 0)
 +                    curDescription = descriptor->pointers[curDescriptorWord++];
-+                if ((curDescription & 1) && obj[curWord])
++                if ((curDescription & 1) && obj[curWord]) {
 +                    /* it's a pointer */
 +                    FOLLOW_COMPACTED_OBJECT(obj[curWord]);
++
++                    /* if it's a cross-generational pointer, remember it */
++                    if (GGGGC_POOL_OF(obj[curWord])->gen < pool->gen)
++                        pool->remember[card] = 1;
++                }
 +                curDescription >>= 1;
 +            }
 +        } else {
 +            /* no pointers other than the descriptor */
 +            FOLLOW_COMPACTED_OBJECT(obj[0]);
++            if (GGGGC_POOL_OF(obj[0])->gen < pool->gen)
++                pool->remember[card] = 1;
 +        }
 +
 +        obj += descriptor->size;
 +    }
++
++    /* and perhaps set firstObject for the free space */
++    if (pool->gen) {
++        card = GGGGC_CARD_OF(pool->free);
++        if (card != lastCard)
++            pool->firstObject[card] = ((size_t) pool->free & GGGGC_CARD_INNER_MASK) / sizeof(size_t);
++    }
++
++#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
++    for (obj = (size_t **) pool->start; obj < (size_t **) pool->free;) {
++        struct GGGGC_Descriptor *descriptor = (struct GGGGC_Descriptor *) obj[0];
++        if ((size_t) obj[1] != GGGGC_MEMORY_CORRUPTION_VAL) {
++            fprintf(stderr, "GGGGC: Memory corruption (post-compaction)\n");
++            abort();
++        }
++        if (IS_MARKED_PTR(descriptor->header.descriptor__ptr)) {
++            fprintf(stderr, "GGGGC: Memory corruption (post-compaction surviving mark)\n");
++            abort();
++        }
++        obj += descriptor->size;
++    }
++#endif
 +}
 +
  /* explicitly yield to the collector */
  int ggggc_yield()
  {
-diff -r 0d33e6b59b8a ggggc-internals.h
---- a/ggggc-internals.h	Tue Nov 11 13:43:17 2014 -0500
-+++ b/ggggc-internals.h	Tue Nov 11 13:46:24 2014 -0500
+diff -r 77f0b68e81a5 ggggc-internals.h
+--- a/ggggc-internals.h	Tue Nov 11 13:46:48 2014 -0500
++++ b/ggggc-internals.h	Tue Nov 11 18:52:33 2014 -0500
 @@ -35,7 +35,7 @@
  void ggggc_expandGeneration(struct GGGGC_Pool *pool);
  
@@ -569,9 +628,9 @@ diff -r 0d33e6b59b8a ggggc-internals.h
  
  /* descriptor descriptors */
  extern struct GGGGC_Descriptor *ggggc_descriptorDescriptors[GGGGC_WORDS_PER_POOL/GGGGC_BITS_PER_WORD+sizeof(struct GGGGC_Descriptor)];
-diff -r 0d33e6b59b8a ggggc/gc.h
---- a/ggggc/gc.h	Tue Nov 11 13:43:17 2014 -0500
-+++ b/ggggc/gc.h	Tue Nov 11 13:46:24 2014 -0500
+diff -r 77f0b68e81a5 ggggc/gc.h
+--- a/ggggc/gc.h	Tue Nov 11 13:46:48 2014 -0500
++++ b/ggggc/gc.h	Tue Nov 11 18:52:33 2014 -0500
 @@ -86,6 +86,12 @@
      /* how much survived the last collection */
      size_t survivors;
@@ -585,9 +644,9 @@ diff -r 0d33e6b59b8a ggggc/gc.h
      /* the remembered set for this pool */
      unsigned char remember[GGGGC_CARDS_PER_POOL];
  
-diff -r 0d33e6b59b8a globals.c
---- a/globals.c	Tue Nov 11 13:43:17 2014 -0500
-+++ b/globals.c	Tue Nov 11 13:46:24 2014 -0500
+diff -r 77f0b68e81a5 globals.c
+--- a/globals.c	Tue Nov 11 13:46:48 2014 -0500
++++ b/globals.c	Tue Nov 11 18:52:33 2014 -0500
 @@ -15,7 +15,7 @@
  struct GGGGC_PointerStackList *ggggc_blockedThreadPointerStacks;
  ggc_thread_local struct GGGGC_Pool *ggggc_gen0;
