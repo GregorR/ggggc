@@ -26,7 +26,7 @@ extern "C" {
 #endif
 
 /* allocate an object in generation 0, collecting if impossible */
-void *ggggc_mallocGen0(struct GGGGC_UserTypeInfo *uti, int force);
+void *ggggc_mallocGen0(struct GGGGC_Descriptor *descriptor, int force);
 
 /* allocate an object in the requested generation >= 0, returning NULL if impossible */
 void *ggggc_mallocGen1(struct GGGGC_Descriptor *descriptor, unsigned char gen, int force);

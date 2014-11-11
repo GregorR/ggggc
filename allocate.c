@@ -175,12 +175,11 @@ void ggggc_expandGeneration(struct GGGGC_Pool *pool)
  * the 0 case */
 
 /* allocate an object in generation 0 */
-void *ggggc_mallocGen0(struct GGGGC_UserTypeInfo *uti, /* the object to allocate */
+void *ggggc_mallocGen0(struct GGGGC_Descriptor *descriptor, /* the object to allocate */
                        int force /* allocate a new pool instead of collecting, if necessary */
                        ) {
     struct GGGGC_Pool *pool;
     struct GGGGC_Header *ret;
-    struct GGGGC_Descriptor *descriptor;
 
 retry:
     /* get our allocation pool */
@@ -190,9 +189,6 @@ retry:
         ggggc_gen0 = ggggc_pool0 = pool = newPool(0, 1);
     }
 
-    /* get the descriptor */
-    descriptor = uti->descriptor__ptr;
-
     /* do we have enough space? */
     if (pool->end - pool->free >= descriptor->size) {
         /* good, allocate here */
@@ -200,7 +196,7 @@ retry:
         pool->free += descriptor->size;
 
         /* set its descriptor (no need for write barrier, as this is generation 0) */
-        ret->uti__ptr = uti;
+        ret->descriptor__ptr = descriptor;
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
         ret->ggggc_memoryCorruptionCheck = GGGGC_MEMORY_CORRUPTION_VAL;
 #endif
@@ -220,7 +216,7 @@ retry:
 
     } else {
         /* need to collect, which means we need to actually be a GC-safe function */
-        GGC_PUSH_1(uti);
+        GGC_PUSH_1(descriptor);
         ggggc_collect(0);
         GGC_POP();
         pool = ggggc_pool0;
@@ -286,23 +282,23 @@ retry:
 }
 
 /* allocate an object */
-void *ggggc_malloc(struct GGGGC_UserTypeInfo *uti)
+void *ggggc_malloc(struct GGGGC_Descriptor *descriptor)
 {
-    return ggggc_mallocGen0(uti, 0);
+    return ggggc_mallocGen0(descriptor, 0);
 }
 
 /* allocate a pointer array (size is in words) */
 void *ggggc_mallocPointerArray(size_t sz)
 {
     struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorPA(sz + 1);
-    return ggggc_malloc(&descriptor->uti);
+    return ggggc_malloc(descriptor);
 }
 
 /* allocate a data array (size is in words) */
 void *ggggc_mallocDataArray(size_t sz)
 {
     struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorDA(sz + 1);
-    return ggggc_malloc(&descriptor->uti);
+    return ggggc_malloc(descriptor);
 }
 
 /* allocate a descriptor-descriptor for a descriptor of the given size */
@@ -326,16 +322,14 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(size_t size)
     }
 
     /* now make a temporary descriptor to describe the descriptor descriptor */
-    tmpDescriptor.uti.header.uti__ptr = NULL;
-    tmpDescriptor.uti.descriptor__ptr = &tmpDescriptor;
+    tmpDescriptor.header.descriptor__ptr = NULL;
     tmpDescriptor.size = ddSize;
     tmpDescriptor.pointers[0] = GGGGC_DESCRIPTOR_DESCRIPTION;
 
     /* allocate the descriptor descriptor */
-    ret = (struct GGGGC_Descriptor *) ggggc_mallocGen0(&tmpDescriptor.uti, 1);
+    ret = (struct GGGGC_Descriptor *) ggggc_mallocGen0(&tmpDescriptor, 1);
 
     /* make it correct */
-    ret->uti.descriptor__ptr = ret;
     ret->size = size;
     ret->pointers[0] = GGGGC_DESCRIPTOR_DESCRIPTION;
 
@@ -346,7 +340,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(size_t size)
     GGC_GLOBALIZE();
 
     /* and give it a proper descriptor */
-    ret->uti.header.uti__ptr = &ggggc_allocateDescriptorDescriptor(ddSize)->uti;
+    ret->header.descriptor__ptr = ggggc_allocateDescriptorDescriptor(ddSize);
 
     return ret;
 }
@@ -378,8 +372,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(size_t size, const size_t *po
     dd = ggggc_allocateDescriptorDescriptor(dSize);
 
     /* use that to allocate the descriptor */
-    ret = (struct GGGGC_Descriptor *) ggggc_mallocGen0(&dd->uti, 1);
-    ret->uti.descriptor__ptr = ret;
+    ret = (struct GGGGC_Descriptor *) ggggc_mallocGen0(dd, 1);
     ret->size = size;
 
     /* and set it up */
@@ -416,23 +409,23 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(size_t size)
 }
 
 /* allocate a descriptor from a descriptor slot */
-struct GGGGC_UserTypeInfo *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot)
+struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot)
 {
-    if (slot->uti) return slot->uti;
+    if (slot->descriptor) return slot->descriptor;
     ggc_mutex_lock_raw(&slot->lock);
-    if (slot->uti) {
+    if (slot->descriptor) {
         ggc_mutex_unlock(&slot->lock);
-        return slot->uti;
+        return slot->descriptor;
     }
 
-    slot->uti = &ggggc_allocateDescriptor(slot->size, slot->pointers)->uti;
+    slot->descriptor = ggggc_allocateDescriptor(slot->size, slot->pointers);
 
     /* make the slot descriptor a root */
-    GGC_PUSH_1(slot->uti);
+    GGC_PUSH_1(slot->descriptor);
     GGC_GLOBALIZE();
 
     ggc_mutex_unlock(&slot->lock);
-    return slot->uti;
+    return slot->descriptor;
 }
 
 /* and a combined malloc/allocslot */

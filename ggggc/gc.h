@@ -100,27 +100,18 @@ struct GGGGC_Pool {
 #define GGGGC_MEMORY_CORRUPTION_VAL 0x0DEFACED
 #endif
 
-/* GC header (this shape must be shared by all GC'd objects */
+/* GC header (this shape must be shared by all GC'd objects) */
 struct GGGGC_Header {
-    struct GGGGC_UserTypeInfo *uti__ptr;
+    struct GGGGC_Descriptor *descriptor__ptr;
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
     size_t ggggc_memoryCorruptionCheck;
 #endif
 };
 
-/* GC user type information. An optional level of indirection which users may
- * use for their own type/classinfo if they please, which points to the
- * descriptor GGGGC uses. */
-struct GGGGC_UserTypeInfo {
-    struct GGGGC_Header header;
-    struct GGGGC_Descriptor *descriptor__ptr;
-};
-
-/* GGGGC descriptors are GC objects that describe the shape of other GC
- * objects. Descriptors chould have uti.descriptor__ptr set to themself, so
- * that it can be used as a UTI directly. */
+/* GGGGC descriptors are GC objects that describe the shape of other GC objects */
 struct GGGGC_Descriptor {
-    struct GGGGC_UserTypeInfo uti;
+    struct GGGGC_Header header;
+    void *user; /* for the user to use however they please */
     size_t size; /* size of the described object in words */
     size_t pointers[1]; /* location of pointers within the object (as a special
                          * case, if pointers[0]|1==0, this means "no pointers") */
@@ -136,7 +127,7 @@ struct GGGGC_Descriptor {
  * stored */
 struct GGGGC_DescriptorSlot {
     ggc_mutex_t lock;
-    struct GGGGC_UserTypeInfo *uti;
+    struct GGGGC_Descriptor *descriptor;
     size_t size;
     size_t pointers;
 };
@@ -248,14 +239,14 @@ GGC_DA_TYPE(double)
 #define GGC_R(object, member) ((object)->member ## __ptr)
 
 /* allocate an object */
-void *ggggc_malloc(struct GGGGC_UserTypeInfo *uti);
+void *ggggc_malloc(struct GGGGC_Descriptor *descriptor);
 
 /* combined malloc + allocateDescriptorSlot */
 void *ggggc_mallocSlot(struct GGGGC_DescriptorSlot *slot);
 
 /* general allocator */
 #ifdef GGGGC_DESCRIPTORS_CONSTRUCTED
-#define GGC_NEW(type) ((type) ggggc_malloc(type ## __descriptorSlot.uti))
+#define GGC_NEW(type) ((type) ggggc_malloc(type ## __descriptorSlot.descriptor))
 #else
 #define GGC_NEW(type) ((type) ggggc_mallocSlot(&type ## __descriptorSlot))
 #endif
@@ -285,7 +276,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(size_t size);
 struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(size_t size);
 
 /* allocate a descriptor from a descriptor slot */
-struct GGGGC_UserTypeInfo *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot);
+struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot);
 
 /* global heuristic for "please stop the world" */
 extern volatile int ggggc_stopTheWorld;
