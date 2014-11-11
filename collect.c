@@ -328,7 +328,7 @@ collect:
         }
     }
     ggggc_pool0 = ggggc_gen0;
-    for (genCur = 1; genCur < gen; genCur++) {
+    for (genCur = 1; genCur <= gen; genCur++) {
         for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
             memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
             poolCur->free = poolCur->start;
@@ -357,6 +357,16 @@ collect:
     }
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+    for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
+        for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
+            memset(poolCur->free, 0, (poolCur->end - poolCur->free) * sizeof(size_t));
+        }
+    }
+    for (genCur = 1; genCur < GGGGC_GENERATIONS; genCur++) {
+        for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
+            memset(poolCur->free, 0, (poolCur->end - poolCur->free) * sizeof(size_t));
+        }
+    }
     memoryCorruptionCheck("post-collection");
 #endif
 
