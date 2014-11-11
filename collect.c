@@ -315,10 +315,6 @@ collect:
 #endif
     }
 
-#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
-    memoryCorruptionCheck("post-collection");
-#endif
-
     /* heuristically expand too-small generations */
     for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next)
         ggggc_expandGeneration(plCur->pool);
@@ -359,6 +355,10 @@ collect:
         for (poolCur = from; poolCur; poolCur = poolCur->next)
             poolCur->gen = gen + 1;
     }
+
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+    memoryCorruptionCheck("post-collection");
+#endif
 
     /* free the other threads */
     ggc_barrier_wait(&ggggc_worldBarrier);
