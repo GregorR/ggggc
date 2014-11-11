@@ -42,7 +42,7 @@ struct ToSearch {
         if (toSearch.buf == NULL) { \
             /* FIXME: handle somehow? */ \
             perror("malloc"); \
-            exit(1); \
+            abort(); \
         } \
     } \
 } while(0)
@@ -52,7 +52,7 @@ struct ToSearch {
     if (toSearch.buf == NULL) { \
         /* FIXME: handle somehow? */ \
         perror("realloc"); \
-        exit(1); \
+        abort(); \
     } \
 } while(0)
 #define TOSEARCH_ADD(ptr) do { \
@@ -79,15 +79,15 @@ struct ToSearch {
 /* macro to add an object's pointers to the tosearch list */
 #define ADD_OBJECT_POINTERS(obj) do { \
     void **objVp = (void **) (obj); \
-    struct GGGGC_Descriptor *descriptor = \
+    struct GGGGC_Descriptor *odescriptor = \
         (struct GGGGC_Descriptor *) objVp[0]; \
     size_t curWord, curDescription = 0, curDescriptorWord = 0; \
-    FOLLOW_FORWARDED_DESCRIPTOR(descriptor); \
-    if (descriptor->pointers[0] & 1) { \
+    FOLLOW_FORWARDED_DESCRIPTOR(odescriptor); \
+    if (odescriptor->pointers[0] & 1) { \
         /* it has pointers */ \
-        for (curWord = 0; curWord < descriptor->size; curWord++) { \
+        for (curWord = 0; curWord < odescriptor->size; curWord++) { \
             if (curWord % GGGGC_BITS_PER_WORD == 0) \
-                curDescription = descriptor->pointers[curDescriptorWord++]; \
+                curDescription = odescriptor->pointers[curDescriptorWord++]; \
             if (curDescription & 1) \
                 /* it's a pointer */ \
                 TOSEARCH_ADD(&objVp[curWord]); \
@@ -100,6 +100,82 @@ struct ToSearch {
 } while(0)
 
 static struct ToSearch toSearch;
+
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+static void memoryCorruptionCheckObj(const char *when, struct GGGGC_Header *obj)
+{
+    struct GGGGC_Descriptor *descriptor = obj->descriptor__ptr;
+    void **objVp = (void **) (obj);
+    size_t curWord, curDescription = 0, curDescriptorWord = 0;
+    if (obj->ggggc_memoryCorruptionCheck != GGGGC_MEMORY_CORRUPTION_VAL) {
+        fprintf(stderr, "GGGGC: Memory corruption (%s)!\n", when);
+        abort();
+    }
+    if (descriptor->pointers[0] & 1) {
+        /* it has pointers */
+        for (curWord = 0; curWord < descriptor->size; curWord++) {
+            if (curWord % GGGGC_BITS_PER_WORD == 0)
+                curDescription = descriptor->pointers[curDescriptorWord++];
+            if (curDescription & 1) {
+                /* it's a pointer */
+                struct GGGGC_Header *nobj = (struct GGGGC_Header *) objVp[curWord];
+                if (nobj && nobj->ggggc_memoryCorruptionCheck != GGGGC_MEMORY_CORRUPTION_VAL) {
+                    fprintf(stderr, "GGGGC: Memory corruption (%s nested)!\n", when);
+                    abort();
+                }
+            }
+            curDescription >>= 1;
+        }
+    } else {
+        /* no pointers other than the descriptor */
+        struct GGGGC_Header *nobj = (struct GGGGC_Header *) objVp[0];
+        if (nobj && nobj->ggggc_memoryCorruptionCheck != GGGGC_MEMORY_CORRUPTION_VAL) {
+            fprintf(stderr, "GGGGC: Memory corruption (%s nested)!\n", when);
+            abort();
+        }
+    }
+}
+
+static void memoryCorruptionCheck(const char *when)
+{
+    struct GGGGC_PoolList *plCur;
+    struct GGGGC_Pool *poolCur;
+    struct GGGGC_PointerStackList *pslCur;
+    struct GGGGC_PointerStack *psCur;
+    unsigned char genCur;
+
+    for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
+        for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
+            struct GGGGC_Header *obj = (struct GGGGC_Header *) poolCur->start;
+            for (; obj < (struct GGGGC_Header *) poolCur->free;
+                 obj = (struct GGGGC_Header *) (((size_t) obj) + obj->descriptor__ptr->size * sizeof(size_t))) {
+                memoryCorruptionCheckObj(when, obj);
+            }
+        }
+    }
+
+    for (genCur = 1; genCur < GGGGC_GENERATIONS; genCur++) {
+        for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
+            struct GGGGC_Header *obj = (struct GGGGC_Header *) poolCur->start;
+            for (; obj < (struct GGGGC_Header *) poolCur->free;
+                 obj = (struct GGGGC_Header *) (((size_t) obj) + obj->descriptor__ptr->size * sizeof(size_t))) {
+                memoryCorruptionCheckObj(when, obj);
+            }
+        }
+    }
+
+    for (pslCur = ggggc_rootPointerStackList; pslCur; pslCur = pslCur->next) {
+        for (psCur = pslCur->pointerStack; psCur; psCur = psCur->next) {
+            size_t i;
+            for (i = 0; i < psCur->size; i++) {
+                struct GGGGC_Header *obj = *((struct GGGGC_Header **) psCur->pointers[i]);
+                if (obj)
+                    memoryCorruptionCheckObj(when, obj);
+            }
+        }
+    }
+}
+#endif
 
 /* run a collection */
 void ggggc_collect(unsigned char gen)
@@ -145,19 +221,7 @@ void ggggc_collect(unsigned char gen)
     ggc_barrier_wait(&ggggc_worldBarrier);
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
-    /* look for memory corruption */
-    for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
-        for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
-            struct GGGGC_Header *obj = (struct GGGGC_Header *) poolCur->start;
-            for (; obj < (struct GGGGC_Header *) poolCur->free;
-                 obj = (struct GGGGC_Header *) (((size_t) obj) + obj->descriptor__ptr->size * sizeof(size_t))) {
-                if (obj->ggggc_memoryCorruptionCheck != GGGGC_MEMORY_CORRUPTION_VAL) {
-                    fprintf(stderr, "GGGGC: Memory corruption (pre-collection)!\n");
-                    abort();
-                }
-            }
-        }
-    }
+    memoryCorruptionCheck("pre-collection");
 #endif
 
     /************************************************************
@@ -250,6 +314,10 @@ collect:
         }
 #endif
     }
+
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+    memoryCorruptionCheck("post-collection");
+#endif
 
     /* heuristically expand too-small generations */
     for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next)
