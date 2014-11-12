@@ -53,6 +53,12 @@ your pointers.
 Some of GGGGC's behavior is configurable through preprocessor definitions. The
 following definitions are available:
 
+ * `GGGGC_GENERATIONS`: Sets the number of generations. `GGGGC_GENERATIONS=1`
+   will yield a non-generational collector. `GGGGC_GENERATIONS=2` will yield a
+   conventional generational collector with a nursery and long-lived pool, and
+   is the default. Higher values yield more generations, which is generally
+   pointless.
+
  * `GGGGC_POOL_SIZE`: Sets the size of allocation pools, as a power of two.
    Default is 24 (16MB).
 
