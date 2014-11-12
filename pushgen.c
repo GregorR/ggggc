@@ -48,6 +48,7 @@ int main()
         }
         printf("    ggggc_pstack_cur->pointers[%d] = NULL; \\\n"
                "    ggggc_pointerStack = ggggc_pstack_cur; \\\n"
+               "    GGC_YIELD(); \\\n"
                "} while(0)\n", i);
     }
     printf("#define GGC_PUSH_N(n, pptrs) \\\n"
@@ -62,6 +63,7 @@ int main()
            "    memcpy(ggggc_pstack_cur->pointers, ggggc_pptrs, sizeof(void *) * ggggc_n); \\\n"
            "    ggggc_pstack_cur->pointers[ggggc_n] = NULL; \\\n"
            "    ggggc_pointerStack = ggggc_pstack_cur; \\\n"
+           "    GGC_YIELD(); \\\n"
            "} while(0)\n"
            "#endif\n");
     return 0;

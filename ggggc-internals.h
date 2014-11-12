@@ -35,7 +35,7 @@ void *ggggc_mallocGen1(struct GGGGC_Descriptor *descriptor, unsigned char gen, i
 void ggggc_expandGeneration(struct GGGGC_Pool *pool);
 
 /* run a collection */
-void ggggc_collect(unsigned char gen);
+void ggggc_collect0(unsigned char gen);
 
 /* ggggc_worldBarrierLock protects:
  *  ggggc_worldBarrier
@@ -78,10 +78,10 @@ extern ggc_thread_local struct GGGGC_Pool *ggggc_gen0;
 extern ggc_thread_local struct GGGGC_Pool *ggggc_pool0;
 
 /* the later-generation pools are shared */
-extern struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS + 1];
+extern struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS];
 
 /* and each have their own allocation pool */
-extern struct GGGGC_Pool *ggggc_pools[GGGGC_GENERATIONS + 1];
+extern struct GGGGC_Pool *ggggc_pools[GGGGC_GENERATIONS];
 
 /* descriptor descriptors */
 extern struct GGGGC_Descriptor *ggggc_descriptorDescriptors[GGGGC_WORDS_PER_POOL/GGGGC_BITS_PER_WORD+sizeof(struct GGGGC_Descriptor)];

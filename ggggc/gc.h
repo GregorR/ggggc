@@ -86,6 +86,12 @@ struct GGGGC_Pool {
     /* how much survived the last collection */
     size_t survivors;
 
+    /* size of the break table (in entries, used only during collection) */
+    size_t breakTableSize;
+
+    /* pointer to the break table (used only during collection) */
+    void *breakTable;
+
     /* the remembered set for this pool */
     unsigned char remember[GGGGC_CARDS_PER_POOL];
 
@@ -296,7 +302,6 @@ extern ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_po
 
 /* macros to push and pop pointers from the pointer stack */
 #define GGGGC_POP() do { \
-    GGC_YIELD(); \
     ggggc_pointerStack = ggggc_pointerStack->next; \
 } while(0)
 
@@ -333,7 +338,7 @@ static const int ggggc_localPush = 0;
 #endif
 #define return \
     if (ggggc_localPush ? \
-        ((GGC_YIELD()), (ggggc_pointerStack = ggggc_pointerStack->next), 0) : \
+        ((ggggc_pointerStack = ggggc_pointerStack->next), 0) : \
         0) {} else return
 
 #endif

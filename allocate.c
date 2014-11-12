@@ -217,7 +217,7 @@ retry:
     } else {
         /* need to collect, which means we need to actually be a GC-safe function */
         GGC_PUSH_1(descriptor);
-        ggggc_collect(0);
+        ggggc_collect0(0);
         GGC_POP();
         pool = ggggc_pool0;
         goto retry;
@@ -290,14 +290,14 @@ void *ggggc_malloc(struct GGGGC_Descriptor *descriptor)
 /* allocate a pointer array (size is in words) */
 void *ggggc_mallocPointerArray(size_t sz)
 {
-    struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorPA(sz + 1);
+    struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorPA(sz + sizeof(struct GGGGC_Header)/sizeof(size_t));
     return ggggc_malloc(descriptor);
 }
 
 /* allocate a data array (size is in words) */
 void *ggggc_mallocDataArray(size_t sz)
 {
-    struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorDA(sz + 1);
+    struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorDA(sz + sizeof(struct GGGGC_Header)/sizeof(size_t));
     return ggggc_malloc(descriptor);
 }
 

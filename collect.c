@@ -28,6 +28,14 @@
 extern "C" {
 #endif
 
+/* full collection */
+void ggggc_collectFull(void);
+
+/* helper functions for full collection */
+void ggggc_countUsed(struct GGGGC_Pool *);
+void ggggc_compact(struct GGGGC_Pool *);
+void ggggc_postCompact(struct GGGGC_Pool *);
+
 /* list of pointers to search and associated macros */
 struct ToSearch {
     size_t sz, used;
@@ -77,17 +85,14 @@ struct ToSearch {
 } while(0)
 
 /* macro to add an object's pointers to the tosearch list */
-#define ADD_OBJECT_POINTERS(obj) do { \
+#define ADD_OBJECT_POINTERS(obj, descriptor) do { \
     void **objVp = (void **) (obj); \
-    struct GGGGC_Descriptor *odescriptor = \
-        (struct GGGGC_Descriptor *) objVp[0]; \
     size_t curWord, curDescription = 0, curDescriptorWord = 0; \
-    FOLLOW_FORWARDED_DESCRIPTOR(odescriptor); \
-    if (odescriptor->pointers[0] & 1) { \
+    if (descriptor->pointers[0] & 1) { \
         /* it has pointers */ \
-        for (curWord = 0; curWord < odescriptor->size; curWord++) { \
+        for (curWord = 0; curWord < descriptor->size; curWord++) { \
             if (curWord % GGGGC_BITS_PER_WORD == 0) \
-                curDescription = odescriptor->pointers[curDescriptorWord++]; \
+                curDescription = descriptor->pointers[curDescriptorWord++]; \
             if (curDescription & 1) \
                 /* it's a pointer */ \
                 TOSEARCH_ADD(&objVp[curWord]); \
@@ -177,8 +182,8 @@ static void memoryCorruptionCheck(const char *when)
 }
 #endif
 
-/* run a collection */
-void ggggc_collect(unsigned char gen)
+/* run a generation 0 collection */
+void ggggc_collect0(unsigned char gen)
 {
     struct GGGGC_PoolList pool0Node, *plCur;
     struct GGGGC_Pool *poolCur;
@@ -224,10 +229,17 @@ void ggggc_collect(unsigned char gen)
     memoryCorruptionCheck("pre-collection");
 #endif
 
+#if GGGGC_GENERATIONS == 1
+    /* with only one generation, we only want a full collection */
+    ggggc_collectFull();
+
+#else
     /************************************************************
      * COLLECTION
      ***********************************************************/
+#if GGGGC_GENERATIONS > 2
 collect:
+#endif
 
     /* add our roots to the to-search list */
     for (pslCur = ggggc_rootPointerStackList; pslCur; pslCur = pslCur->next) {
@@ -246,7 +258,7 @@ collect:
                     struct GGGGC_Header *obj = (struct GGGGC_Header *)
                         ((size_t) poolCur + i * GGGGC_CARD_BYTES + poolCur->firstObject[i] * sizeof(size_t));
                     while (GGGGC_CARD_OF(obj) == i) {
-                        ADD_OBJECT_POINTERS(obj);
+                        ADD_OBJECT_POINTERS(obj, obj->descriptor__ptr);
                         obj = (struct GGGGC_Header *)
                             ((size_t) obj + obj->descriptor__ptr->size * sizeof(size_t));
                         if (obj->descriptor__ptr == NULL) break;
@@ -292,7 +304,15 @@ collect:
                 /* failed to allocate, need to collect gen+1 too */
                 gen += 1;
                 toSearch.used = 0;
-                goto collect;
+#if GGGGC_GENERATIONS > 2
+                if (gen >= GGGGC_GENERATIONS - 1) {
+                    ggggc_collectFull();
+                    break;
+                } else goto collect;
+#else
+                ggggc_collectFull();
+                break;
+#endif
             }
 
             /* copy to the new object */
@@ -303,7 +323,7 @@ collect:
             *ptr = obj = nobj;
 
             /* and add its pointers */
-            ADD_OBJECT_POINTERS(obj);
+            ADD_OBJECT_POINTERS(obj, obj->descriptor__ptr);
         }
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
@@ -315,45 +335,33 @@ collect:
 #endif
     }
 
+#endif /* GGGGC_GENERATIONS > 1 */
+
     /* heuristically expand too-small generations */
     for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next)
         ggggc_expandGeneration(plCur->pool);
     for (genCur = 1; genCur <= gen; genCur++)
         ggggc_expandGeneration(ggggc_gens[genCur]);
 
-    /* now clear out all the generations */
-    for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
-        for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
-            poolCur->free = poolCur->start;
+    /* clear out the now-empty generations, unless we did a full collection */
+    if (gen < GGGGC_GENERATIONS - 1) {
+        for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
+            for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
+                poolCur->free = poolCur->start;
+            }
         }
-    }
-    ggggc_pool0 = ggggc_gen0;
-    for (genCur = 1; genCur <= gen; genCur++) {
-        for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
+        ggggc_pool0 = ggggc_gen0;
+        for (genCur = 1; genCur <= gen; genCur++) {
+            for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
+                memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
+                poolCur->free = poolCur->start;
+            }
+            ggggc_pools[genCur] = ggggc_gens[genCur];
+        }
+
+        /* and the remembered sets */
+        for (poolCur = ggggc_gens[gen+1]; poolCur; poolCur = poolCur->next)
             memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
-            poolCur->free = poolCur->start;
-        }
-        ggggc_pools[genCur] = ggggc_gens[genCur];
-    }
-
-    /* and the remembered sets */
-    for (poolCur = ggggc_gens[gen+1]; poolCur; poolCur = poolCur->next)
-        memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
-
-    /* if we're collecting the last generation, we act like two-space copying */
-    if (gen == GGGGC_GENERATIONS - 1) {
-        struct GGGGC_Pool *from = ggggc_gens[gen];
-        struct GGGGC_Pool *to = ggggc_gens[gen+1];
-
-        /* swap them */
-        ggggc_gens[gen] = ggggc_pools[gen] = to;
-        ggggc_gens[gen+1] = ggggc_pools[gen+1] = from;
-
-        /* and relabel them */
-        for (poolCur = to; poolCur; poolCur = poolCur->next)
-            poolCur->gen = gen;
-        for (poolCur = from; poolCur; poolCur = poolCur->next)
-            poolCur->gen = gen + 1;
     }
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
@@ -373,6 +381,424 @@ collect:
     /* free the other threads */
     ggc_barrier_wait(&ggggc_worldBarrier);
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
+}
+
+/* type for an element of our break table */
+struct BreakTableEl {
+    size_t *orig, *newL;
+};
+
+/* mark an object */
+#define MARK(obj) do { \
+    struct GGGGC_Header *hobj = (obj); \
+    hobj->descriptor__ptr = (struct GGGGC_Descriptor *) \
+        ((size_t) hobj->descriptor__ptr | 2); \
+} while (0)
+
+/* unmark a pointer */
+#define UNMARK_PTR(type, ptr) \
+    ((type *) ((size_t) (ptr) & (size_t) ~2))
+
+/* get an object's descriptor, through markers */
+#define MARKED_DESCRIPTOR(obj) \
+    (UNMARK_PTR(struct GGGGC_Descriptor, (obj)->descriptor__ptr))
+
+/* unmark an object */
+#define UNMARK(obj) do { \
+    struct GGGGC_Header *hobj = (obj); \
+    hobj->descriptor__ptr = UNMARK_PTR(struct GGGGC_Descriptor, hobj->descriptor__ptr); \
+} while (0)
+
+/* is this pointer marked? */
+#define IS_MARKED_PTR(ptr) ((size_t) (ptr) & 2)
+
+/* is this object marked? */
+#define IS_MARKED(obj) IS_MARKED_PTR((obj)->descriptor__ptr)
+
+/* find the new location of an object that's been compacted */
+#define FOLLOW_COMPACTED_OBJECT(obj) do { \
+    size_t *dobj = (obj); \
+    struct GGGGC_Pool *cpool = GGGGC_POOL_OF(dobj); \
+    struct BreakTableEl *bel = findBreakTableEntry( \
+        (struct BreakTableEl *) cpool->breakTable, cpool->breakTableSize, \
+        dobj); \
+    if (bel) { \
+        dobj -= bel->orig - bel->newL; \
+        obj = dobj; \
+    } \
+} while(0)
+
+/* special case for compacted descriptors */
+#define FOLLOW_COMPACTED_DESCRIPTOR(d) do { \
+    size_t *dcobj = (size_t *) (d); \
+    FOLLOW_COMPACTED_OBJECT(dcobj); \
+    d = (struct GGGGC_Descriptor *) dcobj; \
+} while(0)
+
+/* comparator for break table elements */
+static int breakTableComparator(const void *lv, const void *rv)
+{
+    struct BreakTableEl *l, *r;
+    l = (struct BreakTableEl *) lv;
+    r = (struct BreakTableEl *) rv;
+    if (l->orig < r->orig) {
+        return -1;
+    } else if (l->orig > r->orig) {
+        return 1;
+    }
+    return 0;
+}
+
+/* find the break table entry that matches a given pointer */
+static struct BreakTableEl *findBreakTableEntry(struct BreakTableEl *breakTable, size_t breakTableSize, size_t *loc)
+{
+    size_t cur = breakTableSize / 2;
+    size_t step = cur / 2;
+
+    if (breakTableSize == 0) return NULL;
+    if (step == 0) step = 1;
+
+    while (1) {
+        if (breakTable[cur].orig <= loc) {
+            /* this might include the location being searched */
+            if (cur == breakTableSize - 1 ||
+                breakTable[cur+1].orig > loc)
+                return &breakTable[cur];
+
+            /* otherwise, we're too low */
+            cur += step;
+            if (cur >= breakTableSize) cur = breakTableSize - 1;
+            step /= 2;
+            if (step == 0) step = 1;
+
+        } else if (breakTable[cur].orig > loc) {
+            /* we're too high */
+            if (cur == 0) return NULL;
+            if (step > cur)
+                cur = 0;
+            else
+                cur -= step;
+            step /= 2;
+            if (step == 0) step = 1;
+
+        }
+    }
+}
+
+/* perform a full, in-place collection */
+void ggggc_collectFull()
+{
+    struct GGGGC_PoolList *plCur;
+    struct GGGGC_Pool *poolCur;
+    struct GGGGC_PointerStackList *pslCur;
+    struct GGGGC_PointerStack *psCur;
+    unsigned char genCur;
+    size_t i;
+
+    /* add our roots to the to-search list */
+    for (pslCur = ggggc_rootPointerStackList; pslCur; pslCur = pslCur->next) {
+        for (psCur = pslCur->pointerStack; psCur; psCur = psCur->next) {
+            for (i = 0; i < psCur->size; i++) {
+                TOSEARCH_ADD(psCur->pointers[i]);
+            }
+        }
+    }
+
+    /* now mark */
+    while (toSearch.used) {
+        void **ptr = (void **) TOSEARCH_POP();
+        struct GGGGC_Header *obj = (struct GGGGC_Header *) *ptr;
+        size_t lastMark;
+        if (obj == NULL) continue;
+
+        lastMark = IS_MARKED_PTR(obj);
+        obj = UNMARK_PTR(struct GGGGC_Header, obj);
+
+        /* if the object has moved */
+        if (IS_FORWARDED_OBJECT(obj)) {
+            /* then follow it */
+            FOLLOW_FORWARDED_OBJECT(obj);
+            *ptr = (void *) ((size_t) obj | lastMark);
+        }
+
+        /* if the object isn't already marked... */
+        if (!IS_MARKED(obj)) {
+            struct GGGGC_Descriptor *descriptor = obj->descriptor__ptr;
+
+            /* then mark it */
+            MARK(obj);
+            GGGGC_POOL_OF(obj)->survivors += descriptor->size;
+
+            /* add its pointers */
+            ADD_OBJECT_POINTERS(obj, descriptor);
+        }
+    }
+
+    /* find all our sizes, for later compaction */
+    for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
+        for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
+            ggggc_countUsed(poolCur);
+        }
+    }
+    for (genCur = 1; genCur < GGGGC_GENERATIONS; genCur++) {
+        for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
+            ggggc_countUsed(poolCur);
+        }
+    }
+    
+    /* perform compaction */
+    for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
+        for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
+            ggggc_compact(poolCur);
+        }
+    }
+    for (genCur = 1; genCur < GGGGC_GENERATIONS; genCur++) {
+        for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
+            ggggc_compact(poolCur);
+        }
+    }
+
+    /* then update our pointers */
+    for (pslCur = ggggc_rootPointerStackList; pslCur; pslCur = pslCur->next) {
+        for (psCur = pslCur->pointerStack; psCur; psCur = psCur->next) {
+            size_t ***pointers = (size_t ***) psCur->pointers;
+            for (i = 0; i < psCur->size; i++) {
+                if (*pointers[i])
+                    FOLLOW_COMPACTED_OBJECT(*pointers[i]);
+            }
+        }
+    }
+    for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
+        for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
+            ggggc_postCompact(poolCur);
+        }
+    }
+    for (genCur = 1; genCur < GGGGC_GENERATIONS; genCur++) {
+        for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
+            ggggc_postCompact(poolCur);
+        }
+    }
+
+    /* reset the pools */
+    ggggc_pool0 = ggggc_gen0;
+    for (genCur = 1; genCur < GGGGC_GENERATIONS; genCur++) {
+        for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
+            if (poolCur->free < poolCur->end) *poolCur->free = 0;
+        }
+        ggggc_pools[genCur] = ggggc_gens[genCur];
+    }
+
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+    for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
+        for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
+            memset(poolCur->free, 0, (poolCur->end - poolCur->free) * sizeof(size_t));
+        }
+    }
+    for (genCur = 1; genCur < GGGGC_GENERATIONS; genCur++) {
+        for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
+            memset(poolCur->free, 0, (poolCur->end - poolCur->free) * sizeof(size_t));
+        }
+    }
+#endif
+}
+
+/* determine the size of every contiguous chunk of used or unused space in this
+ * pool, and leave it visible in the pool:
+ *
+ * * The size of the first allocated chunk (at pool->start) is placed in
+ *   pool->breakTableSize
+ * * The size of each unused chunk is stored at the first word of that chunk 
+ * * The size of each used chunk is stored before the first word of that chunk
+ *   (i.e., in the unused space)
+ */
+void ggggc_countUsed(struct GGGGC_Pool *pool)
+{
+    size_t *cur, *next;
+
+    /* first figure out the size of the first chunk of memory */
+    for (cur = pool->start; 
+         cur < pool->free && IS_MARKED((struct GGGGC_Header *) cur);
+         cur += ((struct GGGGC_Header *) cur)->descriptor__ptr->size) {
+        UNMARK((struct GGGGC_Header *) cur);
+    }
+    pool->breakTableSize = cur - pool->start;
+    if (cur >= pool->end) return;
+
+    while (1) {
+        /* we are currently in an UNUSED chunk. Find out how big it is */
+        for (next = cur;
+             next < pool->free && !IS_MARKED((struct GGGGC_Header *) next);) {
+            struct GGGGC_Header *obj = (struct GGGGC_Header *) next;
+
+            /* if it's unmarked, it may even have moved */
+            if (IS_FORWARDED_OBJECT(obj)) {
+                /* we'll need to find its descriptor */
+                FOLLOW_FORWARDED_OBJECT(obj);
+                /* we don't need to follow the descriptor if it moved, as the
+                 * old data is still intact */
+            }
+
+            next += MARKED_DESCRIPTOR(obj)->size;
+        }
+        if (next >= pool->free) next = pool->end;
+
+        /* mark its size */
+        *cur = next - cur;
+        cur = next;
+        if (next >= pool->end) break;
+
+        /* we are currently in a USED chunk. Find out how big it is */
+        for (next = cur;
+             next < pool->free && IS_MARKED((struct GGGGC_Header *) next);
+             next += ((struct GGGGC_Header *) next)->descriptor__ptr->size) {
+            UNMARK((struct GGGGC_Header *) next);
+        }
+
+        /* mark its size */
+        cur[-1] = next - cur;
+        cur = next;
+        if (next >= pool->end) break;
+    }
+}
+
+/* compact a pool and create its break table */
+void ggggc_compact(struct GGGGC_Pool *pool)
+{
+    size_t chSize, fchSize;
+    struct BreakTableEl *bt = NULL, *btEnd;
+    size_t i, j, *cur;
+
+    /* ggggc_countUsed put the size of the first contiguous chunk in breakTableSize, so start from there */
+    cur = pool->start + pool->breakTableSize;
+    pool->free = cur;
+    pool->breakTableSize = 0;
+    pool->breakTable = NULL;
+    if (cur >= pool->end) return; /* no compaction to be done! */
+
+    bt = btEnd = (struct BreakTableEl *) cur;
+    fchSize = *cur;
+
+    while (1) {
+        /* we are currently in an UNUSED chunk. Skip it */
+        cur += fchSize;
+        if (cur >= pool->end) break;
+
+        /* we are currently in a USED chunk. Get the size of this chunk and the size of the following free chunk */
+        chSize = cur[-1];
+        if (cur + chSize < pool->end)
+            fchSize = cur[chSize];
+        else
+            fchSize = 0;
+
+        /* now copy in the data while rolling forward the bt */
+        for (i = 0; i < chSize; i += sizeof(struct BreakTableEl) / sizeof(size_t)) {
+            /* move the bt entry out of the way */
+            *btEnd++ = *bt++;
+
+            /* and copy in the data */
+            for (j = 0; j < sizeof(struct BreakTableEl) / sizeof(size_t); j++)
+                pool->free[i+j] = cur[i+j];
+        }
+
+        /* add the bt table entry */
+        btEnd->orig = cur;
+        btEnd->newL = pool->free;
+        btEnd++;
+        pool->free += chSize;
+        cur += chSize;
+
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+        if ((size_t *) bt < pool->free) abort();
+        if ((size_t *) btEnd >= cur + fchSize) abort();
+#endif
+
+        if (cur >= pool->end) break;
+    }
+
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+    if ((size_t *) btEnd >= pool->end) abort();
+#endif
+
+    pool->breakTableSize = btEnd - bt;
+    pool->breakTable = bt;
+
+    /* then sort the break table */
+    qsort(bt, pool->breakTableSize, sizeof(struct BreakTableEl), breakTableComparator);
+}
+
+/* reset all the pointers in a pool after compaction */
+void ggggc_postCompact(struct GGGGC_Pool *pool)
+{
+    size_t **obj;
+    size_t card = 0, lastCard = (size_t) -1;
+
+    /* this is going to fill in the remembered sets */
+    if (pool->gen) memset(pool->remember, 0, GGGGC_CARDS_PER_POOL);
+
+    for (obj = (size_t **) pool->start; obj < (size_t **) pool->free;) {
+        struct GGGGC_Descriptor *descriptor;
+        size_t curWord, curDescription = 0, curDescriptorWord = 0;
+
+        /* set its card metadata */
+        if (pool->gen) {
+            card = GGGGC_CARD_OF(obj);
+            if (card != lastCard) {
+                pool->firstObject[card] = ((size_t) obj & GGGGC_CARD_INNER_MASK) / sizeof(size_t);
+                lastCard = card;
+            }
+        }
+
+        /* get the descriptor */
+        descriptor = (struct GGGGC_Descriptor *) obj[0];
+        FOLLOW_COMPACTED_DESCRIPTOR(descriptor);
+
+        /* and walk through all its pointers */
+        if (descriptor->pointers[0] & 1) {
+            /* it has pointers */
+            for (curWord = 0; curWord < descriptor->size; curWord++) {
+                if (curWord % GGGGC_BITS_PER_WORD == 0)
+                    curDescription = descriptor->pointers[curDescriptorWord++];
+                if ((curDescription & 1) && obj[curWord]) {
+                    /* it's a pointer */
+                    FOLLOW_COMPACTED_OBJECT(obj[curWord]);
+
+                    /* if it's a cross-generational pointer, remember it */
+                    if (GGGGC_POOL_OF(obj[curWord])->gen < pool->gen)
+                        pool->remember[card] = 1;
+                }
+                curDescription >>= 1;
+            }
+        } else {
+            /* no pointers other than the descriptor */
+            FOLLOW_COMPACTED_OBJECT(obj[0]);
+            if (GGGGC_POOL_OF(obj[0])->gen < pool->gen)
+                pool->remember[card] = 1;
+        }
+
+        obj += descriptor->size;
+    }
+
+    /* and perhaps set firstObject for the free space */
+    if (pool->gen) {
+        card = GGGGC_CARD_OF(pool->free);
+        if (card != lastCard)
+            pool->firstObject[card] = ((size_t) pool->free & GGGGC_CARD_INNER_MASK) / sizeof(size_t);
+    }
+
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+    for (obj = (size_t **) pool->start; obj < (size_t **) pool->free;) {
+        struct GGGGC_Descriptor *descriptor = (struct GGGGC_Descriptor *) obj[0];
+        if ((size_t) obj[1] != GGGGC_MEMORY_CORRUPTION_VAL) {
+            fprintf(stderr, "GGGGC: Memory corruption (post-compaction)\n");
+            abort();
+        }
+        if (IS_MARKED_PTR(descriptor->header.descriptor__ptr)) {
+            fprintf(stderr, "GGGGC: Memory corruption (post-compaction surviving mark)\n");
+            abort();
+        }
+        obj += descriptor->size;
+    }
+#endif
 }
 
 /* explicitly yield to the collector */
