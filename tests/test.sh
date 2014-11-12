@@ -39,9 +39,11 @@ else
     doTests g++ ''
     doTests gcc '-DGGGGC_NO_GNUC_FEATURES'
     doTests g++ '-DGGGGC_NO_GNUC_FEATURES'
+
     doTests gcc '-DGGGGC_DEBUG_TINY_HEAP'
     doTests gcc '-DGGGGC_GENERATIONS=1'
     doTests gcc '-DGGGGC_GENERATIONS=5'
+    doTests gcc '-DGGGGC_USE_MALLOC'
 
 fi
 

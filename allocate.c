@@ -105,18 +105,35 @@ static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
     munmap(aspace + GGGGC_POOL_BYTES, space + GGGGC_POOL_BYTES - aspace);
 
 #elif GGGGC_ALLOCATOR_MALLOC
-    unsigned char *space;
+    static ggc_mutex_t poolLock = GGC_MUTEX_INITIALIZER;
+    static unsigned char *space = NULL, *spaceEnd = NULL;
 
-    space = malloc(GGGGC_POOL_BYTES*2);
-    if (space == NULL) {
-        if (mustSucceed) {
-            perror("malloc");
-            abort();
+    /* do we already have some available space? */
+    ggc_mutex_lock_raw(&poolLock);
+    if (!space || space + GGGGC_POOL_BYTES > spaceEnd) {
+        size_t i;
+
+        /* since we can't pre-align, align by getting as much as we can manage */
+        for (i = 16; i >= 2; i /= 2) {
+            space = malloc(GGGGC_POOL_BYTES * i);
+            if (space) break;
         }
-        return NULL;
+        if (!space) {
+            if (mustSucceed) {
+                perror("malloc");
+                abort();
+            }
+            return NULL;
+        }
+        spaceEnd = space + GGGGC_POOL_BYTES * i;
+
+        /* align it */
+        space = (unsigned char *) GGGGC_POOL_OF(space + GGGGC_POOL_BYTES - 1);
     }
 
-    ret = GGGGC_POOL_OF(space + GGGGC_POOL_BYTES - 1);
+    ret = (struct GGGGC_Pool *) space;
+    space += GGGGC_POOL_BYTES;
+    ggc_mutex_unlock(&poolLock);
 
 #else
 #error Unknown allocator.
