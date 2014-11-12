@@ -87,21 +87,20 @@ struct ToSearch {
 /* macro to add an object's pointers to the tosearch list */
 #define ADD_OBJECT_POINTERS(obj, descriptor) do { \
     void **objVp = (void **) (obj); \
-    size_t curWord, curDescription = 0, curDescriptorWord = 0; \
+    size_t curWord, curDescription, curDescriptorWord = 0; \
     if (descriptor->pointers[0] & 1) { \
         /* it has pointers */ \
-        for (curWord = 0; curWord < descriptor->size; curWord++) { \
+        curDescription = descriptor->pointers[0] >> 1; \
+        for (curWord = 1; curWord < descriptor->size; curWord++) { \
             if (curWord % GGGGC_BITS_PER_WORD == 0) \
-                curDescription = descriptor->pointers[curDescriptorWord++]; \
+                curDescription = descriptor->pointers[++curDescriptorWord]; \
             if (curDescription & 1) \
                 /* it's a pointer */ \
                 TOSEARCH_ADD(&objVp[curWord]); \
             curDescription >>= 1; \
         } \
-    } else { \
-        /* no pointers other than the descriptor */ \
-        TOSEARCH_ADD(&objVp[0]); \
     } \
+    TOSEARCH_ADD(&objVp[0]); \
 } while(0)
 
 static struct ToSearch toSearch;
