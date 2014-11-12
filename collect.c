@@ -351,6 +351,7 @@ collect:
             }
         }
         ggggc_pool0 = ggggc_gen0;
+#if GGGGC_GENERATIONS > 1
         for (genCur = 1; genCur <= gen; genCur++) {
             for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
                 memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
@@ -362,6 +363,7 @@ collect:
         /* and the remembered sets */
         for (poolCur = ggggc_gens[gen+1]; poolCur; poolCur = poolCur->next)
             memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
+#endif
     }
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
@@ -732,13 +734,16 @@ void ggggc_postCompact(struct GGGGC_Pool *pool)
     size_t **obj;
     size_t card = 0, lastCard = (size_t) -1;
 
+#if GGGGC_GENERATIONS > 1
     /* this is going to fill in the remembered sets */
     if (pool->gen) memset(pool->remember, 0, GGGGC_CARDS_PER_POOL);
+#endif
 
     for (obj = (size_t **) pool->start; obj < (size_t **) pool->free;) {
         struct GGGGC_Descriptor *descriptor;
         size_t curWord, curDescription = 0, curDescriptorWord = 0;
 
+#if GGGGC_GENERATIONS > 1
         /* set its card metadata */
         if (pool->gen) {
             card = GGGGC_CARD_OF(obj);
@@ -747,6 +752,7 @@ void ggggc_postCompact(struct GGGGC_Pool *pool)
                 lastCard = card;
             }
         }
+#endif
 
         /* get the descriptor */
         descriptor = (struct GGGGC_Descriptor *) obj[0];
@@ -762,28 +768,34 @@ void ggggc_postCompact(struct GGGGC_Pool *pool)
                     /* it's a pointer */
                     FOLLOW_COMPACTED_OBJECT(obj[curWord]);
 
+#if GGGGC_GENERATIONS > 1
                     /* if it's a cross-generational pointer, remember it */
                     if (GGGGC_POOL_OF(obj[curWord])->gen < pool->gen)
                         pool->remember[card] = 1;
+#endif
                 }
                 curDescription >>= 1;
             }
         } else {
             /* no pointers other than the descriptor */
             FOLLOW_COMPACTED_OBJECT(obj[0]);
+#if GGGGC_GENERATIONS > 1
             if (GGGGC_POOL_OF(obj[0])->gen < pool->gen)
                 pool->remember[card] = 1;
+#endif
         }
 
         obj += descriptor->size;
     }
 
+#if GGGGC_GENERATIONS > 1
     /* and perhaps set firstObject for the free space */
     if (pool->gen) {
         card = GGGGC_CARD_OF(pool->free);
         if (card != lastCard)
             pool->firstObject[card] = ((size_t) pool->free & GGGGC_CARD_INNER_MASK) / sizeof(size_t);
     }
+#endif
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
     for (obj = (size_t **) pool->start; obj < (size_t **) pool->free;) {

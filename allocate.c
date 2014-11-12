@@ -128,6 +128,7 @@ static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
     ret->free = ret->start;
     ret->end = (size_t *) ((unsigned char *) ret + GGGGC_POOL_BYTES);
 
+#if GGGGC_GENERATIONS > 1
     /* clear the remembered set */
     if (gen > 0)
         memset(ret->remember, 0, GGGGC_CARDS_PER_POOL);
@@ -135,6 +136,7 @@ static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
     /* the first object in the first usable card */
     ret->firstObject[GGGGC_CARD_OF(ret->start)] =
         (((size_t) ret->start) & GGGGC_CARD_INNER_MASK) / sizeof(size_t);
+#endif
 
     return ret;
 }
@@ -228,7 +230,8 @@ retry:
     return ret;
 }
 
-/* allocate an object in the requested generation >= 0 */
+#if GGGGC_GENERATIONS > 1
+/* allocate an object in the requested generation > 0 */
 void *ggggc_mallocGen1(struct GGGGC_Descriptor *descriptor, /* descriptor for object */
                        unsigned char gen, /* generation to allocate in */
                        int force /* allocate a new pool instead of collecting, if necessary */
@@ -281,6 +284,7 @@ retry:
 
     return ret;
 }
+#endif
 
 /* allocate an object */
 void *ggggc_malloc(struct GGGGC_Descriptor *descriptor)

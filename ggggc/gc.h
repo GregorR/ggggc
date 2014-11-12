@@ -92,11 +92,13 @@ struct GGGGC_Pool {
     /* pointer to the break table (used only during collection) */
     void *breakTable;
 
+#if GGGGC_GENERATIONS > 1
     /* the remembered set for this pool */
     unsigned char remember[GGGGC_CARDS_PER_POOL];
 
     /* the locations of objects within the cards */
     unsigned short firstObject[GGGGC_CARDS_PER_POOL];
+#endif
 
     /* and the actual content */
     size_t start[1];
@@ -226,20 +228,28 @@ GGC_DA_TYPE(float)
 GGC_DA_TYPE(double)
 
 /* write barrier for pointers */
+#if GGGGC_GENERATIONS > 1
 #define GGC_W(object, member, value) do { \
     size_t ggggc_o = (size_t) (object); \
     struct GGGGC_Pool *ggggc_pool = GGGGC_POOL_OF(ggggc_o); \
     /* assert that both 'object' and 'value' are just identifiers */ \
-    void *object ## _must_be_an_identifier, \
-         *value ## _must_be_an_identifier; \
-    (void) object ## _must_be_an_identifier; \
-    (void) value ## _must_be_an_identifier; \
+    if (0) { \
+        void *object ## _must_be_an_identifier, \
+             *value ## _must_be_an_identifier; \
+        (void) object ## _must_be_an_identifier; \
+        (void) value ## _must_be_an_identifier; \
+    } \
     if (ggggc_pool->gen) { \
         /* a high-gen object, let's remember it */ \
         ggggc_pool->remember[GGGGC_CARD_OF(ggggc_o)] = 1; \
     } \
     (object)->member ## __ptr = (value); \
 } while(0)
+#else
+#define GGC_W(object, member, value) do { \
+    (object)->member ## __ptr = (value); \
+} while(0)
+#endif
 
 /* although pointers don't need a read barrier, the renaming sort of forces one */
 #define GGC_R(object, member) ((object)->member ## __ptr)
