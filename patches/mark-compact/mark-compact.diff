@@ -1,10 +1,10 @@
 # HG changeset patch
-# Parent 77f0b68e81a57e659fd0bd0daa7f10ee85a5a38f
+# Parent f761e370fa6947fc5f193f8136716f79f2e7c09f
 Make the final generation use mark-compact collection.
 
-diff -r 77f0b68e81a5 allocate.c
---- a/allocate.c	Tue Nov 11 13:46:48 2014 -0500
-+++ b/allocate.c	Tue Nov 11 18:52:33 2014 -0500
+diff -r f761e370fa69 allocate.c
+--- a/allocate.c	Tue Nov 11 18:52:59 2014 -0500
++++ b/allocate.c	Tue Nov 11 21:02:18 2014 -0500
 @@ -217,7 +217,7 @@
      } else {
          /* need to collect, which means we need to actually be a GC-safe function */
@@ -31,9 +31,9 @@ diff -r 77f0b68e81a5 allocate.c
      return ggggc_malloc(descriptor);
  }
  
-diff -r 77f0b68e81a5 collect.c
---- a/collect.c	Tue Nov 11 13:46:48 2014 -0500
-+++ b/collect.c	Tue Nov 11 18:52:33 2014 -0500
+diff -r f761e370fa69 collect.c
+--- a/collect.c	Tue Nov 11 18:52:59 2014 -0500
++++ b/collect.c	Tue Nov 11 21:02:18 2014 -0500
 @@ -28,6 +28,14 @@
  extern "C" {
  #endif
@@ -49,7 +49,29 @@ diff -r 77f0b68e81a5 collect.c
  /* list of pointers to search and associated macros */
  struct ToSearch {
      size_t sz, used;
-@@ -177,8 +185,8 @@
+@@ -77,17 +85,14 @@
+ } while(0)
+ 
+ /* macro to add an object's pointers to the tosearch list */
+-#define ADD_OBJECT_POINTERS(obj) do { \
++#define ADD_OBJECT_POINTERS(obj, descriptor) do { \
+     void **objVp = (void **) (obj); \
+-    struct GGGGC_Descriptor *odescriptor = \
+-        (struct GGGGC_Descriptor *) objVp[0]; \
+     size_t curWord, curDescription = 0, curDescriptorWord = 0; \
+-    FOLLOW_FORWARDED_DESCRIPTOR(odescriptor); \
+-    if (odescriptor->pointers[0] & 1) { \
++    if (descriptor->pointers[0] & 1) { \
+         /* it has pointers */ \
+-        for (curWord = 0; curWord < odescriptor->size; curWord++) { \
++        for (curWord = 0; curWord < descriptor->size; curWord++) { \
+             if (curWord % GGGGC_BITS_PER_WORD == 0) \
+-                curDescription = odescriptor->pointers[curDescriptorWord++]; \
++                curDescription = descriptor->pointers[curDescriptorWord++]; \
+             if (curDescription & 1) \
+                 /* it's a pointer */ \
+                 TOSEARCH_ADD(&objVp[curWord]); \
+@@ -177,8 +182,8 @@
  }
  #endif
  
@@ -60,7 +82,7 @@ diff -r 77f0b68e81a5 collect.c
  {
      struct GGGGC_PoolList pool0Node, *plCur;
      struct GGGGC_Pool *poolCur;
-@@ -224,10 +232,17 @@
+@@ -224,10 +229,17 @@
      memoryCorruptionCheck("pre-collection");
  #endif
  
@@ -78,7 +100,16 @@ diff -r 77f0b68e81a5 collect.c
  
      /* add our roots to the to-search list */
      for (pslCur = ggggc_rootPointerStackList; pslCur; pslCur = pslCur->next) {
-@@ -292,7 +307,15 @@
+@@ -246,7 +258,7 @@
+                     struct GGGGC_Header *obj = (struct GGGGC_Header *)
+                         ((size_t) poolCur + i * GGGGC_CARD_BYTES + poolCur->firstObject[i] * sizeof(size_t));
+                     while (GGGGC_CARD_OF(obj) == i) {
+-                        ADD_OBJECT_POINTERS(obj);
++                        ADD_OBJECT_POINTERS(obj, obj->descriptor__ptr);
+                         obj = (struct GGGGC_Header *)
+                             ((size_t) obj + obj->descriptor__ptr->size * sizeof(size_t));
+                         if (obj->descriptor__ptr == NULL) break;
+@@ -292,7 +304,15 @@
                  /* failed to allocate, need to collect gen+1 too */
                  gen += 1;
                  toSearch.used = 0;
@@ -95,7 +126,16 @@ diff -r 77f0b68e81a5 collect.c
              }
  
              /* copy to the new object */
-@@ -315,47 +338,35 @@
+@@ -303,7 +323,7 @@
+             *ptr = obj = nobj;
+ 
+             /* and add its pointers */
+-            ADD_OBJECT_POINTERS(obj);
++            ADD_OBJECT_POINTERS(obj, obj->descriptor__ptr);
+         }
+ 
+ #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+@@ -315,45 +335,33 @@
  #endif
      }
  
@@ -122,8 +162,6 @@ diff -r 77f0b68e81a5 collect.c
 -    ggggc_pool0 = ggggc_gen0;
 -    for (genCur = 1; genCur <= gen; genCur++) {
 -        for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
--            memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
--            poolCur->free = poolCur->start;
 +        ggggc_pool0 = ggggc_gen0;
 +        for (genCur = 1; genCur <= gen; genCur++) {
 +            for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
@@ -131,14 +169,20 @@ diff -r 77f0b68e81a5 collect.c
 +                poolCur->free = poolCur->start;
 +            }
 +            ggggc_pools[genCur] = ggggc_gens[genCur];
-         }
++        }
++
++        /* and the remembered sets */
++        for (poolCur = ggggc_gens[gen+1]; poolCur; poolCur = poolCur->next)
+             memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
+-            poolCur->free = poolCur->start;
+-        }
 -        ggggc_pools[genCur] = ggggc_gens[genCur];
-     }
- 
-     /* and the remembered sets */
-     for (poolCur = ggggc_gens[gen+1]; poolCur; poolCur = poolCur->next)
-         memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
- 
+-    }
+-
+-    /* and the remembered sets */
+-    for (poolCur = ggggc_gens[gen+1]; poolCur; poolCur = poolCur->next)
+-        memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
+-
 -    /* if we're collecting the last generation, we act like two-space copying */
 -    if (gen == GGGGC_GENERATIONS - 1) {
 -        struct GGGGC_Pool *from = ggggc_gens[gen];
@@ -153,12 +197,10 @@ diff -r 77f0b68e81a5 collect.c
 -            poolCur->gen = gen;
 -        for (poolCur = from; poolCur; poolCur = poolCur->next)
 -            poolCur->gen = gen + 1;
--    }
--
+     }
+ 
  #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
-     for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
-         for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
-@@ -375,6 +386,444 @@
+@@ -375,6 +383,424 @@
      ggc_mutex_unlock(&ggggc_worldBarrierLock);
  }
  
@@ -193,26 +235,6 @@ diff -r 77f0b68e81a5 collect.c
 +
 +/* is this object marked? */
 +#define IS_MARKED(obj) IS_MARKED_PTR((obj)->descriptor__ptr)
-+
-+/* macro to add an object's pointers to the tosearch list (marking, non-moving) */
-+#define ADD_OBJECT_POINTERS_FULL(obj, descriptor) do { \
-+    void **objVp = (void **) (obj); \
-+    size_t curWord, curDescription = 0, curDescriptorWord = 0; \
-+    if (descriptor->pointers[0] & 1) { \
-+        /* it has pointers */ \
-+        for (curWord = 0; curWord < descriptor->size; curWord++) { \
-+            if (curWord % GGGGC_BITS_PER_WORD == 0) \
-+                curDescription = descriptor->pointers[curDescriptorWord++]; \
-+            if (curDescription & 1) \
-+                /* it's a pointer */ \
-+                TOSEARCH_ADD(&objVp[curWord]); \
-+            curDescription >>= 1; \
-+        } \
-+    } else { \
-+        /* no pointers other than the descriptor */ \
-+        TOSEARCH_ADD(&objVp[0]); \
-+    } \
-+} while(0)
 +
 +/* find the new location of an object that's been compacted */
 +#define FOLLOW_COMPACTED_OBJECT(obj) do { \
@@ -329,7 +351,7 @@ diff -r 77f0b68e81a5 collect.c
 +            GGGGC_POOL_OF(obj)->survivors += descriptor->size;
 +
 +            /* add its pointers */
-+            ADD_OBJECT_POINTERS_FULL(obj, descriptor);
++            ADD_OBJECT_POINTERS(obj, descriptor);
 +        }
 +    }
 +
@@ -378,7 +400,7 @@ diff -r 77f0b68e81a5 collect.c
 +        }
 +    }
 +
-+    /* clear out the remaining bits of the pools */
++    /* reset the pools */
 +    ggggc_pool0 = ggggc_gen0;
 +    for (genCur = 1; genCur < GGGGC_GENERATIONS; genCur++) {
 +        for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
@@ -529,7 +551,7 @@ diff -r 77f0b68e81a5 collect.c
 +void ggggc_postCompact(struct GGGGC_Pool *pool)
 +{
 +    size_t **obj;
-+    size_t card, lastCard = (size_t) -1;
++    size_t card = 0, lastCard = (size_t) -1;
 +
 +    /* this is going to fill in the remembered sets */
 +    if (pool->gen) memset(pool->remember, 0, GGGGC_CARDS_PER_POOL);
@@ -603,9 +625,9 @@ diff -r 77f0b68e81a5 collect.c
  /* explicitly yield to the collector */
  int ggggc_yield()
  {
-diff -r 77f0b68e81a5 ggggc-internals.h
---- a/ggggc-internals.h	Tue Nov 11 13:46:48 2014 -0500
-+++ b/ggggc-internals.h	Tue Nov 11 18:52:33 2014 -0500
+diff -r f761e370fa69 ggggc-internals.h
+--- a/ggggc-internals.h	Tue Nov 11 18:52:59 2014 -0500
++++ b/ggggc-internals.h	Tue Nov 11 21:02:18 2014 -0500
 @@ -35,7 +35,7 @@
  void ggggc_expandGeneration(struct GGGGC_Pool *pool);
  
@@ -628,9 +650,9 @@ diff -r 77f0b68e81a5 ggggc-internals.h
  
  /* descriptor descriptors */
  extern struct GGGGC_Descriptor *ggggc_descriptorDescriptors[GGGGC_WORDS_PER_POOL/GGGGC_BITS_PER_WORD+sizeof(struct GGGGC_Descriptor)];
-diff -r 77f0b68e81a5 ggggc/gc.h
---- a/ggggc/gc.h	Tue Nov 11 13:46:48 2014 -0500
-+++ b/ggggc/gc.h	Tue Nov 11 18:52:33 2014 -0500
+diff -r f761e370fa69 ggggc/gc.h
+--- a/ggggc/gc.h	Tue Nov 11 18:52:59 2014 -0500
++++ b/ggggc/gc.h	Tue Nov 11 21:02:18 2014 -0500
 @@ -86,6 +86,12 @@
      /* how much survived the last collection */
      size_t survivors;
@@ -644,9 +666,9 @@ diff -r 77f0b68e81a5 ggggc/gc.h
      /* the remembered set for this pool */
      unsigned char remember[GGGGC_CARDS_PER_POOL];
  
-diff -r 77f0b68e81a5 globals.c
---- a/globals.c	Tue Nov 11 13:46:48 2014 -0500
-+++ b/globals.c	Tue Nov 11 18:52:33 2014 -0500
+diff -r f761e370fa69 globals.c
+--- a/globals.c	Tue Nov 11 18:52:59 2014 -0500
++++ b/globals.c	Tue Nov 11 21:02:18 2014 -0500
 @@ -15,7 +15,7 @@
  struct GGGGC_PointerStackList *ggggc_blockedThreadPointerStacks;
  ggc_thread_local struct GGGGC_Pool *ggggc_gen0;
