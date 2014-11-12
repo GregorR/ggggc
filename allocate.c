@@ -123,6 +123,7 @@ static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
 #endif
 
     /* space reserved, now set it up */
+    ret->next = NULL;
     ret->gen = gen;
     ret->free = ret->start;
     ret->end = (size_t *) ((unsigned char *) ret + GGGGC_POOL_BYTES);
