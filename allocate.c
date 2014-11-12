@@ -61,7 +61,7 @@ static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
 {
     struct GGGGC_Pool *ret;
 #ifdef GGGGC_DEBUG_TINY_HEAP
-    static int allocationsLeft = GGGGC_GENERATIONS + 1;
+    static ggc_thread_local int allocationsLeft = GGGGC_GENERATIONS;
 
     if (allocationsLeft-- <= 0) {
         allocationsLeft = 0;

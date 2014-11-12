@@ -37,7 +37,7 @@ else
     doTests gcc '-O0 -g -Wall -Werror -std=c99 -pedantic -Wno-array-bounds -Werror=shadow -DGGGGC_DEBUG_MEMORY_CORRUPTION'
     doTests gcc ''
     doTests g++ ''
-    #doTests gcc '-DGGGGC_DEBUG_TINY_HEAP'
+    doTests gcc '-DGGGGC_DEBUG_TINY_HEAP'
     doTests gcc '-DGGGGC_NO_GNUC_FEATURES'
     doTests g++ '-DGGGGC_NO_GNUC_FEATURES'
 
