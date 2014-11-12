@@ -1,10 +1,10 @@
 # HG changeset patch
-# Parent f761e370fa6947fc5f193f8136716f79f2e7c09f
+# Parent 5ccd02f182ee3e5cdd599077ba5f21dad945bcb2
 Make the final generation use mark-compact collection.
 
-diff -r f761e370fa69 allocate.c
---- a/allocate.c	Tue Nov 11 18:52:59 2014 -0500
-+++ b/allocate.c	Tue Nov 11 21:02:18 2014 -0500
+diff -r 5ccd02f182ee allocate.c
+--- a/allocate.c	Tue Nov 11 21:02:52 2014 -0500
++++ b/allocate.c	Wed Nov 12 08:43:31 2014 -0500
 @@ -217,7 +217,7 @@
      } else {
          /* need to collect, which means we need to actually be a GC-safe function */
@@ -31,9 +31,9 @@ diff -r f761e370fa69 allocate.c
      return ggggc_malloc(descriptor);
  }
  
-diff -r f761e370fa69 collect.c
---- a/collect.c	Tue Nov 11 18:52:59 2014 -0500
-+++ b/collect.c	Tue Nov 11 21:02:18 2014 -0500
+diff -r 5ccd02f182ee collect.c
+--- a/collect.c	Tue Nov 11 21:02:52 2014 -0500
++++ b/collect.c	Wed Nov 12 08:43:31 2014 -0500
 @@ -28,6 +28,14 @@
  extern "C" {
  #endif
@@ -241,7 +241,7 @@ diff -r f761e370fa69 collect.c
 +    size_t *dobj = (obj); \
 +    struct GGGGC_Pool *cpool = GGGGC_POOL_OF(dobj); \
 +    struct BreakTableEl *bel = findBreakTableEntry( \
-+        cpool->breakTable, cpool->breakTableSize, \
++        (struct BreakTableEl *) cpool->breakTable, cpool->breakTableSize, \
 +        dobj); \
 +    if (bel) { \
 +        dobj -= bel->orig - bel->newL; \
@@ -409,7 +409,7 @@ diff -r f761e370fa69 collect.c
 +        ggggc_pools[genCur] = ggggc_gens[genCur];
 +    }
 +
-+#if defined(GGGGC_DEBUG_MEMORY_CORRUPTION) || 1
++#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
 +    for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
 +        for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
 +            memset(poolCur->free, 0, (poolCur->end - poolCur->free) * sizeof(size_t));
@@ -528,7 +528,7 @@ diff -r f761e370fa69 collect.c
 +        pool->free += chSize;
 +        cur += chSize;
 +
-+#if defined(GGGGC_DEBUG_MEMORY_CORRUPTION) || 1
++#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
 +        if ((size_t *) bt < pool->free) abort();
 +        if ((size_t *) btEnd >= cur + fchSize) abort();
 +#endif
@@ -536,7 +536,7 @@ diff -r f761e370fa69 collect.c
 +        if (cur >= pool->end) break;
 +    }
 +
-+#if defined(GGGGC_DEBUG_MEMORY_CORRUPTION) || 1
++#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
 +    if ((size_t *) btEnd >= pool->end) abort();
 +#endif
 +
@@ -625,9 +625,9 @@ diff -r f761e370fa69 collect.c
  /* explicitly yield to the collector */
  int ggggc_yield()
  {
-diff -r f761e370fa69 ggggc-internals.h
---- a/ggggc-internals.h	Tue Nov 11 18:52:59 2014 -0500
-+++ b/ggggc-internals.h	Tue Nov 11 21:02:18 2014 -0500
+diff -r 5ccd02f182ee ggggc-internals.h
+--- a/ggggc-internals.h	Tue Nov 11 21:02:52 2014 -0500
++++ b/ggggc-internals.h	Wed Nov 12 08:43:31 2014 -0500
 @@ -35,7 +35,7 @@
  void ggggc_expandGeneration(struct GGGGC_Pool *pool);
  
@@ -650,9 +650,9 @@ diff -r f761e370fa69 ggggc-internals.h
  
  /* descriptor descriptors */
  extern struct GGGGC_Descriptor *ggggc_descriptorDescriptors[GGGGC_WORDS_PER_POOL/GGGGC_BITS_PER_WORD+sizeof(struct GGGGC_Descriptor)];
-diff -r f761e370fa69 ggggc/gc.h
---- a/ggggc/gc.h	Tue Nov 11 18:52:59 2014 -0500
-+++ b/ggggc/gc.h	Tue Nov 11 21:02:18 2014 -0500
+diff -r 5ccd02f182ee ggggc/gc.h
+--- a/ggggc/gc.h	Tue Nov 11 21:02:52 2014 -0500
++++ b/ggggc/gc.h	Wed Nov 12 08:43:31 2014 -0500
 @@ -86,6 +86,12 @@
      /* how much survived the last collection */
      size_t survivors;
@@ -666,9 +666,171 @@ diff -r f761e370fa69 ggggc/gc.h
      /* the remembered set for this pool */
      unsigned char remember[GGGGC_CARDS_PER_POOL];
  
-diff -r f761e370fa69 globals.c
---- a/globals.c	Tue Nov 11 18:52:59 2014 -0500
-+++ b/globals.c	Tue Nov 11 21:02:18 2014 -0500
+@@ -296,7 +302,6 @@
+ 
+ /* macros to push and pop pointers from the pointer stack */
+ #define GGGGC_POP() do { \
+-    GGC_YIELD(); \
+     ggggc_pointerStack = ggggc_pointerStack->next; \
+ } while(0)
+ 
+@@ -333,7 +338,7 @@
+ #endif
+ #define return \
+     if (ggggc_localPush ? \
+-        ((GGC_YIELD()), (ggggc_pointerStack = ggggc_pointerStack->next), 0) : \
++        ((ggggc_pointerStack = ggggc_pointerStack->next), 0) : \
+         0) {} else return
+ 
+ #endif
+diff -r 5ccd02f182ee ggggc/push.h
+--- a/ggggc/push.h	Tue Nov 11 21:02:52 2014 -0500
++++ b/ggggc/push.h	Wed Nov 12 08:43:31 2014 -0500
+@@ -16,6 +16,7 @@
+     ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+     ggggc_pstack_cur->pointers[1] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ struct GGGGC_PointerStack2 {
+     struct GGGGC_PointerStack ps;
+@@ -33,6 +34,7 @@
+     ggggc_pstack_cur->pointers[1] = &(ggggc_ptr_b); \
+     ggggc_pstack_cur->pointers[2] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ struct GGGGC_PointerStack3 {
+     struct GGGGC_PointerStack ps;
+@@ -51,6 +53,7 @@
+     ggggc_pstack_cur->pointers[2] = &(ggggc_ptr_c); \
+     ggggc_pstack_cur->pointers[3] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ struct GGGGC_PointerStack4 {
+     struct GGGGC_PointerStack ps;
+@@ -70,6 +73,7 @@
+     ggggc_pstack_cur->pointers[3] = &(ggggc_ptr_d); \
+     ggggc_pstack_cur->pointers[4] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ struct GGGGC_PointerStack5 {
+     struct GGGGC_PointerStack ps;
+@@ -90,6 +94,7 @@
+     ggggc_pstack_cur->pointers[4] = &(ggggc_ptr_e); \
+     ggggc_pstack_cur->pointers[5] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ struct GGGGC_PointerStack6 {
+     struct GGGGC_PointerStack ps;
+@@ -111,6 +116,7 @@
+     ggggc_pstack_cur->pointers[5] = &(ggggc_ptr_f); \
+     ggggc_pstack_cur->pointers[6] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ struct GGGGC_PointerStack7 {
+     struct GGGGC_PointerStack ps;
+@@ -133,6 +139,7 @@
+     ggggc_pstack_cur->pointers[6] = &(ggggc_ptr_g); \
+     ggggc_pstack_cur->pointers[7] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ struct GGGGC_PointerStack8 {
+     struct GGGGC_PointerStack ps;
+@@ -156,6 +163,7 @@
+     ggggc_pstack_cur->pointers[7] = &(ggggc_ptr_h); \
+     ggggc_pstack_cur->pointers[8] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ struct GGGGC_PointerStack9 {
+     struct GGGGC_PointerStack ps;
+@@ -180,6 +188,7 @@
+     ggggc_pstack_cur->pointers[8] = &(ggggc_ptr_i); \
+     ggggc_pstack_cur->pointers[9] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ struct GGGGC_PointerStack10 {
+     struct GGGGC_PointerStack ps;
+@@ -205,6 +214,7 @@
+     ggggc_pstack_cur->pointers[9] = &(ggggc_ptr_j); \
+     ggggc_pstack_cur->pointers[10] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ struct GGGGC_PointerStack11 {
+     struct GGGGC_PointerStack ps;
+@@ -231,6 +241,7 @@
+     ggggc_pstack_cur->pointers[10] = &(ggggc_ptr_k); \
+     ggggc_pstack_cur->pointers[11] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ struct GGGGC_PointerStack12 {
+     struct GGGGC_PointerStack ps;
+@@ -258,6 +269,7 @@
+     ggggc_pstack_cur->pointers[11] = &(ggggc_ptr_l); \
+     ggggc_pstack_cur->pointers[12] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ struct GGGGC_PointerStack13 {
+     struct GGGGC_PointerStack ps;
+@@ -286,6 +298,7 @@
+     ggggc_pstack_cur->pointers[12] = &(ggggc_ptr_m); \
+     ggggc_pstack_cur->pointers[13] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ struct GGGGC_PointerStack14 {
+     struct GGGGC_PointerStack ps;
+@@ -315,6 +328,7 @@
+     ggggc_pstack_cur->pointers[13] = &(ggggc_ptr_n); \
+     ggggc_pstack_cur->pointers[14] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ struct GGGGC_PointerStack15 {
+     struct GGGGC_PointerStack ps;
+@@ -345,6 +359,7 @@
+     ggggc_pstack_cur->pointers[14] = &(ggggc_ptr_o); \
+     ggggc_pstack_cur->pointers[15] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ struct GGGGC_PointerStack16 {
+     struct GGGGC_PointerStack ps;
+@@ -376,16 +391,20 @@
+     ggggc_pstack_cur->pointers[15] = &(ggggc_ptr_p); \
+     ggggc_pstack_cur->pointers[16] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ #define GGC_PUSH_N(n, pptrs) \
+ GGGGC_LOCAL_PUSH \
+ do { \
+     size_t ggggc_n = (n); \
+-    struct GGGGC_PointerStack *ggggc_pstack_cur = alloca(sizeof(struct GGGGC_PointerStack) + sizeof(void *) * ggggc_n); \
++    struct GGGGC_PointerStack *ggggc_pstack_cur = \
++        (struct GGGGC_PointerStack *) \
++        alloca(sizeof(struct GGGGC_PointerStack) + sizeof(void *) * ggggc_n); \
+     void *ggggc_pptrs[] = (void*[]) pptrs; \
+     ggggc_pstack_cur->next = ggggc_pointerStack; \
+     memcpy(ggggc_pstack_cur->pointers, ggggc_pptrs, sizeof(void *) * ggggc_n); \
+     ggggc_pstack_cur->pointers[ggggc_n] = NULL; \
+     ggggc_pointerStack = ggggc_pstack_cur; \
++    GGC_YIELD(); \
+ } while(0)
+ #endif
+diff -r 5ccd02f182ee globals.c
+--- a/globals.c	Tue Nov 11 21:02:52 2014 -0500
++++ b/globals.c	Wed Nov 12 08:43:31 2014 -0500
 @@ -15,7 +15,7 @@
  struct GGGGC_PointerStackList *ggggc_blockedThreadPointerStacks;
  ggc_thread_local struct GGGGC_Pool *ggggc_gen0;
@@ -679,3 +841,22 @@ diff -r f761e370fa69 globals.c
 +struct GGGGC_Pool *ggggc_pools[GGGGC_GENERATIONS];
  struct GGGGC_Descriptor *ggggc_descriptorDescriptors[GGGGC_WORDS_PER_POOL/GGGGC_BITS_PER_WORD+sizeof(struct GGGGC_Descriptor)];
  ggc_mutex_t ggggc_descriptorDescriptorsLock;
+diff -r 5ccd02f182ee pushgen.c
+--- a/pushgen.c	Tue Nov 11 21:02:52 2014 -0500
++++ b/pushgen.c	Wed Nov 12 08:43:31 2014 -0500
+@@ -48,6 +48,7 @@
+         }
+         printf("    ggggc_pstack_cur->pointers[%d] = NULL; \\\n"
+                "    ggggc_pointerStack = ggggc_pstack_cur; \\\n"
++               "    GGC_YIELD(); \\\n"
+                "} while(0)\n", i);
+     }
+     printf("#define GGC_PUSH_N(n, pptrs) \\\n"
+@@ -62,6 +63,7 @@
+            "    memcpy(ggggc_pstack_cur->pointers, ggggc_pptrs, sizeof(void *) * ggggc_n); \\\n"
+            "    ggggc_pstack_cur->pointers[ggggc_n] = NULL; \\\n"
+            "    ggggc_pointerStack = ggggc_pstack_cur; \\\n"
++           "    GGC_YIELD(); \\\n"
+            "} while(0)\n"
+            "#endif\n");
+     return 0;
