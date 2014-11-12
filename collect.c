@@ -182,6 +182,36 @@ static void memoryCorruptionCheck(const char *when)
 }
 #endif
 
+#ifdef GGGGC_DEBUG_REPORT_COLLECTIONS
+static void report(unsigned char gen, const char *when)
+{
+    struct GGGGC_PoolList *plCur;
+    struct GGGGC_Pool *poolCur;
+    unsigned char genCur;
+    size_t sz, used;
+
+    fprintf(stderr, "Generation %d collection %s statistics\n", (int) gen, when);
+
+    sz = used = 0;
+    for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
+        for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
+            sz += poolCur->end - poolCur->start;
+            used += poolCur->free - poolCur->start;
+        }
+    }
+    fprintf(stderr, " 0: %d/%d\n", (int) used, (int) sz);
+
+    for (genCur = 1; genCur < GGGGC_GENERATIONS; genCur++) {
+        sz = used = 0;
+        for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
+            sz += poolCur->end - poolCur->start;
+            used += poolCur->free - poolCur->start;
+        }
+        fprintf(stderr, " %d: %d/%d\n", (int) gen, (int) used, (int) sz);
+    }
+}
+#endif
+
 /* run a generation 0 collection */
 void ggggc_collect0(unsigned char gen)
 {
@@ -224,6 +254,10 @@ void ggggc_collect0(unsigned char gen)
 
     /* wait for them to fill roots */
     ggc_barrier_wait(&ggggc_worldBarrier);
+
+#ifdef GGGGC_DEBUG_REPORT_COLLECTIONS
+    report(gen, "pre-collection");
+#endif
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
     memoryCorruptionCheck("pre-collection");
@@ -304,6 +338,9 @@ collect:
                 /* failed to allocate, need to collect gen+1 too */
                 gen += 1;
                 toSearch.used = 0;
+#ifdef GGGGC_DEBUG_REPORT_COLLECTIONS
+                report(gen, "promotion");
+#endif
 #if GGGGC_GENERATIONS > 2
                 if (gen >= GGGGC_GENERATIONS - 1) {
                     ggggc_collectFull();
@@ -366,6 +403,9 @@ collect:
 #endif
     }
 
+#ifdef GGGGC_DEBUG_REPORT_COLLECTIONS
+    report(gen, "post-collection");
+#endif
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
     for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
         for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {

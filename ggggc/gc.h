@@ -36,6 +36,7 @@ extern "C" {
 /* debugging flags */
 #ifdef GGGGC_DEBUG
 #define GGGGC_DEBUG_MEMORY_CORRUPTION
+#define GGGGC_DEBUG_REPORT_COLLECTIONS
 #define GGGGC_DEBUG_TINY_HEAP
 #endif
 

@@ -70,6 +70,9 @@ following definitions are available:
  * `GGGGC_DEBUG_MEMORY_CORRUPTION`: Enables debugging checks for memory
    corruption.
 
+ * `GGGGC_DEBUG_REPORT_COLLECTIONS`: Enables reporting of collection
+   statistics.
+
  * `GGGGC_DEBUG_TINY_HEAP`: Restrict the heap size to the smallest feasible
    size. Note that if the program strictly requires more space, it will fail.
    This is essentially a stress test.
