@@ -67,7 +67,7 @@ static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
         allocationsLeft = 0;
         if (mustSucceed) {
             fprintf(stderr, "GGGGC: exceeded tiny heap size\n");
-            exit(1);
+            abort();
         }
         return NULL;
     }
@@ -77,7 +77,7 @@ static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
     if ((errno = posix_memalign((void **) &ret, GGGGC_POOL_BYTES, GGGGC_POOL_BYTES))) {
         if (mustSucceed) {
             perror("posix_memalign");
-            exit(1);
+            abort();
         }
         return NULL;
     }
@@ -90,7 +90,7 @@ static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
     if (space == NULL) {
         if (mustSucceed) {
             perror("mmap");
-            exit(1);
+            abort();
         }
         return NULL;
     }
@@ -111,7 +111,7 @@ static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
     if (space == NULL) {
         if (mustSucceed) {
             perror("malloc");
-            exit(1);
+            abort();
         }
         return NULL;
     }
