@@ -54,7 +54,7 @@ int main()
     printf("#define GGC_PUSH_N(n, pptrs) \\\n"
            "GGGGC_LOCAL_PUSH \\\n"
            "do { \\\n"
-           "    size_t ggggc_n = (n); \\\n"
+           "    ggc_size_t ggggc_n = (n); \\\n"
            "    struct GGGGC_PointerStack *ggggc_pstack_cur = \\\n"
            "        (struct GGGGC_PointerStack *) \\\n"
            "        alloca(sizeof(struct GGGGC_PointerStack) + sizeof(void *) * ggggc_n); \\\n"

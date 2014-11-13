@@ -52,7 +52,7 @@ extern ggc_mutex_t ggggc_worldBarrierLock;
 extern ggc_barrier_t ggggc_worldBarrier;
 
 /* number of threads in the system */
-extern size_t ggggc_threadCount;
+extern ggc_size_t ggggc_threadCount;
 
 /* during stop-the-world, need a queue of pools and pointer stacks to scan */
 extern ggc_mutex_t ggggc_rootsLock;

@@ -24,6 +24,7 @@ extern "C" {
 #endif
 
 #include <stdlib.h>
+#include <sys/types.h>
 #ifdef _WIN32
 #include <malloc.h>
 #else
@@ -46,6 +47,11 @@ extern "C" {
 #define GGGGC_NO_GNUC_CONSTRUCTOR
 #endif
 
+/* word-sized integer type, usually size_t */
+#ifndef ggc_size_t
+typedef size_t ggc_size_t;
+#endif
+
 #ifndef GGGGC_GENERATIONS
 #define GGGGC_GENERATIONS 2
 #endif
@@ -59,19 +65,19 @@ extern "C" {
 #endif
 
 /* various sizes and masks */
-#define GGGGC_WORD_SIZEOF(x) ((sizeof(x) + sizeof(size_t) - 1) / sizeof(size_t))
-#define GGGGC_POOL_BYTES ((size_t) 1 << GGGGC_POOL_SIZE)
-#define GGGGC_POOL_OUTER_MASK ((size_t) -1 << GGGGC_POOL_SIZE)
+#define GGGGC_WORD_SIZEOF(x) ((sizeof(x) + sizeof(ggc_size_t) - 1) / sizeof(ggc_size_t))
+#define GGGGC_POOL_BYTES ((ggc_size_t) 1 << GGGGC_POOL_SIZE)
+#define GGGGC_POOL_OUTER_MASK ((ggc_size_t) -1 << GGGGC_POOL_SIZE)
 #define GGGGC_POOL_INNER_MASK (~GGGGC_POOL_OUTER_MASK)
-#define GGGGC_POOL_OF(ptr) ((struct GGGGC_Pool *) ((size_t) (ptr) & GGGGC_POOL_OUTER_MASK))
+#define GGGGC_POOL_OF(ptr) ((struct GGGGC_Pool *) ((ggc_size_t) (ptr) & GGGGC_POOL_OUTER_MASK))
 #define GGGGC_GEN_OF(ptr) (GGGGC_POOL_OF(ptr)->gen)
-#define GGGGC_CARD_BYTES ((size_t) 1 << GGGGC_CARD_SIZE)
-#define GGGGC_CARD_OUTER_MASK ((size_t) -1 << GGGGC_CARD_SIZE)
+#define GGGGC_CARD_BYTES ((ggc_size_t) 1 << GGGGC_CARD_SIZE)
+#define GGGGC_CARD_OUTER_MASK ((ggc_size_t) -1 << GGGGC_CARD_SIZE)
 #define GGGGC_CARD_INNER_MASK (~GGGGC_CARD_OUTER_MASK)
-#define GGGGC_CARDS_PER_POOL ((size_t) 1 << (GGGGC_POOL_SIZE-GGGGC_CARD_SIZE))
-#define GGGGC_CARD_OF(ptr) (((size_t) (ptr) & GGGGC_POOL_INNER_MASK) >> GGGGC_CARD_SIZE)
-#define GGGGC_BITS_PER_WORD (8*sizeof(size_t))
-#define GGGGC_WORDS_PER_POOL (GGGGC_POOL_BYTES/sizeof(size_t))
+#define GGGGC_CARDS_PER_POOL ((ggc_size_t) 1 << (GGGGC_POOL_SIZE-GGGGC_CARD_SIZE))
+#define GGGGC_CARD_OF(ptr) (((ggc_size_t) (ptr) & GGGGC_POOL_INNER_MASK) >> GGGGC_CARD_SIZE)
+#define GGGGC_BITS_PER_WORD (8*sizeof(ggc_size_t))
+#define GGGGC_WORDS_PER_POOL (GGGGC_POOL_BYTES/sizeof(ggc_size_t))
 
 /* GC pool (forms a list) */
 struct GGGGC_Pool {
@@ -82,13 +88,13 @@ struct GGGGC_Pool {
     unsigned char gen;
 
     /* the current free space and end of the pool */
-    size_t *free, *end;
+    ggc_size_t *free, *end;
 
     /* how much survived the last collection */
-    size_t survivors;
+    ggc_size_t survivors;
 
     /* size of the break table (in entries, used only during collection) */
-    size_t breakTableSize;
+    ggc_size_t breakTableSize;
 
     /* pointer to the break table (used only during collection) */
     void *breakTable;
@@ -102,7 +108,7 @@ struct GGGGC_Pool {
 #endif
 
     /* and the actual content */
-    size_t start[1];
+    ggc_size_t start[1];
 };
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
@@ -113,7 +119,7 @@ struct GGGGC_Pool {
 struct GGGGC_Header {
     struct GGGGC_Descriptor *descriptor__ptr;
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
-    size_t ggggc_memoryCorruptionCheck;
+    ggc_size_t ggggc_memoryCorruptionCheck;
 #endif
 };
 
@@ -121,8 +127,8 @@ struct GGGGC_Header {
 struct GGGGC_Descriptor {
     struct GGGGC_Header header;
     void *user; /* for the user to use however they please */
-    size_t size; /* size of the described object in words */
-    size_t pointers[1]; /* location of pointers within the object (as a special
+    ggc_size_t size; /* size of the described object in words */
+    ggc_size_t pointers[1]; /* location of pointers within the object (as a special
                          * case, if pointers[0]|1==0, this means "no pointers") */
 };
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
@@ -137,14 +143,14 @@ struct GGGGC_Descriptor {
 struct GGGGC_DescriptorSlot {
     ggc_mutex_t lock;
     struct GGGGC_Descriptor *descriptor;
-    size_t size;
-    size_t pointers;
+    ggc_size_t size;
+    ggc_size_t pointers;
 };
 
 /* pointer stacks are used to assure that pointers on the stack are known */
 struct GGGGC_PointerStack {
     struct GGGGC_PointerStack *next;
-    size_t size;
+    ggc_size_t size;
     void *pointers[1];
 };
 
@@ -176,12 +182,12 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
     static struct GGGGC_DescriptorSlot type ## __descriptorSlot = { \
         GGC_MUTEX_INITIALIZER, \
         NULL, \
-        (sizeof(struct type ## __struct) + sizeof(size_t) - 1) / sizeof(size_t), \
-        ((size_t)0) pointers \
+        (sizeof(struct type ## __struct) + sizeof(ggc_size_t) - 1) / sizeof(ggc_size_t), \
+        ((ggc_size_t)0) pointers \
     }; \
     GGGGC_DESCRIPTOR_CONSTRUCTOR(type)
 #define GGGGC_OFFSETOF(type, member) \
-    ((size_t) &((type) 0)->member ## __ptr / sizeof(size_t))
+    ((ggc_size_t) &((type) 0)->member ## __ptr / sizeof(ggc_size_t))
 #define GGC_PTR(type, member) \
     | (1<<GGGGC_OFFSETOF(type, member))
 
@@ -231,7 +237,7 @@ GGC_DA_TYPE(double)
 /* write barrier for pointers */
 #if GGGGC_GENERATIONS > 1
 #define GGC_W(object, member, value) do { \
-    size_t ggggc_o = (size_t) (object); \
+    ggc_size_t ggggc_o = (ggc_size_t) (object); \
     struct GGGGC_Pool *ggggc_pool = GGGGC_POOL_OF(ggggc_o); \
     /* assert that both 'object' and 'value' are just identifiers */ \
     if (0) { \
@@ -269,28 +275,28 @@ void *ggggc_mallocSlot(struct GGGGC_DescriptorSlot *slot);
 #endif
 
 /* allocate a pointer array (size is in words) */
-void *ggggc_mallocPointerArray(size_t sz);
+void *ggggc_mallocPointerArray(ggc_size_t sz);
 #define GGC_NEW_PA(type, size) \
     ((type ## Array) ggggc_mallocPointerArray((size)))
 
 /* allocate a data array (size is in words, macro turns it into elements) */
-void *ggggc_mallocDataArray(size_t sz);
+void *ggggc_mallocDataArray(ggc_size_t sz);
 #define GGC_NEW_DA(type, size) \
-    ((GGC_ ## type ## _Array) ggggc_mallocDataArray(((size)*sizeof(type)+sizeof(size_t)-1)/sizeof(size_t)))
+    ((GGC_ ## type ## _Array) ggggc_mallocDataArray(((size)*sizeof(type)+sizeof(ggc_size_t)-1)/sizeof(ggc_size_t)))
 
 /* allocate a descriptor for an object of the given size in words with the
  * given pointer layout */
-struct GGGGC_Descriptor *ggggc_allocateDescriptor(size_t size, size_t pointers);
+struct GGGGC_Descriptor *ggggc_allocateDescriptor(ggc_size_t size, ggc_size_t pointers);
 
 /* descriptor allocator when more than one word is required to describe the
  * pointers */
-struct GGGGC_Descriptor *ggggc_allocateDescriptorL(size_t size, const size_t *pointers);
+struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_size_t *pointers);
 
 /* descriptor allocator for pointer arrays */
-struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(size_t size);
+struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(ggc_size_t size);
 
 /* descriptor allocator for data arrays */
-struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(size_t size);
+struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(ggc_size_t size);
 
 /* allocate a descriptor from a descriptor slot */
 struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot);

@@ -396,7 +396,7 @@ do { \
 #define GGC_PUSH_N(n, pptrs) \
 GGGGC_LOCAL_PUSH \
 do { \
-    size_t ggggc_n = (n); \
+    ggc_size_t ggggc_n = (n); \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         (struct GGGGC_PointerStack *) \
         alloca(sizeof(struct GGGGC_PointerStack) + sizeof(void *) * ggggc_n); \

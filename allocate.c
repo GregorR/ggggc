@@ -111,7 +111,7 @@ static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
     /* do we already have some available space? */
     ggc_mutex_lock_raw(&poolLock);
     if (!space || space + GGGGC_POOL_BYTES > spaceEnd) {
-        size_t i;
+        ggc_size_t i;
 
         /* since we can't pre-align, align by getting as much as we can manage */
         for (i = 16; i >= 2; i /= 2) {
@@ -143,7 +143,7 @@ static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
     ret->next = NULL;
     ret->gen = gen;
     ret->free = ret->start;
-    ret->end = (size_t *) ((unsigned char *) ret + GGGGC_POOL_BYTES);
+    ret->end = (ggc_size_t *) ((unsigned char *) ret + GGGGC_POOL_BYTES);
 
 #if GGGGC_GENERATIONS > 1
     /* clear the remembered set */
@@ -152,7 +152,7 @@ static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
 
     /* the first object in the first usable card */
     ret->firstObject[GGGGC_CARD_OF(ret->start)] =
-        (((size_t) ret->start) & GGGGC_CARD_INNER_MASK) / sizeof(size_t);
+        (((ggc_size_t) ret->start) & GGGGC_CARD_INNER_MASK) / sizeof(ggc_size_t);
 #endif
 
     return ret;
@@ -161,7 +161,7 @@ static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
 /* heuristically expand a generation if it has too many survivors */
 void ggggc_expandGeneration(struct GGGGC_Pool *pool)
 {
-    size_t space, survivors, poolCt;
+    ggc_size_t space, survivors, poolCt;
 
     if (!pool) return;
 
@@ -181,7 +181,7 @@ void ggggc_expandGeneration(struct GGGGC_Pool *pool)
     /* now decide if it's too much */
     if (survivors > space/2) {
         /* allocate more */
-        size_t i;
+        ggc_size_t i;
         for (i = 0; i < poolCt; i++) {
             pool->next = newPool(pool->gen, 0);
             pool = pool->next;
@@ -222,7 +222,7 @@ retry:
 #endif
 
         /* and clear the rest (necessary since this goes to the untrusted mutator) */
-        memset(ret + 1, 0, descriptor->size * sizeof(size_t) - sizeof(struct GGGGC_Header));
+        memset(ret + 1, 0, descriptor->size * sizeof(ggc_size_t) - sizeof(struct GGGGC_Header));
 
     } else if (pool->next) {
         ggggc_pool0 = pool = pool->next;
@@ -266,7 +266,7 @@ retry:
 
     /* do we have enough space? */
     if (pool->end - pool->free >= descriptor->size) {
-        size_t retCard, freeCard;
+        ggc_size_t retCard, freeCard;
 
         /* good, allocate here */
         ret = (struct GGGGC_Header *) pool->free;
@@ -277,7 +277,7 @@ retry:
         /* if we passed a card, mark the first object */
         if (retCard != freeCard && pool->free < pool->end)
             pool->firstObject[freeCard] =
-                ((size_t) pool->free & GGGGC_CARD_INNER_MASK) / sizeof(size_t);
+                ((ggc_size_t) pool->free & GGGGC_CARD_INNER_MASK) / sizeof(ggc_size_t);
 
         /* and clear the next descriptor so that it's clear there's no object
          * there (yet) */
@@ -310,24 +310,24 @@ void *ggggc_malloc(struct GGGGC_Descriptor *descriptor)
 }
 
 /* allocate a pointer array (size is in words) */
-void *ggggc_mallocPointerArray(size_t sz)
+void *ggggc_mallocPointerArray(ggc_size_t sz)
 {
-    struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorPA(sz + sizeof(struct GGGGC_Header)/sizeof(size_t));
+    struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorPA(sz + sizeof(struct GGGGC_Header)/sizeof(ggc_size_t));
     return ggggc_malloc(descriptor);
 }
 
 /* allocate a data array (size is in words) */
-void *ggggc_mallocDataArray(size_t sz)
+void *ggggc_mallocDataArray(ggc_size_t sz)
 {
-    struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorDA(sz + sizeof(struct GGGGC_Header)/sizeof(size_t));
+    struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorDA(sz + sizeof(struct GGGGC_Header)/sizeof(ggc_size_t));
     return ggggc_malloc(descriptor);
 }
 
 /* allocate a descriptor-descriptor for a descriptor of the given size */
-struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(size_t size)
+struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(ggc_size_t size)
 {
     struct GGGGC_Descriptor tmpDescriptor, *ret;
-    size_t ddSize;
+    ggc_size_t ddSize;
 
     /* need one description bit for every word in the object */
     ddSize = GGGGC_WORD_SIZEOF(struct GGGGC_Descriptor) + GGGGC_DESCRIPTOR_WORDS_REQ(size);
@@ -369,19 +369,19 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(size_t size)
 
 /* allocate a descriptor for an object of the given size in words with the
  * given pointer layout */
-struct GGGGC_Descriptor *ggggc_allocateDescriptor(size_t size, size_t pointers)
+struct GGGGC_Descriptor *ggggc_allocateDescriptor(ggc_size_t size, ggc_size_t pointers)
 {
-    size_t pointersA[1];
+    ggc_size_t pointersA[1];
     pointersA[0] = pointers;
     return ggggc_allocateDescriptorL(size, pointersA);
 }
 
 /* descriptor allocator when more than one word is required to describe the
  * pointers */
-struct GGGGC_Descriptor *ggggc_allocateDescriptorL(size_t size, const size_t *pointers)
+struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_size_t *pointers)
 {
     struct GGGGC_Descriptor *dd, *ret;
-    size_t dPWords, dSize;
+    ggc_size_t dPWords, dSize;
 
     /* the size of the descriptor */
     if (pointers)
@@ -399,7 +399,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(size_t size, const size_t *po
 
     /* and set it up */
     if (pointers) {
-        memcpy(ret->pointers, pointers, sizeof(size_t) * dPWords);
+        memcpy(ret->pointers, pointers, sizeof(ggc_size_t) * dPWords);
         ret->pointers[0] |= 1; /* first word is always the descriptor pointer */
     } else {
         ret->pointers[0] = 0;
@@ -409,22 +409,22 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(size_t size, const size_t *po
 }
 
 /* descriptor allocator for pointer arrays */
-struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(size_t size)
+struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(ggc_size_t size)
 {
-    size_t *pointers;
-    size_t dPWords, i;
+    ggc_size_t *pointers;
+    ggc_size_t dPWords, i;
 
     /* fill our pointer-words with 1s */
     dPWords = GGGGC_DESCRIPTOR_WORDS_REQ(size);
-    pointers = (size_t *) alloca(sizeof(size_t) * dPWords);
-    for (i = 0; i < dPWords; i++) pointers[i] = (size_t) -1;
+    pointers = (ggc_size_t *) alloca(sizeof(ggc_size_t) * dPWords);
+    for (i = 0; i < dPWords; i++) pointers[i] = (ggc_size_t) -1;
 
     /* and allocate */
     return ggggc_allocateDescriptorL(size, pointers);
 }
 
 /* descriptor allocator for data arrays */
-struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(size_t size)
+struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(ggc_size_t size)
 {
     /* and allocate */
     return ggggc_allocateDescriptorL(size, NULL);
