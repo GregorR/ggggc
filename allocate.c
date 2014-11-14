@@ -33,30 +33,34 @@
 #include <sys/mman.h>
 #endif
 
+#include "ggggc/gc.h"
+#include "ggggc-internals.h"
+
 /* figure out which allocator to use */
 #if defined(GGGGC_USE_MALLOC)
 #define GGGGC_ALLOCATOR_MALLOC 1
+#include "allocate-malloc.c"
 
 #elif _POSIX_ADVISORY_INFO >= 200112L
 #define GGGGC_ALLOCATOR_POSIX_MEMALIGN 1
+#include "allocate-malign.c"
 
 #elif defined(MAP_ANON)
 #define GGGGC_ALLOCATOR_MMAP 1
+#include "allocate-mmap.c"
 
 #else
 #warning GGGGC: No allocator available other than malloc!
 #define GGGGC_ALLOCATOR_MALLOC 1
+#include "allocate-malloc.c"
 
 #endif
-
-#include "ggggc/gc.h"
-#include "ggggc-internals.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* allocate a pool */
+/* allocate and initialize a pool */
 static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
 {
     struct GGGGC_Pool *ret;
@@ -73,73 +77,10 @@ static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
     }
 #endif
 
-#if GGGGC_ALLOCATOR_POSIX_MEMALIGN
-    if ((errno = posix_memalign((void **) &ret, GGGGC_POOL_BYTES, GGGGC_POOL_BYTES))) {
-        if (mustSucceed) {
-            perror("posix_memalign");
-            abort();
-        }
-        return NULL;
-    }
+    ret = (struct GGGGC_Pool *) allocPool(mustSucceed);
+    if (!ret) return NULL;
 
-#elif GGGGC_ALLOCATOR_MMAP
-    unsigned char *space, *aspace;
-
-    /* allocate enough space that we can align it later */
-    space = mmap(NULL, GGGGC_POOL_BYTES*2, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
-    if (space == NULL) {
-        if (mustSucceed) {
-            perror("mmap");
-            abort();
-        }
-        return NULL;
-    }
-
-    /* align it */
-    ret = GGGGC_POOL_OF(space + GGGGC_POOL_BYTES - 1);
-    aspace = (unsigned char *) ret;
-
-    /* free unused space */
-    if (aspace > space)
-        munmap(space, aspace - space);
-    munmap(aspace + GGGGC_POOL_BYTES, space + GGGGC_POOL_BYTES - aspace);
-
-#elif GGGGC_ALLOCATOR_MALLOC
-    static ggc_mutex_t poolLock = GGC_MUTEX_INITIALIZER;
-    static unsigned char *space = NULL, *spaceEnd = NULL;
-
-    /* do we already have some available space? */
-    ggc_mutex_lock_raw(&poolLock);
-    if (!space || space + GGGGC_POOL_BYTES > spaceEnd) {
-        ggc_size_t i;
-
-        /* since we can't pre-align, align by getting as much as we can manage */
-        for (i = 16; i >= 2; i /= 2) {
-            space = malloc(GGGGC_POOL_BYTES * i);
-            if (space) break;
-        }
-        if (!space) {
-            if (mustSucceed) {
-                perror("malloc");
-                abort();
-            }
-            return NULL;
-        }
-        spaceEnd = space + GGGGC_POOL_BYTES * i;
-
-        /* align it */
-        space = (unsigned char *) GGGGC_POOL_OF(space + GGGGC_POOL_BYTES - 1);
-    }
-
-    ret = (struct GGGGC_Pool *) space;
-    space += GGGGC_POOL_BYTES;
-    ggc_mutex_unlock(&poolLock);
-
-#else
-#error Unknown allocator.
-#endif
-
-    /* space reserved, now set it up */
+    /* set it up */
     ret->next = NULL;
     ret->gen = gen;
     ret->free = ret->start;
