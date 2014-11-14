@@ -246,7 +246,7 @@ void ggggc_collect0(unsigned char gen)
     /* if nobody ever initialized the barrier, do so */
     if (ggggc_threadCount == 0) {
         ggggc_threadCount = 1;
-        ggc_barrier_init(&ggggc_worldBarrier, NULL, ggggc_threadCount);
+        ggc_barrier_init(&ggggc_worldBarrier, ggggc_threadCount);
     }
 
     /* initialize our roots */

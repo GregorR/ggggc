@@ -1,5 +1,5 @@
 /*
- * Thread functionality for pthreads
+ * Thread functionality for Windows
  *
  * Copyright (c) 2014 Gregor Richards
  *
@@ -19,23 +19,22 @@
 #define BLOCKING(func, call) \
 int func \
 { \
-    int ret, err; \
+    BOOL ret; \
     ggc_pre_blocking(); \
-    err = call; \
+    ret = call; \
     ggc_post_blocking(); \
-    ret = err ? -1 : 0; \
-    errno = err; \
-    return ret; \
+    errno = ret ? 0 : ENOMEM; \
+    return ret ? 0 : -1; \
 }
 
 BLOCKING(
-    ggc_barrier_wait(void *barrier),
-    pthread_barrier_wait((pthread_barrier_t *) barrier)
+    ggc_barrier_wait(ggc_barrier_t *barrier),
+    EnterSynchronizationBarrier(barrier, 0)
 )
 
 BLOCKING(
     ggc_mutex_lock(ggc_mutex_t *mutex),
-    pthread_mutex_lock(mutex)
+    WaitForSingleObject(*(mutex), INFINITE)
 )
 
 int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg arg)
@@ -57,8 +56,9 @@ int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg a
     ggc_barrier_init(&ggggc_worldBarrier, ++ggggc_threadCount);
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
 
-    /* spawn the pthread */
-    if ((errno = pthread_create(thread, NULL, ggggcThreadWrapper, ti)))
+    /* spawn the thread */
+    *thread = CreateThread(NULL, 0, ggggcThreadWrapper, ti, 0, NULL);
+    if (!*thread)
         return -1;
 
     return 0;
@@ -66,5 +66,5 @@ int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg a
 
 BLOCKING(
     ggc_thread_join(ggc_thread_t thread),
-    pthread_join(thread, NULL)
+    WaitForSingleObject(thread, INFINITE)
 )

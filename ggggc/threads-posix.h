@@ -23,7 +23,7 @@
 
 /* functions */
 #define ggc_barrier_destroy             pthread_barrier_destroy
-#define ggc_barrier_init                pthread_barrier_init
+#define ggc_barrier_init(x,y)           pthread_barrier_init(x,NULL,y)
 #define ggc_barrier_wait_raw            pthread_barrier_wait
 #define ggc_mutex_lock_raw              pthread_mutex_lock
 #define ggc_mutex_trylock               pthread_mutex_trylock

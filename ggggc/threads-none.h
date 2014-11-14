@@ -21,7 +21,7 @@
 
 /* functions */
 #define ggc_barrier_destroy(x)          0
-#define ggc_barrier_init(x,y,z)         0
+#define ggc_barrier_init(x,y)           0
 #define ggc_barrier_wait(x)             0
 #define ggc_barrier_wait_raw(x)         0
 #define ggc_mutex_lock(x)               0

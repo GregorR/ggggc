@@ -51,7 +51,7 @@ static void *ggggcThreadWrapper(void *arg)
     ggggc_threadCount--;
     if (ggggc_threadCount > 0) {
         ggc_barrier_destroy(&ggggc_worldBarrier);
-        ggc_barrier_init(&ggggc_worldBarrier, NULL, ggggc_threadCount);
+        ggc_barrier_init(&ggggc_worldBarrier, ggggc_threadCount);
     }
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
 
@@ -75,7 +75,7 @@ void ggc_pre_blocking()
     ggggc_threadCount--;
     if (ggggc_threadCount > 0) {
         ggc_barrier_destroy(&ggggc_worldBarrier);
-        ggc_barrier_init(&ggggc_worldBarrier, NULL, ggggc_threadCount);
+        ggc_barrier_init(&ggggc_worldBarrier, ggggc_threadCount);
     }
 
     /* add our roots and pools */
@@ -101,7 +101,7 @@ void ggc_post_blocking()
 
     /* add ourselves back to the world barrier */
     ggc_barrier_destroy(&ggggc_worldBarrier);
-    ggc_barrier_init(&ggggc_worldBarrier, NULL, ++ggggc_threadCount);
+    ggc_barrier_init(&ggggc_worldBarrier, ++ggggc_threadCount);
 
     /* remove our roots and pools from the list */
     if (ggggc_blockedThreadPool0s == &blockedPoolListNode) {
@@ -132,8 +132,11 @@ void ggc_post_blocking()
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
 }
 
-#ifdef GGGGC_THREADS_POSIX
+#if defined(GGGGC_THREADS_POSIX)
 #include "threads-posix.c"
+
+#elif defined(GGGGC_THREADS_WINDOWS)
+#include "threads-windows.c"
 
 #elif !defined(GGGGC_NO_THREADS)
 #error Unknown threading platform.

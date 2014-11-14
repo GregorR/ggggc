@@ -1,5 +1,5 @@
 /*
- * Thread support for pthreads
+ * Thread support for Windows
  *
  * Copyright (c) 2014 Gregor Richards
  *
@@ -20,21 +20,21 @@
 #define GGGGC_THREADS_WINDOWS_H 1
 
 /* functions */
-#define ggc_barrier_destroy(barrier)    (!DeleteSynchronizationBarrier(*(barrier)))
+#define ggc_barrier_destroy(barrier)    (!DeleteSynchronizationBarrier(barrier))
 #define ggc_barrier_init(barrier, count) \
     (!InitializeSynchronizationBarrier(barrier, count, -1))
 #define ggc_barrier_wait_raw(barrier)   (!EnterSynchronizationBarrier(barrier, 0))
 #define ggc_mutex_lock_raw(mutex)       (WaitForSingleObject(*(mutex), INFINITE) != WAIT_FAILED)
 #define ggc_mutex_trylock(mutex)        (WaitForSingleObject(*(mutex), 0) != WAIT_FAILED)
-#define ggc_mutex_unlock                (!ReleaseMutex(*(mutex)))
+#define ggc_mutex_unlock(mutex)         (!ReleaseMutex(*(mutex)))
 
 /* types */
-#define ggc_barrier_t   LPSYNCHRONIZATION_BARRIER
+#define ggc_barrier_t   SYNCHRONIZATION_BARRIER
 #define ggc_mutex_t     HANDLE
 #define ggc_thread_t    HANDLE
 
 /* predefs */
-#define GGC_MUTEX_INITIALIZER (CreateMutex(NULL, 0, NULL))
+#define GGC_MUTEX_INITIALIZER 0
 
 /* real code below */
 
