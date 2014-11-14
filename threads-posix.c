@@ -16,16 +16,27 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-int ggc_mutex_lock(ggc_mutex_t *mutex)
-{
-    int ret, err;
-    ggc_pre_blocking();
-    err = pthread_mutex_lock(mutex);
-    ggc_post_blocking();
-    ret = err ? -1 : 0;
-    errno = err;
-    return ret;
+#define BLOCKING(func, call) \
+int func \
+{ \
+    int ret, err; \
+    ggc_pre_blocking(); \
+    err = call; \
+    ggc_post_blocking(); \
+    ret = err ? -1 : 0; \
+    errno = err; \
+    return ret; \
 }
+
+BLOCKING(
+    ggc_barrier_wait(void *barrier),
+    pthread_barrier_wait((pthread_barrier_t *) barrier)
+)
+
+BLOCKING(
+    ggc_mutex_lock(ggc_mutex_t *mutex),
+    pthread_mutex_lock(mutex)
+)
 
 int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg arg)
 {
@@ -53,15 +64,7 @@ int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg a
     return 0;
 }
 
-int ggc_thread_join(ggc_thread_t thread)
-{
-    int ret, err;
-
-    ggc_pre_blocking();
-    err = pthread_join(thread, NULL);
-    ggc_post_blocking();
-    ret = err ? -1 : 0;
-
-    errno = err;
-    return ret;
-}
+BLOCKING(
+    ggc_thread_join(ggc_thread_t thread),
+    pthread_join(thread, NULL)
+)

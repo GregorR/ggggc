@@ -261,11 +261,11 @@ void ggggc_collect0(unsigned char gen)
 
     /* stop the world */
     ggggc_stopTheWorld = 1;
-    ggc_barrier_wait(&ggggc_worldBarrier);
+    ggc_barrier_wait_raw(&ggggc_worldBarrier);
     ggggc_stopTheWorld = 0;
 
     /* wait for them to fill roots */
-    ggc_barrier_wait(&ggggc_worldBarrier);
+    ggc_barrier_wait_raw(&ggggc_worldBarrier);
 
 #ifdef GGGGC_DEBUG_REPORT_COLLECTIONS
     report(gen, "pre-collection");
@@ -436,7 +436,7 @@ collect:
 #endif
 
     /* free the other threads */
-    ggc_barrier_wait(&ggggc_worldBarrier);
+    ggc_barrier_wait_raw(&ggggc_worldBarrier);
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
 }
 
@@ -882,7 +882,7 @@ int ggggc_yield()
 
     if (ggggc_stopTheWorld) {
         /* wait for the barrier once to stop the world */
-        ggc_barrier_wait(&ggggc_worldBarrier);
+        ggc_barrier_wait_raw(&ggggc_worldBarrier);
 
         /* feed it my globals */
         ggc_mutex_lock_raw(&ggggc_rootsLock);
@@ -895,10 +895,10 @@ int ggggc_yield()
         ggc_mutex_unlock(&ggggc_rootsLock);
 
         /* wait for the barrier once to allow collection */
-        ggc_barrier_wait(&ggggc_worldBarrier);
+        ggc_barrier_wait_raw(&ggggc_worldBarrier);
 
         /* wait for the barrier to know when collection is done */
-        ggc_barrier_wait(&ggggc_worldBarrier);
+        ggc_barrier_wait_raw(&ggggc_worldBarrier);
 
         /* now we can reset our pool */
         ggggc_pool0 = ggggc_gen0;

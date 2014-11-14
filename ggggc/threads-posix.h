@@ -24,7 +24,7 @@
 /* functions */
 #define ggc_barrier_destroy             pthread_barrier_destroy
 #define ggc_barrier_init                pthread_barrier_init
-#define ggc_barrier_wait                pthread_barrier_wait
+#define ggc_barrier_wait_raw            pthread_barrier_wait
 #define ggc_mutex_lock_raw              pthread_mutex_lock
 #define ggc_mutex_trylock               pthread_mutex_trylock
 #define ggc_mutex_unlock                pthread_mutex_unlock
@@ -40,6 +40,7 @@
 /* real code below */
 
 /* functions */
+int ggc_barrier_wait(void *barrier); /* void because some configurations don't have pthread_barrier_t */
 int ggc_mutex_lock(ggc_mutex_t *mutex);
 int ggc_thread_create(ggc_thread_t *thread, void (*func)(struct ThreadArg__struct *), struct ThreadArg__struct *arg);
 int ggc_thread_join(ggc_thread_t thread);
