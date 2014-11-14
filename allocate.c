@@ -23,6 +23,13 @@
 #include <unistd.h>
 #endif
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -52,6 +59,10 @@ extern "C" {
 #elif defined(MAP_ANON)
 #define GGGGC_ALLOCATOR_MMAP 1
 #include "allocate-mmap.c"
+
+#elif defined(_WIN32)
+#define GGGGC_ALLOCATOR_VIRTUALALLOC 1
+#include "allocate-win-valloc.c"
 
 #else
 #warning GGGGC: No allocator available other than malloc!

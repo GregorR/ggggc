@@ -11,6 +11,9 @@
 #elif defined(__GNUC__)
 #define ggc_thread_local __thread
 
+#elif defined(_WIN32)
+#define ggc_thread_local __declspec(thread)
+
 #else
 #warning No known thread-local storage specifier. Disabling threads.
 #define ggc_thread_local

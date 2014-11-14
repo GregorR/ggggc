@@ -1,23 +1,14 @@
 #ifndef GGGGC_THREADS_H 
 #define GGGGC_THREADS_H 1
 
-#ifndef GGGGC_NO_THREADS
-
 /* get our feature macros */
 #if defined(unix) || defined(__unix) || defined(__unix__)
 #include <unistd.h>
 #endif
 
-/* choose our threads */
-#ifdef _POSIX_THREADS
-#define GGGGC_THREADS_POSIX 1
-#else
-#define GGGGC_NO_THREADS 1
-#warning Unsupported threading platform. Disabling threads.
+#ifdef _WIN32
+#include <windows.h>
 #endif
-
-#endif
-#ifndef GGGGC_NO_THREADS
 
 /* blocking on thread behaviors is unsafe unless the GC is informed */
 void ggc_pre_blocking(void);
@@ -26,12 +17,21 @@ void ggc_post_blocking(void);
 /* ThreadArg will be defined later, but is needed immediately */
 struct ThreadArg__struct;
 
-/* and choose our threads */
-#if defined(GGGGC_THREADS_POSIX)
+/* choose our threads */
+#if defined(GGGGC_NO_THREADS)
+#include "threads-none.h"
+
+#elif defined(_POSIX_THREADS)
+#define GGGGC_THREADS_POSIX 1
 #include "threads-posix.h"
-#endif
+
+#elif defined(_WIN32)
+#define GGGGC_THREADS_WINDOWS 1
+#include "threads-windows.h"
 
 #else
+#define GGGGC_NO_THREADS 1
+#warning Unsupported threading platform. Disabling threads.
 #include "threads-none.h"
 
 #endif
