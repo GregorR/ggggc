@@ -55,6 +55,9 @@ static void *ggggcThreadWrapper(void *arg)
     }
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
 
+    /* and give back its pools */
+    ggggc_freeGeneration(ggggc_gen0);
+
     return NULL;
 }
 

@@ -36,6 +36,10 @@
 #include "ggggc/gc.h"
 #include "ggggc-internals.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* figure out which allocator to use */
 #if defined(GGGGC_USE_MALLOC)
 #define GGGGC_ALLOCATOR_MALLOC 1
@@ -56,9 +60,9 @@
 
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+/* pools which are freely available */
+static ggc_mutex_t freePoolsLock = GGC_MUTEX_INITIALIZER;
+static struct GGGGC_Pool *freePoolsHead, *freePoolsTail;
 
 /* allocate and initialize a pool */
 static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
@@ -77,7 +81,22 @@ static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
     }
 #endif
 
-    ret = (struct GGGGC_Pool *) allocPool(mustSucceed);
+    ret = NULL;
+
+    /* try to reuse a pool */
+    if (freePoolsHead) {
+        ggc_mutex_lock_raw(&freePoolsLock);
+        if (freePoolsHead) {
+            ret = freePoolsHead;
+            freePoolsHead = freePoolsHead->next;
+            if (!freePoolsHead) freePoolsTail = NULL;
+        }
+        ggc_mutex_unlock(&freePoolsLock);
+    }
+
+    /* otherwise, allocate one */
+    if (!ret) ret = (struct GGGGC_Pool *) allocPool(mustSucceed);
+
     if (!ret) return NULL;
 
     /* set it up */
@@ -129,6 +148,21 @@ void ggggc_expandGeneration(struct GGGGC_Pool *pool)
             if (!pool) break;
         }
     }
+}
+
+/* free a generation (used when a thread exits) */
+void ggggc_freeGeneration(struct GGGGC_Pool *pool)
+{
+    if (!pool) return;
+    ggc_mutex_lock_raw(&freePoolsLock);
+    if (freePoolsHead) {
+        freePoolsTail->next = pool;
+    } else {
+        freePoolsHead = pool;
+    }
+    while (pool->next) pool = pool->next;
+    freePoolsTail = pool;
+    ggc_mutex_unlock(&freePoolsLock);
 }
 
 /* NOTE: there is code duplication between ggggc_mallocGen0 and

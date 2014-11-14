@@ -34,6 +34,9 @@ void *ggggc_mallocGen1(struct GGGGC_Descriptor *descriptor, unsigned char gen, i
 /* heuristically expand a generation if it has too many survivors */
 void ggggc_expandGeneration(struct GGGGC_Pool *pool);
 
+/* free a generation (used when a thread exits) */
+void ggggc_freeGeneration(struct GGGGC_Pool *pool);
+
 /* run a collection */
 void ggggc_collect0(unsigned char gen);
 
