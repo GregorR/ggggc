@@ -36,15 +36,15 @@ extern "C" {
 
 /* debugging flags */
 #ifdef GGGGC_DEBUG
-#define GGGGC_DEBUG_MEMORY_CORRUPTION
-#define GGGGC_DEBUG_REPORT_COLLECTIONS
-#define GGGGC_DEBUG_TINY_HEAP
+#define GGGGC_DEBUG_MEMORY_CORRUPTION 1
+#define GGGGC_DEBUG_REPORT_COLLECTIONS 1
+#define GGGGC_DEBUG_TINY_HEAP 1
 #endif
 
 /* flags to disable GCC features */
 #ifdef GGGGC_NO_GNUC_FEATURES
-#define GGGGC_NO_GNUC_CLEANUP
-#define GGGGC_NO_GNUC_CONSTRUCTOR
+#define GGGGC_NO_GNUC_CLEANUP 1
+#define GGGGC_NO_GNUC_CONSTRUCTOR 1
 #endif
 
 /* word-sized integer type, usually size_t */

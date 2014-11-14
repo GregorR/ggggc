@@ -10,9 +10,9 @@
 
 /* choose our threads */
 #ifdef _POSIX_THREADS
-#define GGGGC_THREADS_POSIX
+#define GGGGC_THREADS_POSIX 1
 #else
-#define GGGGC_NO_THREADS
+#define GGGGC_NO_THREADS 1
 #warning Unsupported threading platform. Disabling threads.
 #endif
 

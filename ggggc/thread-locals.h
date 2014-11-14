@@ -14,7 +14,7 @@
 #else
 #warning No known thread-local storage specifier. Disabling threads.
 #define ggc_thread_local
-#define GGGGC_NO_THREADS
+#define GGGGC_NO_THREADS 1
 
 #endif
 
