@@ -37,38 +37,49 @@ void ggggc_compact(struct GGGGC_Pool *);
 void ggggc_postCompact(struct GGGGC_Pool *);
 
 /* list of pointers to search and associated macros */
+#define TOSEARCH_SZ 1024
 struct ToSearch {
-    ggc_size_t sz, used;
+    struct ToSearch *prev, *next;
+    ggc_size_t used;
     void **buf;
 };
 
 #define TOSEARCH_INIT() do { \
-    if (toSearch.buf == NULL) { \
-        toSearch.sz = 128; \
-        toSearch.used = 0; \
-        toSearch.buf = (void **) malloc(toSearch.sz * sizeof(void *)); \
-        if (toSearch.buf == NULL) { \
+    if (toSearchList.buf == NULL) { \
+        toSearchList.buf = (void **) malloc(TOSEARCH_SZ * sizeof(void *)); \
+        if (toSearchList.buf == NULL) { \
             /* FIXME: handle somehow? */ \
             perror("malloc"); \
             abort(); \
         } \
     } \
+    toSearch = &toSearchList; \
+    toSearch->used = 0; \
 } while(0)
-#define TOSEARCH_EXPAND() do { \
-    toSearch.sz *= 2; \
-    toSearch.buf = (void **) realloc(toSearch.buf, toSearch.sz * sizeof(ggc_size_t)); \
-    fprintf(stderr, "%d %p\n", (int) toSearch.sz, toSearch.buf); \
-    if (toSearch.buf == NULL) { \
-        /* FIXME: handle somehow? */ \
-        perror("realloc"); \
-        abort(); \
+#define TOSEARCH_NEXT() do { \
+    if (!toSearch->next) { \
+        struct ToSearch *tsn = (struct ToSearch *) malloc(sizeof(struct ToSearch)); \
+        toSearch->next = tsn; \
+        tsn->prev = toSearch; \
+        tsn->next = NULL; \
+        tsn->buf = (void **) malloc(TOSEARCH_SZ * sizeof(void *)); \
+        if (tsn->buf == NULL) { \
+            perror("malloc"); \
+            abort(); \
+        } \
     } \
+    toSearch = toSearch->next; \
+    toSearch->used = 0; \
 } while(0)
 #define TOSEARCH_ADD(ptr) do { \
-    if (toSearch.used >= toSearch.sz) TOSEARCH_EXPAND(); \
-    toSearch.buf[toSearch.used++] = (ptr); \
+    if (toSearch->used >= TOSEARCH_SZ) TOSEARCH_NEXT(); \
+    toSearch->buf[toSearch->used++] = (ptr); \
 } while(0)
-#define TOSEARCH_POP() (toSearch.buf[--toSearch.used])
+#define TOSEARCH_POP(type, into) do { \
+    into = (type) toSearch->buf[--toSearch->used]; \
+    if (toSearch->used == 0 && toSearch->prev) \
+        toSearch = toSearch->prev; \
+} while(0)
 
 /* follow a forwarding pointer to the object it actually represents */
 #define IS_FORWARDED_OBJECT(obj) (((ggc_size_t) (obj)->descriptor__ptr) & 1)
@@ -104,7 +115,7 @@ struct ToSearch {
     TOSEARCH_ADD(&objVp[0]); \
 } while(0)
 
-static struct ToSearch toSearch;
+static struct ToSearch toSearchList;
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
 static void memoryCorruptionCheckObj(const char *when, struct GGGGC_Header *obj)
@@ -219,6 +230,7 @@ void ggggc_collect0(unsigned char gen)
     struct GGGGC_Pool *poolCur;
     struct GGGGC_PointerStackList pointerStackNode, *pslCur;
     struct GGGGC_PointerStack *psCur;
+    struct ToSearch *toSearch;
     unsigned char genCur;
     ggc_size_t i;
 
@@ -303,9 +315,12 @@ collect:
     }
 
     /* now test all our pointers */
-    while (toSearch.used) {
-        void **ptr = (void **) TOSEARCH_POP();
-        struct GGGGC_Header *obj = (struct GGGGC_Header *) *ptr;
+    while (toSearch->used) {
+        void **ptr;
+        struct GGGGC_Header *obj;
+
+        TOSEARCH_POP(void **, ptr);
+        obj = (struct GGGGC_Header *) *ptr;
         if (obj == NULL) continue;
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
@@ -337,7 +352,7 @@ collect:
             if (!nobj) {
                 /* failed to allocate, need to collect gen+1 too */
                 gen += 1;
-                toSearch.used = 0;
+                TOSEARCH_INIT();
 #ifdef GGGGC_DEBUG_REPORT_COLLECTIONS
                 report(gen, "promotion");
 #endif
@@ -534,8 +549,11 @@ void ggggc_collectFull()
     struct GGGGC_Pool *poolCur;
     struct GGGGC_PointerStackList *pslCur;
     struct GGGGC_PointerStack *psCur;
+    struct ToSearch *toSearch;
     unsigned char genCur;
     ggc_size_t i;
+
+    TOSEARCH_INIT();
 
     /* add our roots to the to-search list */
     for (pslCur = ggggc_rootPointerStackList; pslCur; pslCur = pslCur->next) {
@@ -547,10 +565,13 @@ void ggggc_collectFull()
     }
 
     /* now mark */
-    while (toSearch.used) {
-        void **ptr = (void **) TOSEARCH_POP();
-        struct GGGGC_Header *obj = (struct GGGGC_Header *) *ptr;
+    while (toSearch->used) {
+        void **ptr;
+        struct GGGGC_Header *obj;
         ggc_size_t lastMark;
+
+        TOSEARCH_POP(void **, ptr);
+        obj = (struct GGGGC_Header *) *ptr;
         if (obj == NULL) continue;
 
         lastMark = IS_MARKED_PTR(obj);
