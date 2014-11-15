@@ -28,12 +28,18 @@
 #define ggc_mutex_lock_raw(x)           0
 #define ggc_mutex_trylock(x)            0
 #define ggc_mutex_unlock(x)             0
+#define ggc_sem_destroy(x)              0
+#define ggc_sem_init(x,y)               0
+#define ggc_sem_post(x)                 0
+#define ggc_sem_wait(x)                 0
+#define ggc_sem_wait_raw(x)             0
 #define ggc_thread_create(x,y,z)        (-1)
 #define ggc_thread_join(x)              (-1)
 
 /* types */
 #define ggc_barrier_t   int
 #define ggc_mutex_t     int
+#define ggc_sem_t       int
 #define ggc_thread_t    int
 
 /* predefs */

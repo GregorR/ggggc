@@ -16,6 +16,22 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+static HANDLE lockInitLock;
+#if defined(__GNUC__)
+static void __attribute__((constructor)) lockInitLockConstructor() {
+#elif defined(__cplusplus)
+class GGGGC_LockInitLockConstructor {
+    public:
+    GGGGC_LockInitLockConstructor() {
+#else
+#error No means of global construction: Please compile ggggc as C++.
+#endif
+        lockInitLock = CreateMutex(NULL, 0, NULL);
+    }
+#if defined(__cplusplus)
+}
+#endif
+
 #define BLOCKING(func, call) \
 int func \
 { \
@@ -27,15 +43,29 @@ int func \
     return ret ? 0 : -1; \
 }
 
-BLOCKING(
-    ggc_barrier_wait(ggc_barrier_t *barrier),
-    EnterSynchronizationBarrier(barrier, 0)
-)
+static void initLock(ggc_mutex_t *mutex)
+{
+    WaitForSingleObject(lockInitLock, INFINITE);
+    *mutex = CreateMutex(NULL, 0, NULL);
+    ReleaseMutex(lockInitLock);
+}
 
 BLOCKING(
     ggc_mutex_lock(ggc_mutex_t *mutex),
     WaitForSingleObject(*(mutex), INFINITE)
 )
+
+int ggc_mutex_lock_raw(ggc_mutex_t *mutex)
+{
+    if (!*mutex) initLock(mutex);
+    return (WaitForSingleObject(*mutex, INFINITE) == WAIT_FAILED);
+}
+
+int ggc_mutex_trylock(ggc_mutex_t *mutex)
+{
+    if (!*mutex) initLock(mutex);
+    return (WaitForSingleObject(*mutex, 0) == WAIT_FAILED);
+}
 
 int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg arg)
 {
@@ -68,3 +98,5 @@ BLOCKING(
     ggc_thread_join(ggc_thread_t thread),
     WaitForSingleObject(thread, INFINITE)
 )
+
+#include "gen-barriers.c"

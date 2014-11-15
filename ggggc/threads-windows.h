@@ -20,28 +20,30 @@
 #define GGGGC_THREADS_WINDOWS_H 1
 
 /* functions */
-#define ggc_barrier_destroy(barrier)    (!DeleteSynchronizationBarrier(barrier))
-#define ggc_barrier_init(barrier, count) \
-    (!InitializeSynchronizationBarrier(barrier, count, -1))
-#define ggc_barrier_wait_raw(barrier)   (!EnterSynchronizationBarrier(barrier, 0))
-#define ggc_mutex_lock_raw(mutex)       (WaitForSingleObject(*(mutex), INFINITE) != WAIT_FAILED)
-#define ggc_mutex_trylock(mutex)        (WaitForSingleObject(*(mutex), 0) != WAIT_FAILED)
 #define ggc_mutex_unlock(mutex)         (!ReleaseMutex(*(mutex)))
+#define ggc_sem_destroy(sem)            (!CloseHandle(*(sem)))
+#define ggc_sem_init(sem,ct)            ((*(sem)=CreateSemaphore(NULL,0,(ct),NULL))?0:-1)
+#define ggc_sem_post(sem)               (!ReleaseSemaphore(*(sem),1,NULL))
+#define ggc_sem_wait_raw(sem)           (WaitForSingleObject(*(sem),INFINITE)==WAIT_FAILED)
 
 /* types */
-#define ggc_barrier_t   SYNCHRONIZATION_BARRIER
 #define ggc_mutex_t     HANDLE
+#define ggc_sem_t       HANDLE
 #define ggc_thread_t    HANDLE
 
 /* predefs */
-#define GGC_MUTEX_INITIALIZER 0
+#define GGC_MUTEX_INITIALIZER NULL
 
 /* real code below */
 
 /* functions */
-int ggc_barrier_wait(ggc_barrier_t *barrier);
 int ggc_mutex_lock(ggc_mutex_t *mutex);
+int ggc_mutex_lock_raw(ggc_mutex_t *mutex);
+int ggc_mutex_trylock(ggc_mutex_t *mutex);
+int ggc_sem_wait(ggc_sem_t *sem);
 int ggc_thread_create(ggc_thread_t *thread, void (*func)(struct ThreadArg__struct *), struct ThreadArg__struct *arg);
 int ggc_thread_join(ggc_thread_t thread);
+
+#include "gen-barriers.h"
 
 #endif
