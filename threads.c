@@ -38,7 +38,13 @@ GGC_END_TYPE(ThreadInfo,
     )
 
 /* general purpose thread wrapper */
-static void *ggggcThreadWrapper(void *arg)
+static
+#ifdef _WIN32
+DWORD __declspec(__stdcall)
+#else
+void *
+#endif
+ggggcThreadWrapper(void *arg)
 {
     ThreadInfo ti = (ThreadInfo) arg;
     GGC_PUSH_1(ti);
@@ -58,7 +64,7 @@ static void *ggggcThreadWrapper(void *arg)
     /* and give back its pools */
     ggggc_freeGeneration(ggggc_gen0);
 
-    return NULL;
+    return 0;
 }
 
 static ggc_thread_local struct GGGGC_PoolList blockedPoolListNode;

@@ -22,7 +22,8 @@ static void *allocPool(int mustSucceed)
     struct GGGGC_Pool *ret;
 
     /* allocate enough space that we can align it later */
-    space = VirtualAlloc(NULL, GGGGC_POOL_BYTES*2, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+    space = (unsigned char *)
+        VirtualAlloc(NULL, GGGGC_POOL_BYTES*2, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
     if (space == NULL) {
         if (mustSucceed) {
             perror("mmap");

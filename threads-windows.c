@@ -29,7 +29,7 @@ class GGGGC_LockInitLockConstructor {
         lockInitLock = CreateMutex(NULL, 0, NULL);
     }
 #if defined(__cplusplus)
-}
+};
 #endif
 
 #define BLOCKING(func, call) \
@@ -87,7 +87,7 @@ int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg a
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
 
     /* spawn the thread */
-    *thread = CreateThread(NULL, 0, ggggcThreadWrapper, ti, 0, NULL);
+    *thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) ggggcThreadWrapper, ti, 0, NULL);
     if (!*thread)
         return -1;
 
