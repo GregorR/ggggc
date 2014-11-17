@@ -218,7 +218,7 @@ static void report(unsigned char gen, const char *when)
             sz += poolCur->end - poolCur->start;
             used += poolCur->free - poolCur->start;
         }
-        fprintf(stderr, " %d: %d/%d\n", (int) gen, (int) used, (int) sz);
+        fprintf(stderr, " %d: %d/%d\n", (int) genCur, (int) used, (int) sz);
     }
 }
 #endif
