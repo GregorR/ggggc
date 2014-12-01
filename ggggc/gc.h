@@ -210,7 +210,7 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
     typedef struct type ## __ggggc_array *type ## Array; \
     struct type ## __ggggc_array { \
         struct GGGGC_Header header; \
-        type a[1]; \
+        type a__ptrs[1]; \
     };
 #define GGC_TYPE(type) \
     typedef struct type ## __struct *type; \
@@ -252,14 +252,35 @@ GGC_DA_TYPE(double)
     } \
     (object)->member ## __ptr = (value); \
 } while(0)
+#define GGC_WA(object, index, value) do { \
+    ggc_size_t ggggc_o = (ggc_size_t) (object); \
+    struct GGGGC_Pool *ggggc_pool = GGGGC_POOL_OF(ggggc_o); \
+    if (0) { \
+        void *object ## _must_be_an_identifier, \
+             *value ## _must_be_an_identifier; \
+        (void) object ## _must_be_an_identifier; \
+        (void) value ## _must_be_an_identifier; \
+    } \
+    if (ggggc_pool->gen) { \
+        ggggc_pool->remember[GGGGC_CARD_OF(ggggc_o)] = 1; \
+    } \
+    (object)->a__ptrs[(index)] = (value); \
+} while(0)
 #else
 #define GGC_W(object, member, value) do { \
     (object)->member ## __ptr = (value); \
+} while(0)
+#define GGC_WA(object, index, value) do { \
+    (object)->a__ptrs[(index)] = (value); \
 } while(0)
 #endif
 
 /* although pointers don't need a read barrier, the renaming sort of forces one */
 #define GGC_R(object, member) ((object)->member ## __ptr)
+
+/* because the write barrier forces you to use identifiers, an identifier version of NULL */
+static void * const ggggc_null = NULL;
+#define GGC_NULL ggggc_null
 
 /* allocate an object */
 void *ggggc_malloc(struct GGGGC_Descriptor *descriptor);
