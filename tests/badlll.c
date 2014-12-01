@@ -10,7 +10,7 @@ GGC_END_TYPE(LLL,
     GGC_PTR(LLL, next)
     )
 
-#define MAX (16 * 1024 * 1024)
+#define MAX (1024 * 1024)
 
 LLL buildLLL(int sz)
 {
