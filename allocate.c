@@ -295,18 +295,28 @@ void *ggggc_malloc(struct GGGGC_Descriptor *descriptor)
     return ggggc_mallocGen0(descriptor, 0);
 }
 
+struct GGGGC_Array {
+    struct GGGGC_Header header;
+    ggc_size_t length;
+};
+
 /* allocate a pointer array (size is in words) */
 void *ggggc_mallocPointerArray(ggc_size_t sz)
 {
-    struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorPA(sz + sizeof(struct GGGGC_Header)/sizeof(ggc_size_t));
-    return ggggc_malloc(descriptor);
+    struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorPA(sz + 1 + sizeof(struct GGGGC_Header)/sizeof(ggc_size_t));
+    struct GGGGC_Array *ret = ggggc_malloc(descriptor);
+    ret->length = sz;
+    return ret;
 }
 
-/* allocate a data array (size is in words) */
-void *ggggc_mallocDataArray(ggc_size_t sz)
+/* allocate a data array */
+void *ggggc_mallocDataArray(ggc_size_t nmemb, ggc_size_t size)
 {
-    struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorDA(sz + sizeof(struct GGGGC_Header)/sizeof(ggc_size_t));
-    return ggggc_malloc(descriptor);
+    ggc_size_t sz = ((nmemb*size)+sizeof(ggc_size_t)-1)/sizeof(ggc_size_t);
+    struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorDA(sz + 1 + sizeof(struct GGGGC_Header)/sizeof(ggc_size_t));
+    struct GGGGC_Array *ret = ggggc_malloc(descriptor);
+    ret->length = sz;
+    return ret;
 }
 
 /* allocate a descriptor-descriptor for a descriptor of the given size */
@@ -404,6 +414,15 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(ggc_size_t size)
     dPWords = GGGGC_DESCRIPTOR_WORDS_REQ(size);
     pointers = (ggc_size_t *) alloca(sizeof(ggc_size_t) * dPWords);
     for (i = 0; i < dPWords; i++) pointers[i] = (ggc_size_t) -1;
+
+    /* get rid of non-pointers */
+    pointers[0] &= ~(
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+        0x6
+#else
+        0x4
+#endif
+        );
 
     /* and allocate */
     return ggggc_allocateDescriptorL(size, pointers);

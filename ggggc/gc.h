@@ -204,12 +204,14 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
     typedef struct type ## __ggggc_array *GGC_ ## type ## _Array; \
     struct type ## __ggggc_array { \
         struct GGGGC_Header header; \
+        ggc_size_t length; \
         type a[1]; \
     };
 #define GGC_PA_TYPE(type) \
     typedef struct type ## __ggggc_array *type ## Array; \
     struct type ## __ggggc_array { \
         struct GGGGC_Header header; \
+        ggc_size_t length; \
         type a__ptrs[1]; \
     };
 #define GGC_TYPE(type) \
@@ -302,9 +304,9 @@ void *ggggc_mallocPointerArray(ggc_size_t sz);
     ((type ## Array) ggggc_mallocPointerArray((size)))
 
 /* allocate a data array (size is in words, macro turns it into elements) */
-void *ggggc_mallocDataArray(ggc_size_t sz);
+void *ggggc_mallocDataArray(ggc_size_t nmemb, ggc_size_t size);
 #define GGC_NEW_DA(type, size) \
-    ((GGC_ ## type ## _Array) ggggc_mallocDataArray(((size)*sizeof(type)+sizeof(ggc_size_t)-1)/sizeof(ggc_size_t)))
+    ((GGC_ ## type ## _Array) ggggc_mallocDataArray((size), sizeof(type)))
 
 /* allocate a descriptor for an object of the given size in words with the
  * given pointer layout */
