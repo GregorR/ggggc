@@ -277,6 +277,7 @@ GGC_DA_TYPE(double)
 
 /* although pointers don't need a read barrier, the renaming sort of forces one */
 #define GGC_R(object, member) ((object)->member ## __ptr)
+#define GGC_RA(object, index) ((object)->a__ptrs[(index)])
 
 /* because the write barrier forces you to use identifiers, an identifier version of NULL */
 static void * const ggggc_null = NULL;
