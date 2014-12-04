@@ -32,9 +32,9 @@ treeNode NewTreeNode(treeNode left, treeNode right, long item)
 
     newT = GGC_NEW(treeNode);
 
-    GGC_W(newT, left, left);
-    GGC_W(newT, right, right);
-    newT->item = item;
+    GGC_WP(newT, left, left);
+    GGC_WP(newT, right, right);
+    GGC_WD(newT, item, item);
 
     return newT;
 } /* NewTreeNode() */
@@ -43,10 +43,10 @@ treeNode NewTreeNode(treeNode left, treeNode right, long item)
 long ItemCheck(treeNode tree)
 {
     GGC_PUSH_1(tree);
-    if (GGC_R(tree, left) == NULL) {
-        return tree->item;
+    if (GGC_RP(tree, left) == NULL) {
+        return GGC_RD(tree, item);
     } else {
-        return tree->item + ItemCheck(GGC_R(tree, left)) - ItemCheck(GGC_R(tree, right));
+        return GGC_RD(tree, item) + ItemCheck(GGC_RP(tree, left)) - ItemCheck(GGC_RP(tree, right));
     }
 } /* ItemCheck() */
 
@@ -61,8 +61,8 @@ treeNode TopDownTree(long item, unsigned depth)
         ret = NewTreeNode(NULL, NULL, item);
         l = TopDownTree(2 * item - 1, depth - 1);
         r = TopDownTree(2 * item, depth - 1);
-        GGC_W(ret, left, l);
-        GGC_W(ret, right, r);
+        GGC_WP(ret, left, l);
+        GGC_WP(ret, right, r);
 
         return ret;
     } else
@@ -79,10 +79,10 @@ void treeThread(ThreadArg arg)
 
         GGC_PUSH_3(arg, tempTree, aa);
 
-        aa = (GGC_unsigned_Array) GGC_R(arg, parg);
-        minDepth = aa->a[0];
-        depth = aa->a[1];
-        maxDepth = aa->a[2];
+        aa = (GGC_unsigned_Array) GGC_RP(arg, parg);
+        minDepth = GGC_RAD(aa, 0);
+        depth = GGC_RAD(aa, 1);
+        maxDepth = GGC_RAD(aa, 2);
 
         iterations = pow(2, maxDepth - depth + minDepth);
 
@@ -152,21 +152,21 @@ int main(int argc, char* argv[])
 
         /* set up our arguments */
         targs = GGC_NEW_DA(unsigned, 3);
-        targs->a[0] = minDepth;
-        targs->a[1] = depth;
-        targs->a[2] = maxDepth;
+        GGC_WAD(targs, 0, minDepth);
+        GGC_WAD(targs, 1, depth);
+        GGC_WAD(targs, 2, maxDepth);
         targ = GGC_NEW(ThreadArg);
-        GGC_W(targ, parg, targs);
+        GGC_WP(targ, parg, targs);
 
         /* and create the thread */
         ggc_thread_create(&th, treeThread, targ);
-        threads->a[depth] = th;
+        GGC_WAD(threads, depth, th);
     } /* for(depth = minDepth...) */
 
     /* wait for all the threads */
     for (depth = minDepth; depth <= maxDepth; depth += 2)
     {
-        ggc_thread_join(threads->a[depth]);
+        ggc_thread_join(GGC_RAD(threads, depth));
     }
 
     printf

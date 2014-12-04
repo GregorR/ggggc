@@ -49,7 +49,7 @@ ggggcThreadWrapper(void *arg)
     ThreadInfo ti = (ThreadInfo) arg;
     GGC_PUSH_1(ti);
 
-    ti->func(GGC_R(ti, arg));
+    GGC_RD(ti, func)(GGC_RP(ti, arg));
 
     /* now remove this thread from the thread barrier */
     while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)

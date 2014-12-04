@@ -57,16 +57,16 @@ static void type ## ListPush(type ## List list, type value) \
     GGC_PUSH_4(list, value, node, tail); \
     \
     node = GGC_NEW(type ## ListNode); \
-    GGC_W(node, el, value); \
+    GGC_WP(node, el, value); \
     \
-    tail = GGC_R(list, tail); \
+    tail = GGC_RP(list, tail); \
     if (tail) \
-        GGC_W(tail, next, node); \
+        GGC_WP(tail, next, node); \
     else \
-        GGC_W(list, head, node); \
-    GGC_W(list, tail, node); \
+        GGC_WP(list, head, node); \
+    GGC_WP(list, tail, node); \
     \
-    list->length++; \
+    list->length__data++; \
     \
     return; \
 } \
@@ -79,13 +79,13 @@ static type ## Array type ## ListToArray(type ## List list) \
     size_t i = 0; \
     \
     GGC_PUSH_4(list, ret, curn, cur); \
-    ret = GGC_NEW_PA(type, list->length); \
+    ret = GGC_NEW_PA(type, GGC_RD(list, length)); \
     \
-    for (i = 0, curn = GGC_R(list, head); \
-         i < list->length && curn; \
-         i++, curn = GGC_R(curn, next)) { \
-         cur = GGC_R(curn, el); \
-         GGC_WA(ret, i, cur); \
+    for (i = 0, curn = GGC_RP(list, head); \
+         i < GGC_RD(list, length) && curn; \
+         i++, curn = GGC_RP(curn, next)) { \
+         cur = GGC_RP(curn, el); \
+         GGC_WAP(ret, i, cur); \
     } \
     \
     return ret; \

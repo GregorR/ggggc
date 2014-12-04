@@ -93,8 +93,8 @@ GGC_END_TYPE(Node,
 
 void init_Node(Node me, Node l, Node r) {
     GGC_PUSH_3(me, l, r);
-    GGC_W(me, left, l);
-    GGC_W(me, right, r);
+    GGC_WP(me, left, l);
+    GGC_WP(me, right, r);
     return;
 }
 
@@ -117,11 +117,11 @@ static void Populate(int iDepth, Node thisNode) {
         } else {
                 iDepth--;
                 tmp = GGC_NEW(Node);
-                  GGC_W(thisNode, left, tmp); HOLE();
+                  GGC_WP(thisNode, left, tmp); HOLE();
                 tmp = GGC_NEW(Node);
-                  GGC_W(thisNode, right, tmp); HOLE();
-                Populate (iDepth, GGC_R(thisNode, left));
-                Populate (iDepth, GGC_R(thisNode, right));
+                  GGC_WP(thisNode, right, tmp); HOLE();
+                Populate (iDepth, GGC_RP(thisNode, left));
+                Populate (iDepth, GGC_RP(thisNode, right));
         }
         return;
 }
@@ -229,7 +229,8 @@ int main() {
 	printf(" Creating a long-lived array of %d doubles\n", kArraySize);
             array = GGC_NEW_DA(double, kArraySize);
         for (i = 0; i < kArraySize/2; ++i) {
-                array->a[i] = 1.0/i;
+                double tval = 1.0/i;
+                GGC_WAD(array, i, tval);
         }
         PrintDiagnostics();
 
@@ -237,7 +238,7 @@ int main() {
                 TimeConstruction(d);
         }
 
-        if (longLivedTree == 0 || array->a[1000] != 1.0/1000)
+        if (longLivedTree == 0 || GGC_RAD(array, 1000) != 1.0/1000)
 		fprintf(stderr, "Failed\n");
                                 // fake reference to LongLivedTree
                                 // and array

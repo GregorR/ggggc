@@ -20,13 +20,13 @@ LLL buildLLL(int sz)
     GGC_PUSH_3(ll0, lll, llc);
 
     ll0 = GGC_NEW(LLL);
-    ll0->val = 0;
+    GGC_WD(ll0, val, 0);
     lll = ll0;
 
     for (i = 1; i < sz; i++) {
         llc = GGC_NEW(LLL);
-        llc->val = i;
-        GGC_W(lll, next, llc);
+        GGC_WD(llc, val, i);
+        GGC_WP(lll, next, llc);
         lll = llc;
         GGC_YIELD();
     }
@@ -55,12 +55,12 @@ void testLLL(LLL lll)
 
     counted = (unsigned char *) calloc(MAX, sizeof(unsigned char));
     while (lll) {
-        counted[lll->val]++;
-        if (counted[lll->val] > 1) {
-            fprintf(stderr, "ERROR! Encountered %d twice!\n", lll->val);
+        counted[GGC_RD(lll, val)]++;
+        if (counted[GGC_RD(lll, val)] > 1) {
+            fprintf(stderr, "ERROR! Encountered %d twice!\n", GGC_RD(lll, val));
             exit(1);
         }
-        lll = GGC_R(lll, next);
+        lll = GGC_RP(lll, next);
     }
 
     return;

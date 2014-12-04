@@ -209,7 +209,7 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
     struct type ## __ggggc_array { \
         struct GGGGC_Header header; \
         ggc_size_t length; \
-        type a[1]; \
+        type a__data[1]; \
     };
 #define GGC_PA_TYPE(type) \
     typedef struct type ## __ggggc_array *type ## Array; \
@@ -224,7 +224,7 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
     struct type ## __struct { \
         struct GGGGC_Header header;
 #define GGC_MDATA(type, name) \
-        type name
+        type name ## __data
 #define GGC_MPTR(type, name) \
         type name ## __ptr
 #define GGC_END_TYPE(type, pointers) \
@@ -246,9 +246,9 @@ GGC_DA_TYPE(size_t)
     (void) thing ## _must_be_an_identifier; \
 } while(0)
 
-/* write barrier for pointers */
+/* write barriers */
 #if GGGGC_GENERATIONS > 1
-#define GGGGC_W(object, member, value) do { \
+#define GGGGC_WP(object, member, value) do { \
     ggc_size_t ggggc_o = (ggc_size_t) (object); \
     struct GGGGC_Pool *ggggc_pool = GGGGC_POOL_OF(ggggc_o); \
     GGGGC_ASSERT_ID(object); \
@@ -260,30 +260,39 @@ GGC_DA_TYPE(size_t)
     (object)->member = (value); \
 } while(0)
 #else
-#define GGGGC_W(object, member, value) do { \
+#define GGGGC_WP(object, member, value) do { \
     GGGGC_ASSERT_ID(object); \
     GGGGC_ASSERT_ID(value); \
     (object)->member = (value); \
 } while(0)
 #endif
+#define GGGGC_WD(object, member, value) do { \
+    GGGGC_ASSERT_ID(object); \
+    GGGGC_ASSERT_ID(if_not_a_value_then_ ## value); \
+    (object)->member = (value); \
+} while(0)
 
 /* write a normal member */
-#define GGC_W(object, member, value) GGGGC_W(object, member ## __ptr, value)
+#define GGC_WP(object, member, value) GGGGC_WP(object, member ## __ptr, value)
+#define GGC_WD(object, member, value) GGGGC_WD(object, member ## __data, value)
 
 /* write an array member */
-#define GGC_WA(object, index, value) GGGGC_W(object, a__ptrs[(index)], value)
+#define GGC_WAP(object, index, value) GGGGC_WP(object, a__ptrs[(index)], value)
+#define GGC_WAD(object, index, value) GGGGC_WD(object, a__data[(index)], value)
 
 /* write the descriptor user pointer */
 #define GGC_WUP(object, value) do { \
     struct GGGGC_Descriptor *ggggc_desc = (object)->header.descriptor__ptr; \
     GGGGC_ASSERT_ID(object); \
-    GGGGC_W(ggggc_desc, user__ptr, value); \
+    GGGGC_WP(ggggc_desc, user__ptr, value); \
 } while(0)
 
 /* although pointers don't need a read barrier, the renaming sort of forces one */
-#define GGC_R(object, member) ((object)->member ## __ptr)
-#define GGC_RA(object, index) ((object)->a__ptrs[(index)])
-#define GGC_RUP(object)       ((object)->header.descriptor__ptr->user__ptr)
+#define GGC_RP(object, member) ((object)->member ## __ptr)
+#define GGC_RD(object, member) ((object)->member ## __data)
+#define GGC_RAP(object, index) ((object)->a__ptrs[(index)])
+#define GGC_RAD(object, index) ((object)->a__data[(index)])
+#define GGC_RUP(object)        ((object)->header.descriptor__ptr->user__ptr)
 
 /* because the write barrier forces you to use identifiers, an identifier version of NULL */
 static void * const ggggc_null = NULL;

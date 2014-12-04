@@ -30,9 +30,9 @@ treeNode NewTreeNode(treeNode left, treeNode right, long item)
 
     newT = GGC_NEW(treeNode);
 
-    GGC_W(newT, left, left);
-    GGC_W(newT, right, right);
-    newT->item = item;
+    GGC_WP(newT, left, left);
+    GGC_WP(newT, right, right);
+    GGC_WD(newT, item, item);
 
     return newT;
 } /* NewTreeNode() */
@@ -41,10 +41,10 @@ treeNode NewTreeNode(treeNode left, treeNode right, long item)
 long ItemCheck(treeNode tree)
 {
     GGC_PUSH_1(tree);
-    if (GGC_R(tree, left) == NULL) {
-        return tree->item;
+    if (GGC_RP(tree, left) == NULL) {
+        return GGC_RD(tree, item);
     } else {
-        return tree->item + ItemCheck(GGC_R(tree, left)) - ItemCheck(GGC_R(tree, right));
+        return GGC_RD(tree, item) + ItemCheck(GGC_RP(tree, left)) - ItemCheck(GGC_RP(tree, right));
     }
 } /* ItemCheck() */
 
@@ -59,8 +59,8 @@ treeNode TopDownTree(long item, unsigned depth)
         ret = NewTreeNode(NULL, NULL, item);
         l = TopDownTree(2 * item - 1, depth - 1);
         r = TopDownTree(2 * item, depth - 1);
-        GGC_W(ret, left, l);
-        GGC_W(ret, right, r);
+        GGC_WP(ret, left, l);
+        GGC_WP(ret, right, r);
 
         return ret;
     } else

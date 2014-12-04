@@ -57,13 +57,13 @@ static int name ## Get(name map, typeK key, typeV *value) \
     \
     GGC_PUSH_3(map, key, keyCmp); \
     \
-    if (map->size == 0) \
+    if (GGC_RD(map, size) == 0) \
         return 0; \
     \
-    hashV = hash(key) % map->size; \
-    keyCmp = GGC_RA(GGC_R(map, keys), hashV); \
+    hashV = hash(key) % GGC_RD(map, size); \
+    keyCmp = GGC_RAP(GGC_RP(map, keys), hashV); \
     if (keyCmp && cmp(key, keyCmp) == 0) { \
-        *value = GGC_RA(GGC_R(map, values), hashV); \
+        *value = GGC_RAP(GGC_RP(map, values), hashV); \
         return 1; \
     } \
     \
@@ -80,24 +80,24 @@ static void name ## Put(name map, typeK key, typeV value) \
     \
     GGC_PUSH_7(map, key, value, keyCmp, valueCmp, newKeys, newValues); \
     \
-    if (map->size == 0) { \
+    if (GGC_RD(map, size) == 0) { \
         /* start with something */ \
-        map->size = 4; \
+        GGC_WD(map, size, 4); \
         newKeys = GGC_NEW_PA(typeK, 4); \
         newValues = GGC_NEW_PA(typeV, 4); \
-        GGC_W(map, keys, newKeys); \
-        GGC_W(map, values, newValues); \
+        GGC_WP(map, keys, newKeys); \
+        GGC_WP(map, values, newValues); \
     } \
     \
     while(1) { \
-        hashV = hash(key) % map->size; \
+        hashV = hash(key) % GGC_RD(map, size); \
         \
         /* check for a current key */ \
-        keyCmp = GGC_RA(GGC_R(map, keys), hashV); \
+        keyCmp = GGC_RAP(GGC_RP(map, keys), hashV); \
         if (keyCmp && cmp(key, keyCmp) != 0) { \
             /* key found but doesn't match! Expand */ \
             hashV2 = hashV; \
-            newSize = map->size; \
+            newSize = GGC_RD(map, size); \
             while (hashV == hashV2) { \
                 newSize *= 2; \
                 hashV = hash(key) % newSize; \
@@ -107,22 +107,22 @@ static void name ## Put(name map, typeK key, typeV value) \
             /* now reform it */ \
             newKeys = GGC_NEW_PA(typeK, newSize); \
             newValues = GGC_NEW_PA(typeV, newSize); \
-            for (i = 0; i < map->size; i++) { \
-                keyCmp = GGC_RA(GGC_R(map, keys), i); \
+            for (i = 0; i < GGC_RD(map, size); i++) { \
+                keyCmp = GGC_RAP(GGC_RP(map, keys), i); \
                 if (keyCmp) { \
-                    valueCmp = GGC_RA(GGC_R(map, values), i); \
+                    valueCmp = GGC_RAP(GGC_RP(map, values), i); \
                     hashV = hash(keyCmp) % newSize; \
-                    GGC_WA(newKeys, hashV, keyCmp); \
-                    GGC_WA(newValues, hashV, valueCmp); \
+                    GGC_WAP(newKeys, hashV, keyCmp); \
+                    GGC_WAP(newValues, hashV, valueCmp); \
                 } \
             } \
             \
         } else { \
             /* found our slot */ \
-            newKeys = GGC_R(map, keys); \
-            newValues = GGC_R(map, values); \
-            GGC_WA(newKeys, hashV, key); \
-            GGC_WA(newValues, hashV, value); \
+            newKeys = GGC_RP(map, keys); \
+            newValues = GGC_RP(map, values); \
+            GGC_WAP(newKeys, hashV, key); \
+            GGC_WAP(newValues, hashV, value); \
             break; \
             \
         } \
