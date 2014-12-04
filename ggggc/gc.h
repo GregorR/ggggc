@@ -79,6 +79,9 @@ typedef size_t ggc_size_t;
 #define GGGGC_BITS_PER_WORD (8*sizeof(ggc_size_t))
 #define GGGGC_WORDS_PER_POOL (GGGGC_POOL_BYTES/sizeof(ggc_size_t))
 
+/* an empty defined for all the various conditions in which empty defines are necessary */
+#define GGGGC_EMPTY
+
 /* GC pool (forms a list) */
 struct GGGGC_Pool {
     /* the next pool in this generation */
