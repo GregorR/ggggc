@@ -315,7 +315,7 @@ void *ggggc_mallocDataArray(ggc_size_t nmemb, ggc_size_t size)
     ggc_size_t sz = ((nmemb*size)+sizeof(ggc_size_t)-1)/sizeof(ggc_size_t);
     struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorDA(sz + 1 + sizeof(struct GGGGC_Header)/sizeof(ggc_size_t));
     struct GGGGC_Array *ret = (struct GGGGC_Array *) ggggc_malloc(descriptor);
-    ret->length = sz;
+    ret->length = nmemb;
     return ret;
 }
 
