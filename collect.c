@@ -229,7 +229,9 @@ void ggggc_collect0(unsigned char gen)
     struct GGGGC_PoolList pool0Node, *plCur;
     struct GGGGC_Pool *poolCur;
     struct GGGGC_PointerStackList pointerStackNode, *pslCur;
+    struct GGGGC_JITPointerStackList jitPointerStackNode, *jpslCur;
     struct GGGGC_PointerStack *psCur;
+    void **jpsCur;
     struct ToSearch *toSearch;
     unsigned char genCur;
     ggc_size_t i;
@@ -257,6 +259,10 @@ void ggggc_collect0(unsigned char gen)
     pointerStackNode.pointerStack = ggggc_pointerStack;
     pointerStackNode.next = ggggc_blockedThreadPointerStacks;
     ggggc_rootPointerStackList = &pointerStackNode;
+    jitPointerStackNode.cur = ggc_jitPointerStack;
+    jitPointerStackNode.top = ggc_jitPointerStackTop;
+    jitPointerStackNode.next = ggggc_blockedThreadJITPointerStacks;
+    ggggc_blockedThreadJITPointerStacks = &jitPointerStackNode;
     ggc_mutex_unlock(&ggggc_rootsLock);
 
     /* stop the world */
@@ -293,6 +299,11 @@ collect:
             for (i = 0; i < psCur->size; i++) {
                 TOSEARCH_ADD(psCur->pointers[i]);
             }
+        }
+    }
+    for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
+        for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
+            TOSEARCH_ADD(jpsCur);
         }
     }
 
@@ -549,6 +560,8 @@ void ggggc_collectFull()
     struct GGGGC_Pool *poolCur;
     struct GGGGC_PointerStackList *pslCur;
     struct GGGGC_PointerStack *psCur;
+    struct GGGGC_JITPointerStackList *jpslCur;
+    void **jpsCur;
     struct ToSearch *toSearch;
     unsigned char genCur;
     ggc_size_t i;
@@ -561,6 +574,11 @@ void ggggc_collectFull()
             for (i = 0; i < psCur->size; i++) {
                 TOSEARCH_ADD(psCur->pointers[i]);
             }
+        }
+    }
+    for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
+        for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
+            TOSEARCH_ADD(jpsCur);
         }
     }
 
@@ -629,6 +647,12 @@ void ggggc_collectFull()
                 if (*pointers[i])
                     FOLLOW_COMPACTED_OBJECT(*pointers[i]);
             }
+        }
+    }
+    for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
+        for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
+            if (*jpsCur)
+                FOLLOW_COMPACTED_OBJECT(*jpsCur);
         }
     }
     for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
@@ -879,6 +903,7 @@ int ggggc_yield()
 {
     struct GGGGC_PoolList pool0Node;
     struct GGGGC_PointerStackList pointerStackNode;
+    struct GGGGC_JITPointerStackList jitPointerStackNode;
 
     if (ggggc_stopTheWorld) {
         /* wait for the barrier once to stop the world */
@@ -892,6 +917,9 @@ int ggggc_yield()
         pointerStackNode.pointerStack = ggggc_pointerStack;
         pointerStackNode.next = ggggc_rootPointerStackList;
         ggggc_rootPointerStackList = &pointerStackNode;
+        jitPointerStackNode.cur = ggc_jitPointerStack;
+        jitPointerStackNode.top = ggc_jitPointerStackTop;
+        ggggc_rootJITPointerStackList = &jitPointerStackNode;
         ggc_mutex_unlock(&ggggc_rootsLock);
 
         /* wait for the barrier once to allow collection */

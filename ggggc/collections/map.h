@@ -19,6 +19,8 @@
 #ifndef GGGGC_COLLECTIONS_MAP_H
 #define GGGGC_COLLECTIONS_MAP_H 1
 
+#include <string.h>
+
 #include "../gc.h"
 
 /* FIXME: collision support is very preliminary */
@@ -38,7 +40,8 @@ GGC_END_TYPE(name, \
     GGC_PTR(name, values) \
     ); \
 static int name ## Get(name map, typeK key, typeV *value); \
-static void name ## Put(name map, typeK key, typeV value)
+static void name ## Put(name map, typeK key, typeV value); \
+static name name ## Clone(name map)
 
 #define GGC_MAP_DECL_STATIC(name, typeK, typeV) \
     GGGGC_MAP_DECL(name, typeK, typeV, static)
@@ -127,6 +130,35 @@ static void name ## Put(name map, typeK key, typeV value) \
             \
         } \
     } \
+} \
+static name name ## Clone(name map) \
+{ \
+    name ret = NULL; \
+    typeK ## Array oldKeys = NULL, newKeys = NULL; \
+    typeV ## Array oldValues = NULL, newValues = NULL; \
+    ggc_size_t size; \
+    \
+    GGC_PUSH_6(map, ret, oldKeys, newKeys, oldValues, newValues); \
+    \
+    ret = GGC_NEW(name); \
+    /* if it's empty, no further work */ \
+    if (GGC_RD(map, size) == 0) return ret; \
+    \
+    size = GGC_RD(map, size); \
+    oldKeys = GGC_RP(map, keys); \
+    oldValues = GGC_RP(map, values); \
+    \
+    newKeys = GGC_NEW_PA(typeK, oldKeys->length); \
+    newValues = GGC_NEW_PA(typeV, oldValues->length); \
+    \
+    memcpy(newKeys->a__ptrs, oldKeys->a__ptrs, oldKeys->length * sizeof(typeK)); \
+    memcpy(newValues->a__ptrs, oldValues->a__ptrs, oldValues->length * sizeof(typeV)); \
+    \
+    GGC_WD(ret, size, size); \
+    GGC_WP(ret, keys, newKeys); \
+    GGC_WP(ret, values, newValues); \
+    \
+    return ret; \
 }
 
 #define GGC_MAP_DEFN_STATIC(name, typeK, typeV, hash, cmp) \

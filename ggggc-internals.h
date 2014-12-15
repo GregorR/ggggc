@@ -69,10 +69,16 @@ struct GGGGC_PointerStackList {
     struct GGGGC_PointerStack *pointerStack;
 };
 extern struct GGGGC_PointerStackList *ggggc_rootPointerStackList;
+struct GGGGC_JITPointerStackList {
+    struct GGGGC_JITPointerStackList *next;
+    void **cur, **top;
+};
+extern struct GGGGC_JITPointerStackList *ggggc_rootJITPointerStackList;
 
 /* threads which are blocked need to store their roots and pools aside when they can't stop the world */
 extern struct GGGGC_PoolList *ggggc_blockedThreadPool0s;
 extern struct GGGGC_PointerStackList *ggggc_blockedThreadPointerStacks;
+extern struct GGGGC_JITPointerStackList *ggggc_blockedThreadJITPointerStacks;
 
 /* the generation 0 pools are thread-local */
 extern ggc_thread_local struct GGGGC_Pool *ggggc_gen0;
