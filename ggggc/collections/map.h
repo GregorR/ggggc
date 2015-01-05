@@ -120,6 +120,10 @@ static void name ## Put(name map, typeK key, typeV value) \
                 } \
             } \
             \
+            GGC_WD(map, size, newSize); \
+            GGC_WP(map, keys, newKeys); \
+            GGC_WP(map, values, newValues); \
+            \
         } else { \
             /* found our slot */ \
             newKeys = GGC_RP(map, keys); \
