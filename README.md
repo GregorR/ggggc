@@ -6,6 +6,10 @@ To use GGGGC, simply include `ggggc/gc.h` and observe the restrictions it
 enforces on your code. Excluding the threading library, all public API macros
 begin with `GGC_`, and there are no public API functions.
 
+
+Types
+=====
+
 GGGGC types need to be defined in such a way that the collector knows where the
 pointers are. This is done with the `GGC_TYPE`, `GGC_MDATA`, `GGC_MPTR`,
 `GGC_END_TYPE` and `GGC_PTR` like so:
@@ -22,18 +26,58 @@ pointers are. This is done with the `GGC_TYPE`, `GGC_MDATA`, `GGC_MPTR`,
 This is more verbose than a conventional type declaration, of course, but gives
 the GC the information it needs. New objects are created with `GGC_NEW`.
 
-Because generational garbage collection requires a write barrier, pointer
-members of types must be accessed through the `GGC_R` and `GGC_W` macros:
+Because generational garbage collection requires a write barrier, members of
+GC'd types must be accessed through the `GGC_R*` and `GGC_W*` family of macros.
+Reading and writing pointer members is done through `GGC_RP` and `GGC_WP`,
+respectively. Reading and writing data (non-pointer or non-GC'd) members is
+done through `GGC_RD` and `GGC_WD`. For instance:
 
     newObj = GGC_NEW(ListOfFoosAndInts);
-    GGC_W(list, next, newObj);
-    if (GGC_R(list, fooMember) != NULL)
-        GGC_W(list, fooMember, NULL);
+    GGC_WD(newObj, intMember, 42);
+    GGC_WP(list, next, newObj);
+    if (GGC_RP(list, fooMember) != NULL)
+        GGC_WP(list, fooMember, NULL);
+
+Each GGGGC type also has an array type, simply named the same as the user type
+with `Array` at the end, e.g. `ListOfFoosAndIntsArray`. Arrays of GC'd pointers
+are created with `GGC_NEW_PA`. Arrays have a `length` member, which should not
+be changed, and their array content may be accessed with `GGC_RAP`
+(read-array-pointer) and `GGC_WAP` (write-array-pointer). Example:
+
+    arrayOfLists = GGC_NEW_PA(ListOfFoosAndInts, 2);
+    GGC_WAP(arrayOfLists, 0, newObj);
+    GGC_WAP(arrayOfLists, 1, NULL);
+    for (i = 0; i < arrayOfLists->length; i++)
+        printList(GGC_RAP(arrayOfLists, i));
+
+Arrays of non-GGGGC (i.e., non-pointer or non-GC'd) types are also supported.
+They are named `GGC_*_Array`, where `*` is the member type. Many common data
+types have array types provided by `ggggc/gc.h`: `char`, `short`, `int`,
+`unsigned`, `long`, `float`, `double` and `size_t`. To declare the type for an
+array of some other data type, the macro `GGC_DA_TYPE` is provided, e.g.:
+
+    GGC_DA_TYPE(MyStructuralType)
+
+Arrays of non-GGGGC types are created and accessed similarly to arrays of GC'd
+types, but with `GGC_NEW_DA`, `GGC_RAD` and `GGC_WAD` in place of `GGC_NEW_PA`,
+`GGC_RAP` and `GGC_WAP`. For instance:
+
+    GGC_int_Array ints = NULL;
+    ...
+    ints = GGC_NEW_DA(int, 42);
+    for (i = 0; i < ints->length; i++)
+        GGC_WAD(ints, i, i);
+    for (i = ints->length - 1; i >= 0; i--)
+        printf("%d\n", GGC_RAD(ints, i));
+
+
+Functions
+=========
 
 Because GGGGC is precise, it is necessary to inform the garbage collector of
 every pointer in the stack. This is done with the `GGC_PUSH_*` macros, where
 `*` is the number of pointers being described. You must assure that every
-pointer is valid or NULL before pushing it, but furthermore must not call the
+pointer is valid or NULL before pushing it, and furthermore must not call the
 collector (GGC_NEW) before pushing pointers. For example:
 
     int addList(ListOfFoosAndInts list) {
@@ -45,10 +89,18 @@ collector (GGC_NEW) before pushing pointers. For example:
         return sum;
     }
 
+Pushing pointers is *vital* to the correctness of GGGGC. If you fail to push
+your pointers correctly, your program will seg fault, behave strangely, or
+otherwise fail.
+
 You must be careful in C to not store pointers to GC'd objects in temporary
 locations through function calls; in particular, do not call functions within
 the arguments of other functions, as those function calls may yield and destroy
 your pointers.
+
+
+Configuration
+=============
 
 Some of GGGGC's behavior is configurable through preprocessor definitions. The
 following definitions are available:
@@ -92,6 +144,10 @@ following definitions are available:
  * `GGGGC_USE_MALLOC`: Use `malloc` instead of a smarter allocator. `malloc`
    will be used by default if no smarter allocator can be found, but this may
    be set explicitly to avoid the preprocessor warning in this case.
+
+
+Your Mileage May Vary
+=====================
 
 Beyond the above, there is no further documentation. Please read ggggc/gc.h
 itself to get further clues.
