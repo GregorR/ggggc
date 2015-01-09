@@ -53,6 +53,7 @@ static type ## Array type ## ListToArray(type ## List list)
 static void type ## ListPush(type ## List list, type value) \
 { \
     type ## ListNode node = NULL, tail = NULL; \
+    size_t len; \
     \
     GGC_PUSH_4(list, value, node, tail); \
     \
@@ -66,7 +67,8 @@ static void type ## ListPush(type ## List list, type value) \
         GGC_WP(list, head, node); \
     GGC_WP(list, tail, node); \
     \
-    list->length__data++; \
+    len = GGC_RD(list, length) + 1; \
+    GGC_WD(list, length, len); \
     \
     return; \
 } \
