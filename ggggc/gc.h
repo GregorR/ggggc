@@ -241,6 +241,9 @@ GGC_DA_TYPE(float)
 GGC_DA_TYPE(double)
 GGC_DA_TYPE(size_t)
 
+typedef void *GGC_voidp;
+GGC_PA_TYPE(GGC_voidp);
+
 #define GGGGC_ASSERT_ID(thing) do { \
     void *thing ## _must_be_an_identifier; \
     (void) thing ## _must_be_an_identifier; \

@@ -1,11 +1,12 @@
 CC=gcc
 ECFLAGS=-O3 -g
-CFLAGS=-D_XOPEN_SOURCE=600 $(ECFLAGS)
+CFLAGS=-D_XOPEN_SOURCE=600 -I. $(ECFLAGS)
 AR=ar
 ARFLAGS=rc
 RANLIB=ranlib
 
-OBJS=allocate.o collect.o globals.o roots.o threads.o
+OBJS=allocate.o collect.o globals.o roots.o threads.o \
+     collections/list.o collections/map.o
 
 all: libggggc.a
 

@@ -3,11 +3,9 @@
 
 #include "../gc.h"
 
-#define GGC_UNIT_DECL(type) \
+#define GGC_UNIT(type) \
 GGC_TYPE(GGC_ ## type ## _Unit) \
     GGC_MDATA(type, v); \
 GGC_END_TYPE(GGC_ ## type ## _Unit, GGC_NO_PTRS)
-
-#define GGC_UNIT(type) GGC_UNIT_DECL(type);
 
 #endif
