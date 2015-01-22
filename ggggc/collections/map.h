@@ -30,7 +30,7 @@ GGC_END_TYPE(GGC_MapEntry,
     GGC_PTR(GGC_MapEntry, next)
     GGC_PTR(GGC_MapEntry, key)
     GGC_PTR(GGC_MapEntry, value)
-    );
+    )
 
 GGC_TYPE(GGC_Map)
     GGC_MDATA(ggc_size_t, size);
@@ -38,7 +38,7 @@ GGC_TYPE(GGC_Map)
     GGC_MPTR(GGC_MapEntryArray, entries);
 GGC_END_TYPE(GGC_Map,
     GGC_PTR(GGC_Map, entries)
-    );
+    )
 
 /* type for hash functions */
 typedef size_t (*ggc_map_hash_t)(void *);

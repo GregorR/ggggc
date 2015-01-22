@@ -28,7 +28,7 @@ GGC_TYPE(GGC_ListNode)
 GGC_END_TYPE(GGC_ListNode,
     GGC_PTR(GGC_ListNode, next)
     GGC_PTR(GGC_ListNode, el)
-    );
+    )
 
 GGC_TYPE(GGC_List)
     GGC_MDATA(ggc_size_t, length);
@@ -37,7 +37,7 @@ GGC_TYPE(GGC_List)
 GGC_END_TYPE(GGC_List,
     GGC_PTR(GGC_List, head)
     GGC_PTR(GGC_List, tail)
-    );
+    )
 
 /* push an element to the end of a generic list */
 void GGC_ListPush(GGC_List list, void *value);

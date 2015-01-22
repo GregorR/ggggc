@@ -52,7 +52,7 @@ void GGC_MapPut(GGC_Map map, void *key, void *value, ggc_map_hash_t hash, ggc_ma
     void *valueCmp = NULL;
     GGC_MapEntry entry = NULL, nextEntry = NULL, prevEntry = NULL;
     GGC_MapEntryArray newEntries = NULL;
-    size_t hashV, hashV2;
+    size_t hashV;
     ggc_size_t newSize, newUsed, i;
 
     GGC_PUSH_9(map, key, value, keyCmp, valueCmp, entry, nextEntry, prevEntry,
