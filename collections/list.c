@@ -23,7 +23,7 @@
 void GGC_ListPush(GGC_List list, void *value)
 {
     GGC_ListNode node = NULL, tail = NULL;
-    size_t len;
+    ggc_size_t len;
 
     GGC_PUSH_4(list, value, node, tail);
 
@@ -39,6 +39,202 @@ void GGC_ListPush(GGC_List list, void *value)
 
     len = GGC_RD(list, length) + 1;
     GGC_WD(list, length, len);
+
+    return;
+}
+
+/* push a list to the end of another list */
+void GGC_ListPushList(GGC_List to, GGC_List from)
+{
+    GGC_ListNode head = NULL, tail = NULL;
+    ggc_size_t tolen, fromlen;
+
+    GGC_PUSH_4(to, from, head, tail);
+
+    if (!GGC_RP(to, head)) {
+        /* the target list is empty, so just graft the entire source list */
+        if (!GGC_RP(from, head)) {
+            /* they're both empty! */
+            return;
+        }
+        fromlen = GGC_RD(from, length);
+        head = GGC_RP(from, head);
+        tail = GGC_RP(from, tail);
+        GGC_WD(to, length, fromlen);
+        GGC_WP(to, head, head);
+        GGC_WP(to, tail, tail);
+        GGC_WD(from, length, 0);
+        GGC_WP(from, head, GGC_NULL);
+        GGC_WP(from, tail, GGC_NULL);
+        return;
+    }
+
+    /* they both exist, so we actually need to append */
+    tolen = GGC_RD(to, length);
+    fromlen = GGC_RD(from, length);
+    tail = GGC_RP(to, tail);
+    head = GGC_RP(from, head);
+
+    /* append the nodes */
+    GGC_WP(tail, next, head);
+
+    /* reset the tail */
+    tail = GGC_RP(from, tail);
+    GGC_WP(to, tail, tail);
+
+    /* add the length */
+    tolen += fromlen;
+    GGC_WD(to, length, tolen);
+
+    /* and reset the old list */
+    GGC_WD(from, length, 0);
+    GGC_WP(from, head, GGC_NULL);
+    GGC_WP(from, tail, GGC_NULL);
+
+    return;
+}
+
+/* push an element to the beginning of a generic list */
+void GGC_ListUnshift(GGC_List list, void *value)
+{
+    GGC_ListNode head = NULL, node = NULL;
+    ggc_size_t len;
+
+    GGC_PUSH_4(list, value, head, node);
+
+    head = GGC_RP(list, head);
+    node = GGC_NEW(GGC_ListNode);
+    GGC_WP(node, next, head);
+    GGC_WP(node, el, value);
+
+    GGC_WP(list, head, node);
+    if (!head)
+        GGC_WP(list, tail, node);
+
+    len = GGC_RD(list, length) + 1;
+    GGC_WD(list, length, len);
+
+    return;
+}
+
+/* push a list to the beginning of another list */
+void GGC_ListUnshiftList(GGC_List to, GGC_List from)
+{
+    GGC_ListNode head = NULL, tail = NULL;
+    ggc_size_t tolen, fromlen;
+
+    GGC_PUSH_4(to, from, head, tail);
+
+    if (!GGC_RP(to, head)) {
+        /* the target list is empty, so just graft the entire source list */
+        if (!GGC_RP(from, head)) {
+            /* they're both empty! */
+            return;
+        }
+        fromlen = GGC_RD(from, length);
+        head = GGC_RP(from, head);
+        tail = GGC_RP(from, tail);
+        GGC_WD(to, length, fromlen);
+        GGC_WP(to, head, head);
+        GGC_WP(to, tail, tail);
+        GGC_WD(from, length, 0);
+        GGC_WP(from, head, GGC_NULL);
+        GGC_WP(from, tail, GGC_NULL);
+        return;
+    }
+
+    /* they both exist, so we actually need to prepend */
+    tolen = GGC_RD(to, length);
+    fromlen = GGC_RD(from, length);
+    head = GGC_RP(to, head);
+    tail = GGC_RP(from, tail);
+
+    /* append the nodes */
+    GGC_WP(tail, next, head);
+
+    /* reset the head */
+    head = GGC_RP(from, head);
+    GGC_WP(to, head, head);
+
+    /* add the length */
+    tolen += fromlen;
+    GGC_WD(to, length, tolen);
+
+    /* and reset the old list */
+    GGC_WD(from, length, 0);
+    GGC_WP(from, head, GGC_NULL);
+    GGC_WP(from, tail, GGC_NULL);
+
+    return;
+}
+
+/* pop an element from the beginning of a generic list */
+void *GGC_ListShift(GGC_List list)
+{
+    GGC_ListNode node = NULL, head = NULL;
+    ggc_size_t len;
+
+    GGC_PUSH_2(list, node);
+
+    node = GGC_RP(list, head);
+    if (node) {
+        head = GGC_RP(node, next);
+        GGC_WP(list, head, head);
+        if (!head)
+            GGC_WP(list, tail, head);
+
+        len = GGC_RD(list, length) - 1;
+        GGC_WD(list, length, len);
+    }
+
+    return node;
+}
+
+/* insert an element after the specified one, in the given list */
+void GGC_ListInsertAfter(GGC_List list, GGC_ListNode after, void *value)
+{
+    GGC_ListNode node = NULL, next = NULL;
+    ggc_size_t len;
+
+    GGC_PUSH_5(list, after, value, node, next);
+
+    node = GGC_NEW(GGC_ListNode);
+    GGC_WP(node, el, value);
+
+    next = GGC_RP(after, next);
+    GGC_WP(node, next, next);
+    GGC_WP(after, next, node);
+
+    len = GGC_RD(list, length) + 1;
+    GGC_WD(list, length, len);
+
+    return;
+}
+
+/* insert a list after the specified element, in the given list */
+void GGC_ListInsertAfterList(GGC_List to, GGC_ListNode after, GGC_List from)
+{
+    GGC_ListNode head = NULL, tail = NULL, next = NULL;
+    ggc_size_t tolen, fromlen;
+
+    GGC_PUSH_6(to, after, from, head, tail, next);
+
+    /* pull them out of the old list */
+    fromlen = GGC_RD(from, length);
+    head = GGC_RP(from, head);
+    tail = GGC_RP(from, tail);
+    GGC_WD(from, length, 0);
+    GGC_WP(from, head, GGC_NULL);
+    GGC_WP(from, tail, GGC_NULL);
+
+    /* graft them into the new list */
+    next = GGC_RP(after, next);
+    GGC_WP(after, next, head);
+    GGC_WP(tail, next, next);
+
+    /* then set the length properly */
+    tolen = GGC_RD(to, length) + fromlen;
+    GGC_WD(to, length, tolen);
 
     return;
 }

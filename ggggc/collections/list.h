@@ -42,6 +42,24 @@ GGC_END_TYPE(GGC_List,
 /* push an element to the end of a generic list */
 void GGC_ListPush(GGC_List list, void *value);
 
+/* push a list to the end of another list */
+void GGC_ListPushList(GGC_List to, GGC_List from);
+
+/* push an element to the beginning of a generic list */
+void GGC_ListUnshift(GGC_List list, void *value);
+
+/* push a list to the beginning of another list */
+void GGC_ListUnshiftList(GGC_List to, GGC_List from);
+
+/* pop an element from the beginning of a generic list */
+void *GGC_ListShift(GGC_List list);
+
+/* insert an element after the specified one, in the given list */
+void GGC_ListInsertAfter(GGC_List list, GGC_ListNode after, void *value);
+
+/* insert a list after the specified element, in the given list */
+void GGC_ListInsertAfterList(GGC_List to, GGC_ListNode after, GGC_List from);
+
 /* convert a list to an array */
 GGC_voidpArray GGC_ListToArray(GGC_List list);
 
@@ -67,6 +85,30 @@ GGC_END_TYPE(type ## List, \
 static void type ## ListPush(type ## List list, type value) \
 { \
     GGC_ListPush((GGC_List) list, value); \
+} \
+static void type ## ListPushList(type ## List to, type ## List from) \
+{ \
+    GGC_ListPushList((GGC_List) to, (GGC_List) from); \
+} \
+static void type ## ListUnshift(type ## List list, type value) \
+{ \
+    GGC_ListUnshift((GGC_List) list, value); \
+} \
+static void type ## ListUnshiftList(type ## List to, type ## List from) \
+{ \
+    GGC_ListUnshiftList((GGC_List) to, (GGC_List) from); \
+} \
+static type type ## ListShift(type ## List list) \
+{ \
+    return (type) GGC_ListShift((GGC_List) list); \
+} \
+static void type ## ListInsertAfter(type ## List list, type ## ListNode after, type value) \
+{ \
+    GGC_ListInsertAfter((GGC_List) list, (GGC_ListNode) after, value); \
+} \
+static void type ## ListInsertAfterList(type ## List to, type ## ListNode after, type ## List from) \
+{ \
+    GGC_ListInsertAfterList((GGC_List) to, (GGC_ListNode) after, (GGC_List) from); \
 } \
 static type ## Array type ## ListToArray(type ## List list) \
 { \
