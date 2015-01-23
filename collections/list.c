@@ -64,8 +64,9 @@ void GGC_ListPushList(GGC_List to, GGC_List from)
         GGC_WP(to, head, head);
         GGC_WP(to, tail, tail);
         GGC_WD(from, length, 0);
-        GGC_WP(from, head, GGC_NULL);
-        GGC_WP(from, tail, GGC_NULL);
+        head = NULL;
+        GGC_WP(from, head, head);
+        GGC_WP(from, tail, head);
         return;
     }
 
@@ -88,8 +89,9 @@ void GGC_ListPushList(GGC_List to, GGC_List from)
 
     /* and reset the old list */
     GGC_WD(from, length, 0);
-    GGC_WP(from, head, GGC_NULL);
-    GGC_WP(from, tail, GGC_NULL);
+    head = NULL;
+    GGC_WP(from, head, head);
+    GGC_WP(from, tail, head);
 
     return;
 }
@@ -138,8 +140,9 @@ void GGC_ListUnshiftList(GGC_List to, GGC_List from)
         GGC_WP(to, head, head);
         GGC_WP(to, tail, tail);
         GGC_WD(from, length, 0);
-        GGC_WP(from, head, GGC_NULL);
-        GGC_WP(from, tail, GGC_NULL);
+        head = NULL;
+        GGC_WP(from, head, head);
+        GGC_WP(from, tail, head);
         return;
     }
 
@@ -162,8 +165,9 @@ void GGC_ListUnshiftList(GGC_List to, GGC_List from)
 
     /* and reset the old list */
     GGC_WD(from, length, 0);
-    GGC_WP(from, head, GGC_NULL);
-    GGC_WP(from, tail, GGC_NULL);
+    head = NULL;
+    GGC_WP(from, head, head);
+    GGC_WP(from, tail, head);
 
     return;
 }
@@ -224,8 +228,9 @@ void GGC_ListInsertAfterList(GGC_List to, GGC_ListNode after, GGC_List from)
     head = GGC_RP(from, head);
     tail = GGC_RP(from, tail);
     GGC_WD(from, length, 0);
-    GGC_WP(from, head, GGC_NULL);
-    GGC_WP(from, tail, GGC_NULL);
+    next = NULL;
+    GGC_WP(from, head, next);
+    GGC_WP(from, tail, next);
 
     /* graft them into the new list */
     next = GGC_RP(after, next);
