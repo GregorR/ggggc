@@ -102,8 +102,10 @@ void ggc_post_blocking()
     struct GGGGC_PointerStackList *pslCur;
 
     /* get a lock on the thread count etc */
-    while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)
-        GGC_YIELD();
+    while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0);
+    /* FIXME: can't yield here, as yielding waits for stop-the-world if
+     * applicable. Perhaps something would be more ideal than a spin-loop
+     * though. */
 
     /* add ourselves back to the world barrier */
     ggc_barrier_destroy(&ggggc_worldBarrier);
