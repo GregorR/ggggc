@@ -8,20 +8,24 @@ eRun() {
 }
 
 doTests() {
-    make clean
-    make CC="$1" ECFLAGS="-O3 -g $2"
+    (
+    rm -rf patched
+    make patch PATCH_DEST=patched PATCHES="$1"
+    cp -a tests patched/tests
+
+    cd patched
+    make CC="$2" ECFLAGS="-O3 -g $3"
 
     cd tests
     make clean
     make btggggc btggggcth badlll ggggcbench \
-        CC="$1" ECFLAGS="$2"
+        CC="$2" ECFLAGS="$3"
 
     eRun ./btggggc 16
     eRun ./btggggcth 16
     eRun ./badlll
     eRun ./ggggcbench
-
-    cd ..
+    )
 }
 
 if [ "$1" ]
@@ -29,21 +33,25 @@ then
     # User-requested test compilers
     for cc in "$@"
     do
-        doTests "$cc" ''
+        doTests '' "$cc" ''
     done
 
 else
-    # Default GCC tests
-    doTests gcc '-O0 -g -Wall -Werror -std=c99 -pedantic -Wno-array-bounds -Werror=shadow -DGGGGC_DEBUG_MEMORY_CORRUPTION'
-    doTests gcc ''
-    doTests g++ ''
-    doTests gcc '-DGGGGC_NO_GNUC_FEATURES'
-    doTests g++ '-DGGGGC_NO_GNUC_FEATURES'
+    # Test each patchset
+    PATCHES=`ls patches`
+    for patch in '' $PATCHES
+    do
+        doTests "$patch" gcc '-O0 -g -Wall -Werror -std=c99 -pedantic -Wno-array-bounds -Werror=shadow -DGGGGC_DEBUG_MEMORY_CORRUPTION'
+        doTests "$patch" gcc ''
+        doTests "$patch" g++ ''
+        doTests "$patch" gcc '-DGGGGC_NO_GNUC_FEATURES'
+        doTests "$patch" g++ '-DGGGGC_NO_GNUC_FEATURES'
 
-    doTests gcc '-DGGGGC_DEBUG_TINY_HEAP'
-    doTests gcc '-DGGGGC_GENERATIONS=1'
-    doTests gcc '-DGGGGC_GENERATIONS=5'
-    doTests gcc '-DGGGGC_USE_MALLOC'
+        doTests "$patch" gcc '-DGGGGC_DEBUG_TINY_HEAP'
+        doTests "$patch" gcc '-DGGGGC_GENERATIONS=1'
+        doTests "$patch" gcc '-DGGGGC_GENERATIONS=5'
+        doTests "$patch" gcc '-DGGGGC_USE_MALLOC'
+    done
 
 fi
 
