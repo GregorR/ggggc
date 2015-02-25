@@ -1,0 +1,10 @@
+syntax: glob
+
+*.swp
+
+*.a
+*.o
+
+deps
+
+patches/*/status

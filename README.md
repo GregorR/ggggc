@@ -6,6 +6,9 @@ To use GGGGC, simply include `ggggc/gc.h` and observe the restrictions it
 enforces on your code. Excluding the threading library, all public API macros
 begin with `GGC_`, and there are no public API functions.
 
+GGGGC is not at present intended to be installed as a system library. Every
+program which needs GGGGC should include it.
+
 
 Types
 =====
@@ -144,6 +147,21 @@ following definitions are available:
  * `GGGGC_USE_MALLOC`: Use `malloc` instead of a smarter allocator. `malloc`
    will be used by default if no smarter allocator can be found, but this may
    be set explicitly to avoid the preprocessor warning in this case.
+
+
+Patching
+========
+
+Certain features are important for some users but unimportant for others. To
+avoid slowing down the mainline implementation, these features are available as
+patches in the `patches` directory. You may use them by either including a
+pre-patched version or, if you use Mercurial or Git subrepositories to include
+GGGGC and thus cannot include patches directly, may include GGGGC in an unused
+subdirectory, then use `make patch` to copy a patched version into ../ggggc.
+`make patch` takes one argument, `PATCHES`, as in `make patch
+PATCHES=jitpstack` or `make patch PATCHES="jitpstack tagging"`. `make patch` is
+careful not to redo work, and so is safe to run as part of a larger build
+process.
 
 
 Your Mileage May Vary
