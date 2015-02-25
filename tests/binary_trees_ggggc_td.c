@@ -13,26 +13,20 @@
 
 #include "ggggc/gc.h"
 
-GGC_TYPE(treeNode)
-    GGC_MPTR(treeNode, left);
-    GGC_MPTR(treeNode, right);
-    GGC_MDATA(long, item);
-GGC_END_TYPE(treeNode,
-    GGC_PTR(treeNode, left)
-    GGC_PTR(treeNode, right)
-    )
+GGC(treeNode) {
+    treeNode left, right;
+    long item;
+};
 
 treeNode NewTreeNode(treeNode left, treeNode right, long item)
 {
-    treeNode    newT = NULL;
-
-    GGC_PUSH_3(left, right, newT);
+    treeNode    newT;
 
     newT = GGC_NEW(treeNode);
 
-    GGC_WP(newT, left, left);
-    GGC_WP(newT, right, right);
-    GGC_WD(newT, item, item);
+    newT->left = left;
+    newT->right = right;
+    newT->item = item;
 
     return newT;
 } /* NewTreeNode() */
@@ -40,11 +34,10 @@ treeNode NewTreeNode(treeNode left, treeNode right, long item)
 
 long ItemCheck(treeNode tree)
 {
-    GGC_PUSH_1(tree);
-    if (GGC_RP(tree, left) == NULL) {
-        return GGC_RD(tree, item);
+    if (tree->left == NULL) {
+        return tree->item;
     } else {
-        return GGC_RD(tree, item) + ItemCheck(GGC_RP(tree, left)) - ItemCheck(GGC_RP(tree, right));
+        return tree->item + ItemCheck(tree->left) - ItemCheck(tree->right);
     }
 } /* ItemCheck() */
 
@@ -54,13 +47,12 @@ treeNode TopDownTree(long item, unsigned depth)
     if (depth > 0) {
         treeNode ret, l, r;
         ret = l = r = NULL;
-        GGC_PUSH_3(ret, l, r);
 
         ret = NewTreeNode(NULL, NULL, item);
         l = TopDownTree(2 * item - 1, depth - 1);
         r = TopDownTree(2 * item, depth - 1);
-        GGC_WP(ret, left, l);
-        GGC_WP(ret, right, r);
+        ret->left = l;
+        ret->right = r;
 
         return ret;
     } else
@@ -85,7 +77,6 @@ int main(int argc, char* argv[])
     stretchDepth = maxDepth + 1;
 
     tempTree = stretchTree = longLivedTree = NULL;
-    GGC_PUSH_3(tempTree, stretchTree, longLivedTree);
 
     stretchTree = TopDownTree(0, stretchDepth);
     printf

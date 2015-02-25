@@ -185,7 +185,7 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
     static struct GGGGC_DescriptorSlot type ## __descriptorSlot = { \
         GGC_MUTEX_INITIALIZER, \
         NULL, \
-        (sizeof(struct type ## __struct) + sizeof(ggc_size_t) - 1) / sizeof(ggc_size_t), \
+        (sizeof(struct type ## __ggggc_struct) + sizeof(ggc_size_t) - 1) / sizeof(ggc_size_t), \
         ((ggc_size_t)0) pointers \
     }; \
     GGGGC_DESCRIPTOR_CONSTRUCTOR(type)
@@ -202,7 +202,7 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
  *     GGC_MDATA(int, fooMemberOfTypeInt);
  * GGC_END_TYPE(Foo,
  *     GGC_PTR(Foo, fooMemberOfTypeBar)
- *     );
+ *     )
  */
 #define GGC_DA_TYPE(type) \
     typedef struct type ## __ggggc_array *GGC_ ## type ## _Array; \
@@ -219,9 +219,9 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
         type a__ptrs[1]; \
     };
 #define GGC_TYPE(type) \
-    typedef struct type ## __struct *type; \
+    typedef struct type ## __ggggc_struct *type; \
     GGC_PA_TYPE(type) \
-    struct type ## __struct { \
+    struct type ## __ggggc_struct { \
         struct GGGGC_Header header;
 #define GGC_MDATA(type, name) \
         type name ## __data
@@ -409,6 +409,11 @@ GGC_TYPE(ThreadArg)
 GGC_END_TYPE(ThreadArg,
     GGC_PTR(ThreadArg, parg)
     )
+
+/* support for ggggcify tool */
+#ifdef GGGGC_GGGGCIFY
+#include "ggggcify.h"
+#endif
 
 #ifdef __cplusplus
 }
