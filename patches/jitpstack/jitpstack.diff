@@ -1,8 +1,8 @@
 Implementation of a separate stack, intended for JITs, which has only pointers.
 
-diff -r e47aad74f484 collect.c
---- a/collect.c	Wed Feb 25 15:22:55 2015 -0500
-+++ b/collect.c	Wed Feb 25 16:15:24 2015 -0500
+diff -r 4608b2faad78 collect.c
+--- a/collect.c	Wed Feb 25 16:49:10 2015 -0500
++++ b/collect.c	Thu Feb 26 14:30:11 2015 -0500
 @@ -229,7 +229,9 @@
      struct GGGGC_PoolList pool0Node, *plCur;
      struct GGGGC_Pool *poolCur;
@@ -20,7 +20,7 @@ diff -r e47aad74f484 collect.c
 +    jitPointerStackNode.cur = ggc_jitPointerStack;
 +    jitPointerStackNode.top = ggc_jitPointerStackTop;
 +    jitPointerStackNode.next = ggggc_blockedThreadJITPointerStacks;
-+    ggggc_blockedThreadJITPointerStacks = &jitPointerStackNode;
++    ggggc_rootJITPointerStackList = &jitPointerStackNode;
      ggc_mutex_unlock(&ggggc_rootsLock);
  
      /* stop the world */
@@ -78,19 +78,20 @@ diff -r e47aad74f484 collect.c
  
      if (ggggc_stopTheWorld) {
          /* wait for the barrier once to stop the world */
-@@ -892,6 +917,9 @@
+@@ -892,6 +917,10 @@
          pointerStackNode.pointerStack = ggggc_pointerStack;
          pointerStackNode.next = ggggc_rootPointerStackList;
          ggggc_rootPointerStackList = &pointerStackNode;
 +        jitPointerStackNode.cur = ggc_jitPointerStack;
 +        jitPointerStackNode.top = ggc_jitPointerStackTop;
++        jitPointerStackNode.next = ggggc_rootJITPointerStackList;
 +        ggggc_rootJITPointerStackList = &jitPointerStackNode;
          ggc_mutex_unlock(&ggggc_rootsLock);
  
          /* wait for the barrier once to allow collection */
-diff -r e47aad74f484 ggggc-internals.h
---- a/ggggc-internals.h	Wed Feb 25 15:22:55 2015 -0500
-+++ b/ggggc-internals.h	Wed Feb 25 16:15:24 2015 -0500
+diff -r 4608b2faad78 ggggc-internals.h
+--- a/ggggc-internals.h	Wed Feb 25 16:49:10 2015 -0500
++++ b/ggggc-internals.h	Thu Feb 26 14:30:11 2015 -0500
 @@ -69,10 +69,16 @@
      struct GGGGC_PointerStack *pointerStack;
  };
@@ -108,9 +109,9 @@ diff -r e47aad74f484 ggggc-internals.h
  
  /* the generation 0 pools are thread-local */
  extern ggc_thread_local struct GGGGC_Pool *ggggc_gen0;
-diff -r e47aad74f484 ggggc/collections/map.h
---- a/ggggc/collections/map.h	Wed Feb 25 15:22:55 2015 -0500
-+++ b/ggggc/collections/map.h	Wed Feb 25 16:15:24 2015 -0500
+diff -r 4608b2faad78 ggggc/collections/map.h
+--- a/ggggc/collections/map.h	Wed Feb 25 16:49:10 2015 -0500
++++ b/ggggc/collections/map.h	Thu Feb 26 14:30:11 2015 -0500
 @@ -19,6 +19,8 @@
  #ifndef GGGGC_COLLECTIONS_MAP_H
  #define GGGGC_COLLECTIONS_MAP_H 1
@@ -120,9 +121,9 @@ diff -r e47aad74f484 ggggc/collections/map.h
  #include "../gc.h"
  
  /* generic map type */
-diff -r e47aad74f484 ggggc/gc.h
---- a/ggggc/gc.h	Wed Feb 25 15:22:55 2015 -0500
-+++ b/ggggc/gc.h	Wed Feb 25 16:15:24 2015 -0500
+diff -r 4608b2faad78 ggggc/gc.h
+--- a/ggggc/gc.h	Wed Feb 25 16:49:10 2015 -0500
++++ b/ggggc/gc.h	Thu Feb 26 14:30:11 2015 -0500
 @@ -357,6 +357,9 @@
  /* each thread has its own pointer stack, including global references */
  extern ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerStackGlobals;
@@ -133,9 +134,9 @@ diff -r e47aad74f484 ggggc/gc.h
  /* macros to push and pop pointers from the pointer stack */
  #define GGGGC_POP() do { \
      ggggc_pointerStack = ggggc_pointerStack->next; \
-diff -r e47aad74f484 globals.c
---- a/globals.c	Wed Feb 25 15:22:55 2015 -0500
-+++ b/globals.c	Wed Feb 25 16:15:24 2015 -0500
+diff -r 4608b2faad78 globals.c
+--- a/globals.c	Wed Feb 25 16:49:10 2015 -0500
++++ b/globals.c	Thu Feb 26 14:30:11 2015 -0500
 @@ -2,6 +2,7 @@
  
  /* publics */
