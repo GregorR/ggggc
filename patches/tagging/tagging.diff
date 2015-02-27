@@ -1,0 +1,44 @@
+# HG changeset patch
+# Parent e69851c56f93cc42c04b86c5d580cf9545f09eb1
+Support for tagging in the sub-alignment bits of pointers.
+
+diff -r e69851c56f93 -r 730361404030 collect.c
+--- a/collect.c	Thu Feb 26 14:30:43 2015 -0500
++++ b/collect.c	Thu Feb 26 22:26:12 2015 -0500
+@@ -96,6 +96,12 @@
+     d = (struct GGGGC_Descriptor *) dobj; \
+ } while(0)
+ 
++/* check if a value is user-tagged. It's done here, while adding to the
++ * to-check list, instead of while removing from the to-check list, because the
++ * descriptor may be tagged by the GC, and we can only distinguish the
++ * descriptor from other pointers at this point. */
++#define IS_TAGGED(p) ((ggc_size_t) (p) & (sizeof(ggc_size_t)-1))
++
+ /* macro to add an object's pointers to the tosearch list */
+ #define ADD_OBJECT_POINTERS(obj, descriptor) do { \
+     void **objVp = (void **) (obj); \
+@@ -108,6 +114,7 @@
+                 curDescription = descriptor->pointers[++curDescriptorWord]; \
+             if (curDescription & 1) \
+                 /* it's a pointer */ \
++                if (objVp[curWord] && !IS_TAGGED(objVp[curWord])) \
+                 TOSEARCH_ADD(&objVp[curWord]); \
+             curDescription >>= 1; \
+         } \
+@@ -291,6 +298,7 @@
+     for (pslCur = ggggc_rootPointerStackList; pslCur; pslCur = pslCur->next) {
+         for (psCur = pslCur->pointerStack; psCur; psCur = psCur->next) {
+             for (i = 0; i < psCur->size; i++) {
++                if (psCur->pointers[i] && !IS_TAGGED(*(void **) psCur->pointers[i]))
+                 TOSEARCH_ADD(psCur->pointers[i]);
+             }
+         }
+@@ -559,6 +567,7 @@
+     for (pslCur = ggggc_rootPointerStackList; pslCur; pslCur = pslCur->next) {
+         for (psCur = pslCur->pointerStack; psCur; psCur = psCur->next) {
+             for (i = 0; i < psCur->size; i++) {
++                if (psCur->pointers[i] && !IS_TAGGED(*(void **) psCur->pointers[i]))
+                 TOSEARCH_ADD(psCur->pointers[i]);
+             }
+         }
