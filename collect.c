@@ -474,7 +474,7 @@ struct BreakTableEl {
 
 /* find the new location of an object that's been compacted */
 #define FOLLOW_COMPACTED_OBJECT(obj) do { \
-    ggc_size_t *dobj = (obj); \
+    ggc_size_t *dobj = (ggc_size_t *) (obj); \
     struct GGGGC_Pool *cpool = GGGGC_POOL_OF(dobj); \
     struct BreakTableEl *bel = findBreakTableEntry( \
         (struct BreakTableEl *) cpool->breakTable, cpool->breakTableSize, \
