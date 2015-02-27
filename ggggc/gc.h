@@ -84,6 +84,15 @@ typedef size_t ggc_size_t;
 
 /* GC pool (forms a list) */
 struct GGGGC_Pool {
+#if GGGGC_GENERATIONS > 1
+    /* the remembered set for this pool. NOTE: It's important this be first to
+     * make assigning to the remembered set take one less operation */
+    unsigned char remember[GGGGC_CARDS_PER_POOL];
+
+    /* the locations of objects within the cards */
+    unsigned short firstObject[GGGGC_CARDS_PER_POOL];
+#endif
+
     /* the next pool in this generation */
     struct GGGGC_Pool *next;
 
@@ -101,14 +110,6 @@ struct GGGGC_Pool {
 
     /* pointer to the break table (used only during collection) */
     void *breakTable;
-
-#if GGGGC_GENERATIONS > 1
-    /* the remembered set for this pool */
-    unsigned char remember[GGGGC_CARDS_PER_POOL];
-
-    /* the locations of objects within the cards */
-    unsigned short firstObject[GGGGC_CARDS_PER_POOL];
-#endif
 
     /* and the actual content */
     ggc_size_t start[1];
