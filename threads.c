@@ -38,13 +38,7 @@ GGC_END_TYPE(ThreadInfo,
     )
 
 /* general purpose thread wrapper */
-static
-#ifdef _WIN32
-DWORD __declspec(__stdcall)
-#else
-void *
-#endif
-ggggcThreadWrapper(void *arg)
+static void *ggggcThreadWrapper(void *arg)
 {
     ThreadInfo ti = (ThreadInfo) arg;
     GGC_PUSH_1(ti);

@@ -75,8 +75,8 @@ int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg a
 
     /* set up its thread info */
     ti = GGC_NEW(ThreadInfo);
-    ti->func = func;
-    GGC_W(ti, arg, arg);
+    GGC_WD(ti, func, func);
+    GGC_WP(ti, arg, arg);
 
     /* update our thread barrier */
     while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)
