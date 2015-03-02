@@ -24,7 +24,7 @@
 #define GGC(x) \
     typedef struct x ## __ggggc_struct *x; \
     typedef struct x ## __ggggc_parray *x ## Array; \
-    struct x ## __ggggc_parray { size_t length; x a[1]; }; \
+    struct x ## __ggggc_parray { size_t length; x a[1]; x a__ptrs[1]; }; \
     struct x ## __ggggc_struct
 
 /* all other means of defining/accessing are stubbed */
@@ -34,6 +34,7 @@
     struct x ## __ggggc_darray { \
         size_t length; \
         type a[1]; \
+        type a__data[1]; \
     };
 #undef GGC_PA_TYPE
 #define GGC_PA_TYPE(type) \
@@ -41,7 +42,10 @@
     struct x ## __ggggc_parray { \
         size_t length; \
         type a[1]; \
+        type a__ptrs[1]; \
     };
+#undef GGC_NEW
+#define GGC_NEW(type) ((type) NULL)
 #undef GGC_TYPE
 #define GGC_TYPE(type) GGC(type)
 #undef GGC_END_TYPE

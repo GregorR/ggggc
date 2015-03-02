@@ -44,6 +44,10 @@ with open(cfile, "r") as fh:
 
 index = clang.cindex.Index.create()
 tu = index.parse(None, args)
+diag = list(tu.diagnostics)
+if len(diag) > 0:
+    for d in diag:
+        sys.stderr.write(str(d) + "\n")
 
 # Now search for GGGGC types
 def findGGCStructs(node):

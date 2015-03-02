@@ -206,15 +206,15 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
  *     )
  */
 #define GGC_DA_TYPE(type) \
-    typedef struct type ## __ggggc_array *GGC_ ## type ## _Array; \
-    struct type ## __ggggc_array { \
+    typedef struct type ## __ggggc_darray *GGC_ ## type ## _Array; \
+    struct type ## __ggggc_darray { \
         struct GGGGC_Header header; \
         ggc_size_t length; \
         type a__data[1]; \
     };
 #define GGC_PA_TYPE(type) \
-    typedef struct type ## __ggggc_array *type ## Array; \
-    struct type ## __ggggc_array { \
+    typedef struct type ## __ggggc_parray *type ## Array; \
+    struct type ## __ggggc_parray { \
         struct GGGGC_Header header; \
         ggc_size_t length; \
         type a__ptrs[1]; \
