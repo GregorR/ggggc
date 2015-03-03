@@ -30,7 +30,7 @@
 /* all other means of defining/accessing are stubbed */
 #undef GGC_DA_TYPE
 #define GGC_DA_TYPE(type) \
-    typedef struct x ## __ggggc_darray GGC_ ## type ## _Array; \
+    typedef struct x ## __ggggc_darray *GGC_ ## type ## _Array; \
     struct x ## __ggggc_darray { \
         size_t length; \
         type a[1]; \
@@ -38,7 +38,7 @@
     };
 #undef GGC_PA_TYPE
 #define GGC_PA_TYPE(type) \
-    typedef struct x ## __ggggc_parray type ## Array; \
+    typedef struct x ## __ggggc_parray *type ## Array; \
     struct x ## __ggggc_parray { \
         size_t length; \
         type a[1]; \

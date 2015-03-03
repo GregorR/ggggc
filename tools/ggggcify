@@ -46,8 +46,13 @@ index = clang.cindex.Index.create()
 tu = index.parse(None, args)
 diag = list(tu.diagnostics)
 if len(diag) > 0:
+    errors = 0
     for d in diag:
-        sys.stderr.write(str(d) + "\n")
+        if d.location.file:
+            sys.stderr.write(str(d) + "\n")
+            errors += 1
+    if errors > 0:
+        sys.exit(1)
 
 # Now search for GGGGC types
 def findGGCStructs(node):
@@ -134,11 +139,31 @@ def replGGCAccess(node):
                     ", " + node.spelling + ")"
                 replace(ext, repl)
 
+        elif node.kind == CursorKind.ARRAY_SUBSCRIPT_EXPR:
+            # Found an array index. Are we accessing a GC'd type?
+            children = list(node.get_children())
+            c0ext = children[0].extent
+            c0str = cfileCt[c0ext.start.offset:c0ext.end.offset]
+            accType = children[0].type
+            accTypePointee = accType.get_pointee()
+            if accTypePointee and isGCType(accTypePointee.spelling) and c0str[-3:] == "->a":
+                rightExt = children[1].extent
+
+                # Are we accessing a pointer?
+                accPointer = isGCType(accTypePointee.spelling)
+
+                # Put it all together
+                repl = "GGC_RA" + ("P" if accPointer else "D") + "(" + \
+                    c0str[:-3] + \
+                    ", (" + cfileCt[rightExt.start.offset:rightExt.end.offset] + "))"
+                replace(ext, repl)
+
         elif node.kind == CursorKind.BINARY_OPERATOR:
             # Right now the only way to find the operator is to lift out the appropriate token
             children = list(node.get_children())
-            tok = list(node.get_tokens())[len(list(children[0].get_tokens()))-1]
-            if tok.spelling == "=":
+            ltoks = list(children[0].get_tokens())
+            toks = list(node.get_tokens())
+            if len(toks) > 0 and toks[len(ltoks)-1].spelling == "=":
                 # It's an assignment, is to to a member ref?
                 if children[0].kind == CursorKind.MEMBER_REF_EXPR:
                     # Are we accessing a GC'd type?
@@ -159,6 +184,32 @@ def replGGCAccess(node):
                         replace(ext, repl)
 
                         recurse = False
+
+                # How about an array access?
+                elif children[0].kind == CursorKind.ARRAY_SUBSCRIPT_EXPR:
+                    # Array subscript of a GC array?
+                    c0c = list(children[0].get_children())
+                    c0c0ext = c0c[0].extent
+                    c0c0str = cfileCt[c0c0ext.start.offset:c0c0ext.end.offset]
+                    accType = c0c[0].type
+                    accTypePointee = accType.get_pointee()
+
+                    if accTypePointee and isGCType(accTypePointee.spelling) and c0c0str[-3:] == "->a":
+                        midExt = c0c[1].extent
+                        rightExt = children[1].extent
+        
+                        # Are we accessing a pointer?
+                        accPointer = isGCType(accTypePointee.spelling)
+        
+                        # Put it all together
+                        repl = "GGC_WA" + ("P" if accPointer else "D") + "(" + \
+                            c0c0str[:-3] + \
+                            ", (" + cfileCt[midExt.start.offset:midExt.end.offset] + ")" + \
+                            ", " + cfileCt[rightExt.start.offset:rightExt.end.offset] + ")"
+                        replace(ext, repl)
+
+                        recurse = False
+
 
     if recurse:
         for c in node.get_children():
@@ -228,7 +279,7 @@ def moveDeclsInFunctionPrime(node, moveDecls, gcVars):
                 # Make sure it doesn't have an initializer
                 c2 = list(c.get_children())
                 if len(c2) > 1:
-                    print 'Bad declaration at ' + str(ext.start) + ': No initializers for GC types'
+                    sys.stderr.write('Bad declaration at ' + str(ext.start) + ': No initializers for GC types\n')
                     sys.exit(1)
             else:
                 allGCd = False
