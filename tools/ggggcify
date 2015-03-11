@@ -78,7 +78,7 @@ def replGGCStructs(node):
     ext = node.extent
     if ext.start.file.name == cfile and ext.end.file.name == cfile:
         if node.kind == CursorKind.STRUCT_DECL and node.is_definition():
-            if node.spelling[-14:] == "__ggggc_struct":
+            if node.spelling[-14:] == "__ggggc_struct" and cfileCt[ext.start.offset:ext.start.offset+4] == "GGC(":
                 # OK, transform this struct
                 prefix = node.spelling[:-14]
                 ptrMembers = []
@@ -146,7 +146,7 @@ def replGGCAccess(node):
             c0str = cfileCt[c0ext.start.offset:c0ext.end.offset]
             accType = children[0].type
             accTypePointee = accType.get_pointee()
-            if accTypePointee and isGCType(accTypePointee.spelling) and c0str[-3:] == "->a":
+            if accTypePointee and c0str[-3:] == "->a":
                 rightExt = children[1].extent
 
                 # Are we accessing a pointer?
@@ -240,6 +240,11 @@ def moveDeclsInFunction(node):
             if c.kind == CursorKind.COMPOUND_STMT:
                 compound_stmt = c
                 break
+
+        # Make sure it's legitimately in the code, not generated
+        ext = compound_stmt.extent
+        if cfileCt[ext.start.offset:ext.start.offset+1] != "{":
+            return
 
         # Then the first statement within it
         first_stmt = compound_stmt.get_children().next()

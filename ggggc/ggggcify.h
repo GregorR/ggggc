@@ -30,16 +30,16 @@
 /* all other means of defining/accessing are stubbed */
 #undef GGC_DA_TYPE
 #define GGC_DA_TYPE(type) \
-    typedef struct x ## __ggggc_darray *GGC_ ## type ## _Array; \
-    struct x ## __ggggc_darray { \
+    typedef struct type ## __ggggc_darray *GGC_ ## type ## _Array; \
+    struct type ## __ggggc_darray { \
         size_t length; \
         type a[1]; \
         type a__data[1]; \
     };
 #undef GGC_PA_TYPE
 #define GGC_PA_TYPE(type) \
-    typedef struct x ## __ggggc_parray *type ## Array; \
-    struct x ## __ggggc_parray { \
+    typedef struct type ## __ggggc_parray *type ## Array; \
+    struct type ## __ggggc_parray { \
         size_t length; \
         type a[1]; \
         type a__ptrs[1]; \
@@ -47,7 +47,7 @@
 #undef GGC_NEW
 #define GGC_NEW(type) ((type) NULL)
 #undef GGC_TYPE
-#define GGC_TYPE(type) GGC(type)
+#define GGC_TYPE(type) GGC(type) {
 #undef GGC_END_TYPE
 #define GGC_END_TYPE(type, ptrs) };
 #undef GGC_WP
@@ -70,5 +70,7 @@
 #define GGC_WUP(o, v) ((void **) *(o) = (v))
 #undef GGC_RUP
 #define GGC_RUP(o) ((void **) *(o))
+#undef GGC_LENGTH
+#define GGC_LENGTH(o) (1)
 
 #endif

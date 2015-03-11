@@ -232,19 +232,6 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
     }; \
     GGC_DESCRIPTOR(type, pointers)
 
-/* a few simple builtin types */
-GGC_DA_TYPE(char)
-GGC_DA_TYPE(short)
-GGC_DA_TYPE(int)
-GGC_DA_TYPE(unsigned)
-GGC_DA_TYPE(long)
-GGC_DA_TYPE(float)
-GGC_DA_TYPE(double)
-GGC_DA_TYPE(size_t)
-
-typedef void *GGC_voidp;
-GGC_PA_TYPE(GGC_voidp)
-
 #define GGGGC_ASSERT_ID(thing) do { \
     void *thing ## _must_be_an_identifier; \
     (void) thing ## _must_be_an_identifier; \
@@ -292,11 +279,12 @@ GGC_PA_TYPE(GGC_voidp)
 } while(0)
 
 /* although pointers don't need a read barrier, the renaming sort of forces one */
-#define GGC_RP(object, member) ((object)->member ## __ptr)
-#define GGC_RD(object, member) ((object)->member ## __data)
-#define GGC_RAP(object, index) ((object)->a__ptrs[(index)])
-#define GGC_RAD(object, index) ((object)->a__data[(index)])
-#define GGC_RUP(object)        ((object)->header.descriptor__ptr->user__ptr)
+#define GGC_RP(object, member)  ((object)->member ## __ptr)
+#define GGC_RD(object, member)  ((object)->member ## __data)
+#define GGC_RAP(object, index)  ((object)->a__ptrs[(index)])
+#define GGC_RAD(object, index)  ((object)->a__data[(index)])
+#define GGC_RUP(object)         ((object)->header.descriptor__ptr->user__ptr)
+#define GGC_LENGTH(object)      ((object)->header.descriptor__ptr->length)
 
 /* because the write barrier forces you to use identifiers, an identifier version of NULL */
 static void * const ggggc_null = NULL;
@@ -415,6 +403,19 @@ GGC_END_TYPE(ThreadArg,
 #ifdef GGGGC_GGGGCIFY
 #include "ggggcify.h"
 #endif
+
+/* a few simple builtin types */
+GGC_DA_TYPE(char)
+GGC_DA_TYPE(short)
+GGC_DA_TYPE(int)
+GGC_DA_TYPE(unsigned)
+GGC_DA_TYPE(long)
+GGC_DA_TYPE(float)
+GGC_DA_TYPE(double)
+GGC_DA_TYPE(size_t)
+
+typedef void *GGC_voidp;
+GGC_PA_TYPE(GGC_voidp)
 
 #ifdef __cplusplus
 }
