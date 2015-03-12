@@ -124,7 +124,11 @@ def replGGCAccess(node):
     recurse = True
     ext = node.extent
     if ext.start.file.name == cfile and ext.end.file.name == cfile:
-        if node.kind == CursorKind.MEMBER_REF_EXPR:
+        if cfileCt[ext.start.offset:ext.start.offset+4] == "GGC_":
+            # Don't replace things that are already macrofied
+            pass
+
+        elif node.kind == CursorKind.MEMBER_REF_EXPR:
             # Found a member ref. Are we accessing a GC'd type?
             children = list(node.get_children())
             if children[0].type.spelling in ggcTypes:
