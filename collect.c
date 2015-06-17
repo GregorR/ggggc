@@ -1,7 +1,7 @@
 /*
  * The collector
  *
- * Copyright (c) 2014 Gregor Richards
+ * Copyright (c) 2014, 2015 Gregor Richards
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -413,8 +413,9 @@ collect:
         }
 
         /* and the remembered sets */
-        for (poolCur = ggggc_gens[gen+1]; poolCur; poolCur = poolCur->next)
+        for (poolCur = ggggc_gens[gen+1]; poolCur; poolCur = poolCur->next) {
             memset(poolCur->remember, 0, GGGGC_CARDS_PER_POOL);
+        }
 #endif
     }
 
