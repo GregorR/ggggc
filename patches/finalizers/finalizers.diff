@@ -1,10 +1,10 @@
 # HG changeset patch
-# Parent f2b6c10cc8804777cf62f091bbc4762e068adfd5
+# Parent 6ffdc0f377c28100ca1a9c0fa2d33c423a7455f0
 Implementation of finalizers, as a standard list over appropriate pools to be searched after the initial trace.
 
-diff -r f2b6c10cc880 allocate.c
---- a/allocate.c	Wed Jun 17 16:49:07 2015 -0400
-+++ b/allocate.c	Wed Jun 17 19:52:56 2015 -0400
+diff -r 6ffdc0f377c2 allocate.c
+--- a/allocate.c	Wed Jun 17 19:53:47 2015 -0400
++++ b/allocate.c	Wed Jun 17 22:49:58 2015 -0400
 @@ -461,6 +461,47 @@
      return ggggc_malloc(ggggc_allocateDescriptorSlot(slot));
  }
@@ -53,9 +53,9 @@ diff -r f2b6c10cc880 allocate.c
  #ifdef __cplusplus
  }
  #endif
-diff -r f2b6c10cc880 collect.c
---- a/collect.c	Wed Jun 17 16:49:07 2015 -0400
-+++ b/collect.c	Wed Jun 17 19:52:56 2015 -0400
+diff -r 6ffdc0f377c2 collect.c
+--- a/collect.c	Wed Jun 17 19:53:47 2015 -0400
++++ b/collect.c	Wed Jun 17 22:49:58 2015 -0400
 @@ -29,7 +29,7 @@
  #endif
  
@@ -65,7 +65,7 @@ diff -r f2b6c10cc880 collect.c
  
  /* helper functions for full collection */
  void ggggc_countUsed(struct GGGGC_Pool *);
-@@ -117,6 +117,54 @@
+@@ -117,6 +117,53 @@
  
  static struct ToSearch toSearchList;
  
@@ -103,7 +103,6 @@ diff -r f2b6c10cc880 collect.c
 +/* preserve the surviving finalizers */
 +#define PRESERVE_FINALIZERS() do { \
 +    if (survivingFinalizers) { \
-+        GGGGC_FinalizerEntry finalizer; \
 +        poolCur = GGGGC_POOL_OF(survivingFinalizers); \
 +        survivingFinalizersTail->next__ptr = poolCur->finalizers; \
 +        poolCur->finalizers = survivingFinalizers; \
@@ -120,7 +119,7 @@ diff -r f2b6c10cc880 collect.c
  #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
  static void memoryCorruptionCheckObj(const char *when, struct GGGGC_Header *obj)
  {
-@@ -234,6 +282,10 @@
+@@ -234,6 +281,10 @@
      unsigned char genCur;
      ggc_size_t i;
  
@@ -131,7 +130,7 @@ diff -r f2b6c10cc880 collect.c
      /* first, make sure we stop the world */
      while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0) {
          /* somebody else is collecting */
-@@ -277,7 +329,7 @@
+@@ -277,7 +328,7 @@
  
  #if GGGGC_GENERATIONS == 1
      /* with only one generation, we only want a full collection */
@@ -140,7 +139,7 @@ diff -r f2b6c10cc880 collect.c
  
  #else
      /************************************************************
-@@ -314,6 +366,9 @@
+@@ -314,6 +365,9 @@
          }
      }
  
@@ -150,7 +149,7 @@ diff -r f2b6c10cc880 collect.c
      /* now test all our pointers */
      while (toSearch->used) {
          void **ptr;
-@@ -350,6 +405,9 @@
+@@ -350,6 +404,9 @@
              /* allocate in the new generation */
              nobj = (struct GGGGC_Header *) ggggc_mallocGen1(descriptor, gen + 1, (gen == GGGGC_GENERATIONS-1));
              if (!nobj) {
@@ -160,7 +159,7 @@ diff -r f2b6c10cc880 collect.c
                  /* failed to allocate, need to collect gen+1 too */
                  gen += 1;
                  TOSEARCH_INIT();
-@@ -358,11 +416,11 @@
+@@ -358,11 +415,11 @@
  #endif
  #if GGGGC_GENERATIONS > 2
                  if (gen >= GGGGC_GENERATIONS - 1) {
@@ -174,7 +173,7 @@ diff -r f2b6c10cc880 collect.c
                  break;
  #endif
              }
-@@ -385,10 +443,37 @@
+@@ -385,10 +442,37 @@
              abort();
          }
  #endif
@@ -212,7 +211,7 @@ diff -r f2b6c10cc880 collect.c
      /* heuristically expand too-small generations */
      for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next)
          ggggc_expandGeneration(plCur->pool);
-@@ -439,6 +524,9 @@
+@@ -439,6 +523,9 @@
      /* free the other threads */
      ggc_barrier_wait_raw(&ggggc_worldBarrier);
      ggc_mutex_unlock(&ggggc_worldBarrierLock);
@@ -222,7 +221,7 @@ diff -r f2b6c10cc880 collect.c
  }
  
  /* type for an element of our break table */
-@@ -544,7 +632,7 @@
+@@ -544,7 +631,7 @@
  }
  
  /* perform a full, in-place collection */
@@ -231,7 +230,7 @@ diff -r f2b6c10cc880 collect.c
  {
      struct GGGGC_PoolList *plCur;
      struct GGGGC_Pool *poolCur;
-@@ -554,6 +642,10 @@
+@@ -554,6 +641,10 @@
      unsigned char genCur;
      ggc_size_t i;
  
@@ -242,7 +241,7 @@ diff -r f2b6c10cc880 collect.c
      TOSEARCH_INIT();
  
      /* add our roots to the to-search list */
-@@ -596,6 +688,30 @@
+@@ -596,6 +687,30 @@
              /* add its pointers */
              ADD_OBJECT_POINTERS(obj, descriptor);
          }
@@ -273,7 +272,7 @@ diff -r f2b6c10cc880 collect.c
      }
  
      /* find all our sizes, for later compaction */
-@@ -632,6 +748,17 @@
+@@ -632,6 +747,17 @@
              }
          }
      }
@@ -291,7 +290,7 @@ diff -r f2b6c10cc880 collect.c
      for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
          for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
              ggggc_postCompact(poolCur);
-@@ -664,6 +791,10 @@
+@@ -664,6 +790,10 @@
          }
      }
  #endif
@@ -302,9 +301,9 @@ diff -r f2b6c10cc880 collect.c
  }
  
  /* determine the size of every contiguous chunk of used or unused space in this
-diff -r f2b6c10cc880 ggggc-internals.h
---- a/ggggc-internals.h	Wed Jun 17 16:49:07 2015 -0400
-+++ b/ggggc-internals.h	Wed Jun 17 19:52:56 2015 -0400
+diff -r 6ffdc0f377c2 ggggc-internals.h
+--- a/ggggc-internals.h	Wed Jun 17 19:53:47 2015 -0400
++++ b/ggggc-internals.h	Wed Jun 17 22:49:58 2015 -0400
 @@ -92,6 +92,19 @@
  /* and a lock for the descriptor descriptors */
  extern ggc_mutex_t ggggc_descriptorDescriptorsLock;
@@ -325,9 +324,9 @@ diff -r f2b6c10cc880 ggggc-internals.h
  #ifdef __cplusplus
  }
  #endif
-diff -r f2b6c10cc880 ggggc/gc.h
---- a/ggggc/gc.h	Wed Jun 17 16:49:07 2015 -0400
-+++ b/ggggc/gc.h	Wed Jun 17 19:52:56 2015 -0400
+diff -r 6ffdc0f377c2 ggggc/gc.h
+--- a/ggggc/gc.h	Wed Jun 17 19:53:47 2015 -0400
++++ b/ggggc/gc.h	Wed Jun 17 22:49:58 2015 -0400
 @@ -111,6 +111,9 @@
      /* pointer to the break table (used only during collection) */
      void *breakTable;
