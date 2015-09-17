@@ -19,7 +19,8 @@
 #define _BSD_SOURCE /* for MAP_ANON */
 
 /* for standards info */
-#if defined(unix) || defined(__unix) || defined(__unix__)
+#if defined(unix) || defined(__unix) || defined(__unix__) || \
+    (defined(__APPLE__) && defined(__MACH__))
 #include <unistd.h>
 #endif
 

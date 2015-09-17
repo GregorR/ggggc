@@ -2,7 +2,8 @@
 #define GGGGC_THREADS_H 1
 
 /* get our feature macros */
-#if defined(unix) || defined(__unix) || defined(__unix__)
+#if defined(unix) || defined(__unix) || defined(__unix__) || \
+    (defined(__APPLE__) && defined(__MACH__))
 #include <unistd.h>
 #endif
 
