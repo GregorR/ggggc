@@ -68,3 +68,7 @@ BLOCKING(
     ggc_thread_join(ggc_thread_t thread),
     pthread_join(thread, NULL)
 )
+
+#if !_POSIX_BARRIERS
+#include "gen-barriers.c"
+#endif
