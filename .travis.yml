@@ -2,6 +2,8 @@ language: c
 
 script: ./tests/test.sh
 
+sudo: false
+
 notifications:
     irc:
         channels: "irc.freenode.net#plof"
