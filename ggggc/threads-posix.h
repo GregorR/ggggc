@@ -23,9 +23,11 @@
 #include <semaphore.h>
 
 /* functions */
+#ifdef _POSIX_BARRIERS
 #define ggc_barrier_destroy             pthread_barrier_destroy
 #define ggc_barrier_init(x,y)           pthread_barrier_init(x,NULL,y)
 #define ggc_barrier_wait_raw            pthread_barrier_wait
+#endif
 #define ggc_mutex_lock_raw              pthread_mutex_lock
 #define ggc_mutex_trylock               pthread_mutex_trylock
 #define ggc_mutex_unlock                pthread_mutex_unlock
@@ -35,7 +37,9 @@
 #define ggc_sem_wait_raw                sem_wait
 
 /* types */
+#ifdef _POSIX_BARRIERS
 #define ggc_barrier_t   pthread_barrier_t
+#endif
 #define ggc_mutex_t     pthread_mutex_t
 #define ggc_sem_t       sem_t
 #define ggc_thread_t    pthread_t
@@ -46,10 +50,16 @@
 /* real code below */
 
 /* functions */
+#ifdef _POSIX_BARRIERS
 int ggc_barrier_wait(void *barrier); /* void because some configurations don't have pthread_barrier_t */
+#endif
 int ggc_mutex_lock(ggc_mutex_t *mutex);
 int ggc_sem_wait(ggc_sem_t *sem);
 int ggc_thread_create(ggc_thread_t *thread, void (*func)(struct ThreadArg__ggggc_struct *), struct ThreadArg__ggggc_struct *arg);
 int ggc_thread_join(ggc_thread_t thread);
+
+#ifndef _POSIX_BARRIERS
+#include "gen-barriers.h"
+#endif
 
 #endif
