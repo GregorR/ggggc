@@ -2,6 +2,10 @@ language: c
 
 script: ./tests/test.sh
 
+os:
+    - linux
+    - osx
+
 sudo: false
 
 notifications:
