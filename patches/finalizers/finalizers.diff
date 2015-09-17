@@ -1,10 +1,10 @@
 # HG changeset patch
-# Parent 6ffdc0f377c28100ca1a9c0fa2d33c423a7455f0
+# Parent c78ec4b9aaf702cf9958431d5706ebd224847162
 Implementation of finalizers, as a standard list over appropriate pools to be searched after the initial trace.
 
-diff -r 6ffdc0f377c2 allocate.c
---- a/allocate.c	Wed Jun 17 19:53:47 2015 -0400
-+++ b/allocate.c	Wed Jun 17 22:49:58 2015 -0400
+diff -r c78ec4b9aaf7 allocate.c
+--- a/allocate.c	Thu Sep 17 13:48:56 2015 -0400
++++ b/allocate.c	Thu Sep 17 13:52:51 2015 -0400
 @@ -461,6 +461,47 @@
      return ggggc_malloc(ggggc_allocateDescriptorSlot(slot));
  }
@@ -26,7 +26,7 @@ diff -r 6ffdc0f377c2 allocate.c
 +
 +    /* add it to the list */
 +    pool = GGGGC_POOL_OF(entry);
-+    next = pool->finalizers;
++    next = (GGGGC_FinalizerEntry) pool->finalizers;
 +    GGC_WP(entry, next, next);
 +    pool->finalizers = entry;
 +}
@@ -53,9 +53,9 @@ diff -r 6ffdc0f377c2 allocate.c
  #ifdef __cplusplus
  }
  #endif
-diff -r 6ffdc0f377c2 collect.c
---- a/collect.c	Wed Jun 17 19:53:47 2015 -0400
-+++ b/collect.c	Wed Jun 17 22:49:58 2015 -0400
+diff -r c78ec4b9aaf7 collect.c
+--- a/collect.c	Thu Sep 17 13:48:56 2015 -0400
++++ b/collect.c	Thu Sep 17 13:52:51 2015 -0400
 @@ -29,7 +29,7 @@
  #endif
  
@@ -301,9 +301,9 @@ diff -r 6ffdc0f377c2 collect.c
  }
  
  /* determine the size of every contiguous chunk of used or unused space in this
-diff -r 6ffdc0f377c2 ggggc-internals.h
---- a/ggggc-internals.h	Wed Jun 17 19:53:47 2015 -0400
-+++ b/ggggc-internals.h	Wed Jun 17 22:49:58 2015 -0400
+diff -r c78ec4b9aaf7 ggggc-internals.h
+--- a/ggggc-internals.h	Thu Sep 17 13:48:56 2015 -0400
++++ b/ggggc-internals.h	Thu Sep 17 13:52:51 2015 -0400
 @@ -92,6 +92,19 @@
  /* and a lock for the descriptor descriptors */
  extern ggc_mutex_t ggggc_descriptorDescriptorsLock;
@@ -324,9 +324,9 @@ diff -r 6ffdc0f377c2 ggggc-internals.h
  #ifdef __cplusplus
  }
  #endif
-diff -r 6ffdc0f377c2 ggggc/gc.h
---- a/ggggc/gc.h	Wed Jun 17 19:53:47 2015 -0400
-+++ b/ggggc/gc.h	Wed Jun 17 22:49:58 2015 -0400
+diff -r c78ec4b9aaf7 ggggc/gc.h
+--- a/ggggc/gc.h	Thu Sep 17 13:48:56 2015 -0400
++++ b/ggggc/gc.h	Thu Sep 17 13:52:51 2015 -0400
 @@ -111,6 +111,9 @@
      /* pointer to the break table (used only during collection) */
      void *breakTable;
