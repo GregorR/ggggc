@@ -1,10 +1,10 @@
 # HG changeset patch
-# Parent c78ec4b9aaf702cf9958431d5706ebd224847162
+# Parent 7eece3a5f4f331ad6bfe73b99dc3258822a2f32f
 Implementation of finalizers, as a standard list over appropriate pools to be searched after the initial trace.
 
-diff -r c78ec4b9aaf7 allocate.c
---- a/allocate.c	Thu Sep 17 13:48:56 2015 -0400
-+++ b/allocate.c	Thu Sep 17 13:52:51 2015 -0400
+diff -r 7eece3a5f4f3 allocate.c
+--- a/allocate.c	Thu Sep 17 13:53:08 2015 -0400
++++ b/allocate.c	Thu Sep 17 13:59:11 2015 -0400
 @@ -461,6 +461,47 @@
      return ggggc_malloc(ggggc_allocateDescriptorSlot(slot));
  }
@@ -53,9 +53,9 @@ diff -r c78ec4b9aaf7 allocate.c
  #ifdef __cplusplus
  }
  #endif
-diff -r c78ec4b9aaf7 collect.c
---- a/collect.c	Thu Sep 17 13:48:56 2015 -0400
-+++ b/collect.c	Thu Sep 17 13:52:51 2015 -0400
+diff -r 7eece3a5f4f3 collect.c
+--- a/collect.c	Thu Sep 17 13:53:08 2015 -0400
++++ b/collect.c	Thu Sep 17 13:59:11 2015 -0400
 @@ -29,7 +29,7 @@
  #endif
  
@@ -81,7 +81,7 @@ diff -r c78ec4b9aaf7 collect.c
 +        nextFinalizer = finalizer->next__ptr; \
 +        \
 +        /* grab the object */ \
-+        obj = finalizer->obj__ptr; \
++        obj = (struct GGGGC_Header *) finalizer->obj__ptr; \
 +        if (IS_FORWARDED_OBJECT(obj)) { \
 +            /* it survived, keep the finalizer */ \
 +            finalizer->next__ptr = survivingFinalizers; \
@@ -104,7 +104,7 @@ diff -r c78ec4b9aaf7 collect.c
 +#define PRESERVE_FINALIZERS() do { \
 +    if (survivingFinalizers) { \
 +        poolCur = GGGGC_POOL_OF(survivingFinalizers); \
-+        survivingFinalizersTail->next__ptr = poolCur->finalizers; \
++        survivingFinalizersTail->next__ptr = (GGGGC_FinalizerEntry) poolCur->finalizers; \
 +        poolCur->finalizers = survivingFinalizers; \
 +    } \
 +} while (0)
@@ -280,7 +280,7 @@ diff -r c78ec4b9aaf7 collect.c
 +    if (finalizer) { \
 +        void *ptr = (void *) (finalizer); \
 +        FOLLOW_COMPACTED_OBJECT(ptr); \
-+        (finalizer) = ptr; \
++        (finalizer) = (GGGGC_FinalizerEntry) ptr; \
 +    } \
 +} while(0)
 +    F(survivingFinalizers);
@@ -301,9 +301,9 @@ diff -r c78ec4b9aaf7 collect.c
  }
  
  /* determine the size of every contiguous chunk of used or unused space in this
-diff -r c78ec4b9aaf7 ggggc-internals.h
---- a/ggggc-internals.h	Thu Sep 17 13:48:56 2015 -0400
-+++ b/ggggc-internals.h	Thu Sep 17 13:52:51 2015 -0400
+diff -r 7eece3a5f4f3 ggggc-internals.h
+--- a/ggggc-internals.h	Thu Sep 17 13:53:08 2015 -0400
++++ b/ggggc-internals.h	Thu Sep 17 13:59:11 2015 -0400
 @@ -92,6 +92,19 @@
  /* and a lock for the descriptor descriptors */
  extern ggc_mutex_t ggggc_descriptorDescriptorsLock;
@@ -324,9 +324,9 @@ diff -r c78ec4b9aaf7 ggggc-internals.h
  #ifdef __cplusplus
  }
  #endif
-diff -r c78ec4b9aaf7 ggggc/gc.h
---- a/ggggc/gc.h	Thu Sep 17 13:48:56 2015 -0400
-+++ b/ggggc/gc.h	Thu Sep 17 13:52:51 2015 -0400
+diff -r 7eece3a5f4f3 ggggc/gc.h
+--- a/ggggc/gc.h	Thu Sep 17 13:53:08 2015 -0400
++++ b/ggggc/gc.h	Thu Sep 17 13:59:11 2015 -0400
 @@ -111,6 +111,9 @@
      /* pointer to the break table (used only during collection) */
      void *breakTable;
