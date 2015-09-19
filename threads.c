@@ -137,6 +137,9 @@ void ggc_post_blocking()
 #if defined(GGGGC_THREADS_POSIX)
 #include "threads-posix.c"
 
+#elif defined(GGGGC_THREADS_MACOSX)
+#include "threads-macosx.c"
+
 #elif defined(GGGGC_THREADS_WINDOWS)
 #include "threads-windows.c"
 

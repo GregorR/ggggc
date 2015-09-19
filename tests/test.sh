@@ -2,6 +2,12 @@
 cd "`dirname $0`"/..
 set -e
 
+GGGGC_LIBS="../libggggc.a -pthread"
+if [ `uname` = "Darwin" ]
+then
+    GGGGC_LIBS=../libggggc.a
+fi
+
 eRun() {
     echo "$@"
     "$@"
@@ -19,7 +25,7 @@ doTests() {
     cd tests
     make clean
     make btggggc btggggcth badlll ggggcbench \
-        CC="$2" ECFLAGS="$3"
+        CC="$2" ECFLAGS="$3" GGGGC_LIBS="$GGGGC_LIBS"
 
     eRun ./btggggc 16
     eRun ./btggggcth 16

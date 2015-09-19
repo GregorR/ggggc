@@ -355,7 +355,7 @@ extern ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_po
 static inline void ggggc_pop(void *i) {
     GGGGC_POP();
 }
-#define GGGGC_LOCAL_PUSH void * __attribute__((cleanup(ggggc_pop))) ggggc_localPush;
+#define GGGGC_LOCAL_PUSH void * __attribute__((cleanup(ggggc_pop))) __attribute__((unused)) ggggc_localPush = NULL;
 #define GGC_POP() do {} while(0)
 
 #elif defined(__cplusplus)

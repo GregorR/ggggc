@@ -17,6 +17,7 @@
  */
 
 #define _BSD_SOURCE /* for MAP_ANON */
+#define _DARWIN_C_SOURCE /* for MAP_ANON on OS X */
 
 /* for standards info */
 #if defined(unix) || defined(__unix) || defined(__unix__) || \

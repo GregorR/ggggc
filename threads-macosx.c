@@ -1,5 +1,5 @@
 /*
- * Thread functionality for pthreads
+ * Thread support for Mac OS X's awful almost-pthreads
  *
  * Copyright (c) 2014, 2015 Gregor Richards
  *
@@ -29,14 +29,37 @@ int func \
 }
 
 BLOCKING(
-    ggc_barrier_wait(void *barrier),
-    pthread_barrier_wait((pthread_barrier_t *) barrier)
-)
-
-BLOCKING(
     ggc_mutex_lock(ggc_mutex_t *mutex),
     pthread_mutex_lock(mutex)
 )
+
+int ggc_sem_destroy(ggc_sem_t *sem)
+{
+    dispatch_release(*sem);
+    return 0;
+}
+
+int ggc_sem_init(ggc_sem_t *sem, unsigned int value)
+{
+    *sem = dispatch_semaphore_create(value);
+    return (*sem ? 0 : -1);
+}
+
+int ggc_sem_post(ggc_sem_t *sem)
+{
+    dispatch_semaphore_signal(*sem);
+    return 0;
+}
+
+BLOCKING(
+    ggc_sem_wait(ggc_sem_t *sem),
+    ggc_sem_wait_raw(sem)
+)
+
+int ggc_sem_wait_raw(ggc_sem_t *sem)
+{
+    return dispatch_semaphore_wait(*sem, DISPATCH_TIME_FOREVER);
+}
 
 int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg arg)
 {
@@ -68,3 +91,5 @@ BLOCKING(
     ggc_thread_join(ggc_thread_t thread),
     pthread_join(thread, NULL)
 )
+
+#include "gen-barriers.c"

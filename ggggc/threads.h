@@ -22,6 +22,10 @@ struct ThreadArg__ggggc_struct;
 #if defined(GGGGC_NO_THREADS)
 #include "threads-none.h"
 
+#elif defined(__APPLE__) && defined(__MACH__)
+#define GGGGC_THREADS_MACOSX 1
+#include "threads-macosx.h"
+
 #elif defined(_POSIX_THREADS)
 #define GGGGC_THREADS_POSIX 1
 #include "threads-posix.h"
