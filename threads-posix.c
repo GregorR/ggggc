@@ -28,10 +28,12 @@ int func \
     return ret; \
 }
 
+#if _POSIX_BARRIERS
 BLOCKING(
     ggc_barrier_wait(void *barrier),
     pthread_barrier_wait((pthread_barrier_t *) barrier)
 )
+#endif
 
 BLOCKING(
     ggc_mutex_lock(ggc_mutex_t *mutex),
@@ -68,3 +70,7 @@ BLOCKING(
     ggc_thread_join(ggc_thread_t thread),
     pthread_join(thread, NULL)
 )
+
+#if !_POSIX_BARRIERS
+#include "gen-barriers.c"
+#endif
