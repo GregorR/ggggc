@@ -149,6 +149,29 @@ following definitions are available:
    be set explicitly to avoid the preprocessor warning in this case.
 
 
+Portability
+===========
+
+GGGGC should work on any conforming POSIX system. It also works on Windows, in
+true Windows mode (e.g. Microsoft Visual Studio or MingW) or POSIX mode with
+Cygwin. 32- and 64-bit systems are supported. GGGGC configures itself to the
+target system by feature macros, such as `_POSIX_VERSION` for POSIX and
+`_WIN32` for windows, and thus requires no `configure` script or similar.
+
+Most components of GGGGC are intrinsically portable and should not require
+modification to support a new platform. The two components that are unportable
+are the OS-level allocator (see the beginning of `allocate.c`, which includes
+e.g. `allocate-mmap.c`) and thread support. If no thread support is needed, it
+can be excluded with the configuration macro GGGGC_NO_THREADS. Otherwise, new
+thread intrinsics can be added in `ggggc/threads.h` and `threads.c`. For
+OS-level allocation, Iif nothing else suffices, `malloc` can be used, but this
+is extremely wasteful.
+
+Support for true 16-bit systems is likely infeasible. 16-bit systems compiling
+in "huge mode" (i.e., with 32-bit data pointers) should be supported with
+little effort beyond reducing the default pool size.
+
+
 Patching
 ========
 
