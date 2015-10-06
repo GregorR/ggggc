@@ -331,14 +331,14 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(ggc_size_t size)
     ddSize = GGGGC_WORD_SIZEOF(struct GGGGC_Descriptor) + GGGGC_DESCRIPTOR_WORDS_REQ(size);
 
     /* check if we already have a descriptor */
-    if (ggggc_descriptorDescriptors[ddSize])
-        return ggggc_descriptorDescriptors[ddSize];
+    if (ggggc_descriptorDescriptors[size])
+        return ggggc_descriptorDescriptors[size];
 
     /* otherwise, need to allocate one. First lock the space */
     ggc_mutex_lock_raw(&ggggc_descriptorDescriptorsLock);
-    if (ggggc_descriptorDescriptors[ddSize]) {
+    if (ggggc_descriptorDescriptors[size]) {
         ggc_mutex_unlock(&ggggc_descriptorDescriptorsLock);
-        return ggggc_descriptorDescriptors[ddSize];
+        return ggggc_descriptorDescriptors[size];
     }
 
     /* now make a temporary descriptor to describe the descriptor descriptor */
@@ -354,9 +354,9 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(ggc_size_t size)
     ret->pointers[0] = GGGGC_DESCRIPTOR_DESCRIPTION;
 
     /* put it in the list */
-    ggggc_descriptorDescriptors[ddSize] = ret;
+    ggggc_descriptorDescriptors[size] = ret;
     ggc_mutex_unlock(&ggggc_descriptorDescriptorsLock);
-    GGC_PUSH_1(ggggc_descriptorDescriptors[ddSize]);
+    GGC_PUSH_1(ggggc_descriptorDescriptors[size]);
     GGC_GLOBALIZE();
 
     /* and give it a proper descriptor */
