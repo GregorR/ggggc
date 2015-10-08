@@ -133,7 +133,7 @@ struct GGGGC_Descriptor {
     void *user__ptr; /* for the user to use however they please */
     ggc_size_t size; /* size of the described object in words */
     ggc_size_t pointers[1]; /* location of pointers within the object (as a special
-                         * case, if pointers[0]|1==0, this means "no pointers") */
+                         * case, if pointers[0]&1==0, this means "no pointers") */
 };
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
 #define GGGGC_DESCRIPTOR_DESCRIPTION 0x5 /* first and third words are pointers */
