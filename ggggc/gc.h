@@ -135,8 +135,8 @@ struct GGGGC_Descriptor {
     ggc_size_t pointers[1]; /* location of pointers within the object (as a special
                          * case, if pointers[0]&1==0, this means "no pointers") */
 };
-#define GGGGC_DESCRIPTOR_DESCRIPTION (((ggc_size_t)1<<((ggc_size_t) (void *) &((struct GGGGC_Header *) 0)->descriptor__ptr))|\
-                                      ((ggc_size_t)1<<((ggc_size_t) (void *) &((struct GGGGC_Descriptor *) 0)->user__ptr))) 
+#define GGGGC_DESCRIPTOR_DESCRIPTION (((ggc_size_t)1<<(((ggc_size_t) (void *) &((struct GGGGC_Header *) 0)->descriptor__ptr)/sizeof(ggc_size_t)))|\
+                                      ((ggc_size_t)1<<(((ggc_size_t) (void *) &((struct GGGGC_Descriptor *) 0)->user__ptr)/sizeof(ggc_size_t)))) 
 #define GGGGC_DESCRIPTOR_WORDS_REQ(sz) (((sz) + GGGGC_BITS_PER_WORD - 1) / GGGGC_BITS_PER_WORD)
 
 /* descriptor slots are global locations where descriptors may eventually be

@@ -419,11 +419,8 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(ggc_size_t size)
 
     /* get rid of non-pointers */
     pointers[0] &= ~(
-#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
-        0x6
-#else
-        0x4
-#endif
+        ((ggc_size_t)1<<(((ggc_size_t) (void *) &((struct GGGGC_Header *) 0)->descriptor__ptr)/sizeof(ggc_size_t))) |
+        ((ggc_size_t)1<<((((ggc_size_t) (void *) &((GGC_voidpArray) 0)->length)/sizeof(ggc_size_t))))
         );
 
     /* and allocate */
