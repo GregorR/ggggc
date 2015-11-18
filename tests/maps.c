@@ -7,11 +7,11 @@
 
 GGC_TYPE(Key)
     GGC_MDATA(size_t, key);
-GGC_END_TYPE(Key, GGC_NO_PTRS);
+GGC_END_TYPE(Key, GGC_NO_PTRS)
 
 GGC_TYPE(Value)
     GGC_MDATA(int, value);
-GGC_END_TYPE(Value, GGC_NO_PTRS);
+GGC_END_TYPE(Value, GGC_NO_PTRS)
 
 static size_t hash(Key key)
 {

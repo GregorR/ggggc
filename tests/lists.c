@@ -8,7 +8,7 @@
 GGC_TYPE(Thing)
     GGC_MDATA(int, a);
     GGC_MDATA(int, b);
-GGC_END_TYPE(Thing, GGC_NO_PTRS);
+GGC_END_TYPE(Thing, GGC_NO_PTRS)
 
 GGC_LIST(Thing)
 

@@ -21,7 +21,10 @@ GCBENCHOBJS=gc_bench/GCBench.o
 
 GGGGCBENCHOBJS=gc_bench/GCBench.ggggc.o
 
-all: bt btgc btggggc btggggcth badlll gcbench ggggcbench
+LISTSOBJS=lists.o
+MAPSOBJS=maps.o
+
+all: bt btgc btggggc btggggcth badlll gcbench ggggcbench lists maps
 
 bt: $(BTOBJS)
 	$(LD) $(CFLAGS) $(LDFLAGS) $(BTOBJS) $(LIBS) -o bt
@@ -47,6 +50,12 @@ gcbench: $(GCBENCHOBJS)
 ggggcbench: $(GGGGCBENCHOBJS)
 	$(LD) $(CFLAGS) $(LDFLAGS) $(GGGGCBENCHOBJS) $(GGGGC_LIBS) $(LIBS) -o ggggcbench
 
+lists: $(LISTSOBJS)
+	$(LD) $(CFLAGS) $(LDFLAGS) $(LISTSOBJS) $(GGGGC_LIBS) $(LIBS) -o lists
+
+maps: $(MAPSOBJS)
+	$(LD) $(CFLAGS) $(LDFLAGS) $(MAPSOBJS) $(GGGGC_LIBS) $(LIBS) -o maps
+
 .SUFFIXES: .c .o
 
 .c.o:
@@ -61,3 +70,5 @@ clean:
 	rm -f $(REMEMBEROBJS) remember
 	rm -f $(GCBENCHOBJS) gcbench
 	rm -f $(GGGGCBENCHOBJS) ggggcbench
+	rm -f $(LISTSOBJS) lists
+	rm -f $(MAPSOBJS) maps

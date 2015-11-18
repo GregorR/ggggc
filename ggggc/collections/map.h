@@ -71,14 +71,14 @@ GGC_END_TYPE(name ## Entry, \
     GGC_PTR(name ## Entry, next) \
     GGC_PTR(name ## Entry, key) \
     GGC_PTR(name ## Entry, value) \
-    ); \
+    ) \
 GGC_TYPE(name) \
     GGC_MDATA(ggc_size_t, size); \
     GGC_MDATA(ggc_size_t, used); \
     GGC_MPTR(name ## EntryArray, entries); \
 GGC_END_TYPE(name, \
     GGC_PTR(name, entries) \
-    ); \
+    ) \
 static int name ## Get(name map, typeK key, typeV *value) \
 { \
     return GGC_MapGet((GGC_Map) map, key, (void **) value, \

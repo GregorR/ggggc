@@ -71,7 +71,7 @@ GGC_TYPE(type ## ListNode) \
 GGC_END_TYPE(type ## ListNode, \
     GGC_PTR(type ## ListNode, next) \
     GGC_PTR(type ## ListNode, el) \
-    ); \
+    ) \
 \
 GGC_TYPE(type ## List) \
     GGC_MDATA(ggc_size_t, length); \
@@ -80,7 +80,7 @@ GGC_TYPE(type ## List) \
 GGC_END_TYPE(type ## List, \
     GGC_PTR(type ## List, head) \
     GGC_PTR(type ## List, tail) \
-    ); \
+    ) \
 \
 static void type ## ListPush(type ## List list, type value) \
 { \

@@ -24,13 +24,15 @@ doTests() {
 
     cd tests
     make clean
-    make btggggc btggggcth badlll ggggcbench \
+    make btggggc btggggcth badlll ggggcbench lists maps \
         CC="$2" ECFLAGS="$3" GGGGC_LIBS="$GGGGC_LIBS"
 
     eRun ./btggggc 16
     eRun ./btggggcth 16
     eRun ./badlll
     eRun ./ggggcbench
+    eRun ./lists
+    eRun ./maps
     )
 }
 
@@ -47,7 +49,7 @@ else
     PATCHES=`ls patches`
     for patch in '' $PATCHES
     do
-        doTests "$patch" gcc '-O0 -g -Wall -Werror -std=c99 -pedantic -Wno-array-bounds -Werror=shadow -DGGGGC_DEBUG_MEMORY_CORRUPTION'
+        doTests "$patch" gcc '-O0 -g -Wall -Werror -std=c99 -pedantic -Wno-array-bounds -Wno-unused-function -Werror=shadow -DGGGGC_DEBUG_MEMORY_CORRUPTION'
         doTests "$patch" gcc ''
         doTests "$patch" g++ ''
         doTests "$patch" gcc '-DGGGGC_NO_GNUC_FEATURES'
