@@ -184,7 +184,7 @@ void ggggc_freeGeneration(struct GGGGC_Pool *pool)
 
 /* allocate an object in generation 0 */
 void *ggggc_mallocGen0(struct GGGGC_Descriptor **descriptor, /* descriptor to protect, if applicable */
-                       size_t size /* size of object to allocate */
+                       ggc_size_t size /* size of object to allocate */
                        ) {
     struct GGGGC_Pool *pool;
     struct GGGGC_Header *ret;
@@ -231,7 +231,7 @@ retry:
 
 #if GGGGC_GENERATIONS > 1
 /* allocate an object in the requested generation > 0 */
-void *ggggc_mallocGen1(size_t size, /* size of object to allocate */
+void *ggggc_mallocGen1(ggc_size_t size, /* size of object to allocate */
                        unsigned char gen /* generation to allocate in */
                        ) {
     struct GGGGC_Pool *pool;

@@ -27,10 +27,10 @@ extern "C" {
 
 /* allocate an object in generation 0, collecting if impossible. Descriptor is
  * for protection only */
-void *ggggc_mallocGen0(struct GGGGC_Descriptor **descriptor, size_t size);
+void *ggggc_mallocGen0(struct GGGGC_Descriptor **descriptor, ggc_size_t size);
 
 /* allocate an object in the requested generation >= 0, returning NULL if impossible */
-void *ggggc_mallocGen1(size_t size, unsigned char gen);
+void *ggggc_mallocGen1(ggc_size_t size, unsigned char gen);
 
 /* heuristically expand a generation if it has too many survivors */
 void ggggc_expandGeneration(struct GGGGC_Pool *pool);
