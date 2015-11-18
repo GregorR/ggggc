@@ -184,8 +184,7 @@ void ggggc_freeGeneration(struct GGGGC_Pool *pool)
 
 /* allocate an object in generation 0 */
 void *ggggc_mallocGen0(struct GGGGC_Descriptor **descriptor, /* descriptor to protect, if applicable */
-                       size_t size, /* size of object to allocate */
-                       int force /* allocate a new pool instead of collecting, if necessary */
+                       size_t size /* size of object to allocate */
                        ) {
     struct GGGGC_Pool *pool;
     struct GGGGC_Header *ret;
@@ -217,12 +216,6 @@ retry:
         ggggc_pool0 = pool = pool->next;
         goto retry;
 
-    } else if (force) {
-        /* get a new pool */
-        pool->next = newPool(0, 1);
-        ggggc_pool0 = pool = pool->next;
-        goto retry;
-
     } else {
         /* need to collect, which means we need to actually be a GC-safe function */
         GGC_PUSH_1(*descriptor);
@@ -239,8 +232,7 @@ retry:
 #if GGGGC_GENERATIONS > 1
 /* allocate an object in the requested generation > 0 */
 void *ggggc_mallocGen1(size_t size, /* size of object to allocate */
-                       unsigned char gen, /* generation to allocate in */
-                       int force /* allocate a new pool instead of collecting, if necessary */
+                       unsigned char gen /* generation to allocate in */
                        ) {
     struct GGGGC_Pool *pool;
     struct GGGGC_Header *ret;
@@ -276,12 +268,6 @@ retry:
         ggggc_pools[gen] = pool = pool->next;
         goto retry;
 
-    } else if (force) {
-        /* get a new pool */
-        pool->next = newPool(gen, 1);
-        ggggc_pools[gen] = pool = pool->next;
-        goto retry;
-
     } else {
         /* failed to allocate */
         return NULL;
@@ -295,7 +281,7 @@ retry:
 /* allocate an object */
 void *ggggc_malloc(struct GGGGC_Descriptor *descriptor)
 {
-    struct GGGGC_Header *ret = (struct GGGGC_Header *) ggggc_mallocGen0(&descriptor, descriptor->size, 0);
+    struct GGGGC_Header *ret = (struct GGGGC_Header *) ggggc_mallocGen0(&descriptor, descriptor->size);
     ret->descriptor__ptr = descriptor;
     return ret;
 }
@@ -349,7 +335,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(ggc_size_t size)
     }
 
     /* allocate the descriptor descriptor */
-    ret = (struct GGGGC_Descriptor *) ggggc_mallocGen0(&ddd, ddSize, 1);
+    ret = (struct GGGGC_Descriptor *) ggggc_mallocGen0(&ddd, ddSize);
 
     /* make it correct */
     if (ddSize != size)
@@ -395,7 +381,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_si
     dd = ggggc_allocateDescriptorDescriptor(dSize);
 
     /* use that to allocate the descriptor */
-    ret = (struct GGGGC_Descriptor *) ggggc_mallocGen0(&dd, dd->size, 1);
+    ret = (struct GGGGC_Descriptor *) ggggc_mallocGen0(&dd, dd->size);
     ret->header.descriptor__ptr = dd;
     ret->size = size;
 

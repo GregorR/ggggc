@@ -348,7 +348,7 @@ collect:
             GGGGC_POOL_OF(obj)->survivors += descriptor->size;
 
             /* allocate in the new generation */
-            nobj = (struct GGGGC_Header *) ggggc_mallocGen1(descriptor->size, gen + 1, (gen == GGGGC_GENERATIONS-1));
+            nobj = (struct GGGGC_Header *) ggggc_mallocGen1(descriptor->size, gen + 1);
             if (!nobj) {
                 /* failed to allocate, need to collect gen+1 too */
                 gen += 1;
