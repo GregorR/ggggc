@@ -183,7 +183,8 @@ void ggggc_freeGeneration(struct GGGGC_Pool *pool)
  * the 0 case */
 
 /* allocate an object in generation 0 */
-void *ggggc_mallocGen0(struct GGGGC_Descriptor *descriptor, /* the object to allocate */
+void *ggggc_mallocGen0(struct GGGGC_Descriptor **descriptor, /* descriptor to protect, if applicable */
+                       size_t size, /* size of object to allocate */
                        int force /* allocate a new pool instead of collecting, if necessary */
                        ) {
     struct GGGGC_Pool *pool;
@@ -198,19 +199,19 @@ retry:
     }
 
     /* do we have enough space? */
-    if (pool->end - pool->free >= descriptor->size) {
+    if (pool->end - pool->free >= size) {
         /* good, allocate here */
         ret = (struct GGGGC_Header *) pool->free;
-        pool->free += descriptor->size;
+        pool->free += size;
 
-        /* set its descriptor (no need for write barrier, as this is generation 0) */
-        ret->descriptor__ptr = descriptor;
+        ret->descriptor__ptr = NULL;
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+        /* set its canary */
         ret->ggggc_memoryCorruptionCheck = GGGGC_MEMORY_CORRUPTION_VAL;
 #endif
 
         /* and clear the rest (necessary since this goes to the untrusted mutator) */
-        memset(ret + 1, 0, descriptor->size * sizeof(ggc_size_t) - sizeof(struct GGGGC_Header));
+        memset(ret + 1, 0, size * sizeof(ggc_size_t) - sizeof(struct GGGGC_Header));
 
     } else if (pool->next) {
         ggggc_pool0 = pool = pool->next;
@@ -224,7 +225,7 @@ retry:
 
     } else {
         /* need to collect, which means we need to actually be a GC-safe function */
-        GGC_PUSH_1(descriptor);
+        GGC_PUSH_1(*descriptor);
         ggggc_collect0(0);
         GGC_POP();
         pool = ggggc_pool0;
@@ -237,7 +238,7 @@ retry:
 
 #if GGGGC_GENERATIONS > 1
 /* allocate an object in the requested generation > 0 */
-void *ggggc_mallocGen1(struct GGGGC_Descriptor *descriptor, /* descriptor for object */
+void *ggggc_mallocGen1(size_t size, /* size of object to allocate */
                        unsigned char gen, /* generation to allocate in */
                        int force /* allocate a new pool instead of collecting, if necessary */
                        ) {
@@ -253,12 +254,12 @@ retry:
     }
 
     /* do we have enough space? */
-    if (pool->end - pool->free >= descriptor->size) {
+    if (pool->end - pool->free >= size) {
         ggc_size_t retCard, freeCard;
 
         /* good, allocate here */
         ret = (struct GGGGC_Header *) pool->free;
-        pool->free += descriptor->size;
+        pool->free += size;
         retCard = GGGGC_CARD_OF(ret);
         freeCard = GGGGC_CARD_OF(pool->free);
 
@@ -294,7 +295,9 @@ retry:
 /* allocate an object */
 void *ggggc_malloc(struct GGGGC_Descriptor *descriptor)
 {
-    return ggggc_mallocGen0(descriptor, 0);
+    struct GGGGC_Header *ret = (struct GGGGC_Header *) ggggc_mallocGen0(&descriptor, descriptor->size, 0);
+    ret->descriptor__ptr = descriptor;
+    return ret;
 }
 
 struct GGGGC_Array {
@@ -324,15 +327,19 @@ void *ggggc_mallocDataArray(ggc_size_t nmemb, ggc_size_t size)
 /* allocate a descriptor-descriptor for a descriptor of the given size */
 struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(ggc_size_t size)
 {
-    struct GGGGC_Descriptor tmpDescriptor, *ret;
+    struct GGGGC_Descriptor *ret, *ddd = NULL;
     ggc_size_t ddSize;
-
-    /* need one description bit for every word in the object */
-    ddSize = GGGGC_WORD_SIZEOF(struct GGGGC_Descriptor) + GGGGC_DESCRIPTOR_WORDS_REQ(size);
 
     /* check if we already have a descriptor */
     if (ggggc_descriptorDescriptors[size])
         return ggggc_descriptorDescriptors[size];
+
+    /* need one description bit for every word in the object */
+    ddSize = GGGGC_WORD_SIZEOF(struct GGGGC_Descriptor) + GGGGC_DESCRIPTOR_WORDS_REQ(size);
+
+    /* get our descriptor-descriptor-descriptor first */
+    if (ddSize != size)
+        ddd = ggggc_allocateDescriptorDescriptor(ddSize);
 
     /* otherwise, need to allocate one. First lock the space */
     ggc_mutex_lock_raw(&ggggc_descriptorDescriptorsLock);
@@ -341,15 +348,14 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(ggc_size_t size)
         return ggggc_descriptorDescriptors[size];
     }
 
-    /* now make a temporary descriptor to describe the descriptor descriptor */
-    tmpDescriptor.header.descriptor__ptr = NULL;
-    tmpDescriptor.size = ddSize;
-    tmpDescriptor.pointers[0] = GGGGC_DESCRIPTOR_DESCRIPTION;
-
     /* allocate the descriptor descriptor */
-    ret = (struct GGGGC_Descriptor *) ggggc_mallocGen0(&tmpDescriptor, 1);
+    ret = (struct GGGGC_Descriptor *) ggggc_mallocGen0(&ddd, ddSize, 1);
 
     /* make it correct */
+    if (ddSize != size)
+        ret->header.descriptor__ptr = ddd;
+    else
+        ret->header.descriptor__ptr = ret;
     ret->size = size;
     ret->pointers[0] = GGGGC_DESCRIPTOR_DESCRIPTION;
 
@@ -358,9 +364,6 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(ggc_size_t size)
     ggc_mutex_unlock(&ggggc_descriptorDescriptorsLock);
     GGC_PUSH_1(ggggc_descriptorDescriptors[size]);
     GGC_GLOBALIZE();
-
-    /* and give it a proper descriptor */
-    ret->header.descriptor__ptr = ggggc_allocateDescriptorDescriptor(ddSize);
 
     return ret;
 }
@@ -392,7 +395,8 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_si
     dd = ggggc_allocateDescriptorDescriptor(dSize);
 
     /* use that to allocate the descriptor */
-    ret = (struct GGGGC_Descriptor *) ggggc_mallocGen0(dd, 1);
+    ret = (struct GGGGC_Descriptor *) ggggc_mallocGen0(&dd, dd->size, 1);
+    ret->header.descriptor__ptr = dd;
     ret->size = size;
 
     /* and set it up */
@@ -445,12 +449,12 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlo
     }
 
     slot->descriptor = ggggc_allocateDescriptor(slot->size, slot->pointers);
+    ggc_mutex_unlock(&slot->lock);
 
     /* make the slot descriptor a root */
     GGC_PUSH_1(slot->descriptor);
     GGC_GLOBALIZE();
 
-    ggc_mutex_unlock(&slot->lock);
     return slot->descriptor;
 }
 
