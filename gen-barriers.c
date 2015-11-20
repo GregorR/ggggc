@@ -26,7 +26,8 @@ int ggc_barrier_init(ggc_barrier_t *barrier, unsigned long ct)
     barrier->lock = GGC_MUTEX_INITIALIZER;
     barrier->cur = 0;
     barrier->ct = ct;
-    ggc_sem_init(&barrier->waiters, ct - 1);
+    ggc_sem_init(&barrier->waiters, 0);
+    ggc_sem_init(&barrier->leader, 0);
     return 0;
 }
 
@@ -39,7 +40,10 @@ int ggc_barrier_wait_raw(ggc_barrier_t *barrier)
         unsigned long i;
 
         /* signal all the others */
-        for (i = 0; i < barrier->ct; i++) ggc_sem_post(&barrier->waiters);
+        for (i = 0; i < barrier->cur; i++) ggc_sem_post(&barrier->waiters);
+
+        /* wait for them to wake up */
+        for (i = 0; i < barrier->cur; i++) ggc_sem_wait_raw(&barrier->leader);
 
         /* and reset the barrier */
         barrier->cur = 0;
@@ -51,6 +55,7 @@ int ggc_barrier_wait_raw(ggc_barrier_t *barrier)
     barrier->cur++;
     ggc_mutex_unlock(&barrier->lock);
     ggc_sem_wait_raw(&barrier->waiters);
+    ggc_sem_post(&barrier->leader);
 
     return 0;
 }

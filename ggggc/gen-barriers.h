@@ -23,6 +23,7 @@ typedef struct ggggc_barrier_t_ {
     ggc_mutex_t lock;
     unsigned long cur, ct;
     ggc_sem_t waiters;
+    ggc_sem_t leader;
 } ggc_barrier_t;
 
 int ggc_barrier_destroy(ggc_barrier_t *barrier);
