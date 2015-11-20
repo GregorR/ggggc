@@ -22,7 +22,7 @@ static void *allocPool(int mustSucceed)
     struct GGGGC_Pool *ret;
 
     /* allocate enough space that we can align it later */
-    space = mmap(NULL, GGGGC_POOL_BYTES*2, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
+    space = (unsigned char *) mmap(NULL, GGGGC_POOL_BYTES*2, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
     if (space == NULL) {
         if (mustSucceed) {
             perror("mmap");
