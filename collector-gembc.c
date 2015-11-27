@@ -31,14 +31,13 @@
 extern "C" {
 #endif
 
-/* NOTE: there is code duplication between ggggc_mallocGen0 and
- * ggggc_mallocGenN because I can't trust a compiler to inline and optimize for
- * the 0 case */
+/* NOTE: there is code duplication between ggggc_malloc and ggggc_mallocGen1
+ * because I can't trust a compiler to inline and optimize for the 0 case */
 
 /* allocate an object in generation 0 */
-void *ggggc_mallocGen0(struct GGGGC_Descriptor **descriptor, /* descriptor to protect, if applicable */
-                       ggc_size_t size /* size of object to allocate */
-                       ) {
+void *ggggc_mallocRaw(struct GGGGC_Descriptor **descriptor, /* descriptor to protect, if applicable */
+                      ggc_size_t size /* size of object to allocate */
+                      ) {
     struct GGGGC_Pool *pool;
     struct GGGGC_Header *ret;
 
@@ -134,7 +133,7 @@ retry:
 /* allocate an object */
 void *ggggc_malloc(struct GGGGC_Descriptor *descriptor)
 {
-    struct GGGGC_Header *ret = (struct GGGGC_Header *) ggggc_mallocGen0(&descriptor, descriptor->size);
+    struct GGGGC_Header *ret = (struct GGGGC_Header *) ggggc_mallocRaw(&descriptor, descriptor->size);
     ret->descriptor__ptr = descriptor;
     return ret;
 }

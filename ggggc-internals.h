@@ -25,12 +25,9 @@
 extern "C" {
 #endif
 
-/* allocate an object in generation 0, collecting if impossible. Descriptor is
- * for protection only */
-void *ggggc_mallocGen0(struct GGGGC_Descriptor **descriptor, ggc_size_t size);
-
-/* allocate an object in the requested generation >= 0, returning NULL if impossible */
-void *ggggc_mallocGen1(ggc_size_t size, unsigned char gen);
+/* allocate an object, collecting if impossible. Descriptor is for protection
+ * only */
+void *ggggc_mallocRaw(struct GGGGC_Descriptor **descriptor, ggc_size_t size);
 
 /* allocate and initialize a pool */
 struct GGGGC_Pool *ggggc_newPool(unsigned char gen, int mustSucceed);

@@ -229,7 +229,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(ggc_size_t size)
     }
 
     /* allocate the descriptor descriptor */
-    ret = (struct GGGGC_Descriptor *) ggggc_mallocGen0(&ddd, ddSize);
+    ret = (struct GGGGC_Descriptor *) ggggc_mallocRaw(&ddd, ddSize);
 
     /* make it correct */
     if (ddSize != size)
@@ -275,7 +275,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_si
     dd = ggggc_allocateDescriptorDescriptor(dSize);
 
     /* use that to allocate the descriptor */
-    ret = (struct GGGGC_Descriptor *) ggggc_mallocGen0(&dd, dd->size);
+    ret = (struct GGGGC_Descriptor *) ggggc_mallocRaw(&dd, dd->size);
     ret->header.descriptor__ptr = dd;
     ret->size = size;
 
