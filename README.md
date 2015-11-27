@@ -1,6 +1,12 @@
-GGGGC is a precise, generational, copying garbage collector for C. It is not as
+GGGGC is a precise, generational, moving garbage collector for C. It is not as
 general-purpose as a conservative collector (e.g. libgc), but is a good
 starting place for implementing new virtual machines.
+
+GGGGC is also intended to be a garbage collector for learning. The details of
+collection itself are separated from the murkier details of OS-level memory
+management and C/C++ issues, making it a clean environment for studying how
+garbage collection works without being bogged down by language or platform
+details.
 
 To use GGGGC, simply include `ggggc/gc.h` and observe the restrictions it
 enforces on your code. Excluding the threading library, all public API macros
@@ -8,6 +14,19 @@ begin with `GGC_`, and there are no public API functions.
 
 GGGGC is not at present intended to be installed as a system library. Every
 program which needs GGGGC should include it.
+
+
+Learning
+========
+
+GGGGC has been used as a baseline for teaching garbage collection. Simply
+remove the collector implementations, `ggggc/gc-*.h` and `collector-*.h`, and
+optionally replace them with stubs, to create an effective baseline. Depending
+on context, it may also be worthwhile to remove the threading code.
+
+Issues such as OS-specific pool allocation, creating and managing type
+descriptors, thread concerns etc. are handled separately, so students can focus
+on garbage collection, rather than its various tertiary concerns.
 
 
 Types
@@ -108,11 +127,16 @@ Configuration
 Some of GGGGC's behavior is configurable through preprocessor definitions. The
 following definitions are available:
 
+ * `GGGGC_COLLECTOR`: Which collector to use. Presently, only the "gembc"
+   collector (generational, en-masse promotion, break-table compaction) is
+   available, in collector-gembc.c . Setting this to other values will cause
+   the inclusion of `gc-GGGGC_COLLECTOR.h` and `collector-GGGGC_COLLECTOR.c`,
+   which together may implement alternative collection schemes.
+
  * `GGGGC_GENERATIONS`: Sets the number of generations. `GGGGC_GENERATIONS=1`
    will yield a non-generational collector. `GGGGC_GENERATIONS=2` will yield a
    conventional generational collector with a nursery and long-lived pool, and
-   is the default. Higher values yield more generations, which is generally
-   pointless.
+   is the default. Higher values yield more generations.
 
  * `GGGGC_POOL_SIZE`: Sets the size of allocation pools, as a power of two.
    Default is 24 (16MB).
@@ -164,12 +188,12 @@ are the OS-level allocator (see the beginning of `allocate.c`, which includes
 e.g. `allocate-mmap.c`) and thread support. If no thread support is needed, it
 can be excluded with the configuration macro GGGGC_NO_THREADS. Otherwise, new
 thread intrinsics can be added in `ggggc/threads.h` and `threads.c`. For
-OS-level allocation, Iif nothing else suffices, `malloc` can be used, but this
+OS-level allocation, if nothing else suffices, `malloc` can be used, but this
 is extremely wasteful.
 
 Support for true 16-bit systems is likely infeasible. 16-bit systems compiling
-in "huge mode" (i.e., with 32-bit data pointers) should be supported with
-little effort beyond reducing the default pool size.
+in "huge mode" (i.e., with 32-bit data pointers) can be supported with little
+effort beyond reducing the default pool size.
 
 
 Patching
