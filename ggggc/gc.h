@@ -98,6 +98,25 @@ typedef size_t ggc_size_t;
 #define GGGGC_MEMORY_CORRUPTION_VAL 0x0DEFACED
 #endif
 
+/* GC pool (forms a list) */
+struct GGGGC_Pool {
+#ifdef GGGGC_COLLECTOR_POOL_MEMBERS
+    GGGGC_COLLECTOR_POOL_MEMBERS
+#endif
+
+    /* the next pool in this generation */
+    struct GGGGC_Pool *next;
+
+    /* the current free space and end of the pool */
+    ggc_size_t *free, *end;
+
+    /* how much survived the last collection */
+    ggc_size_t survivors;
+
+    /* and the actual content */
+    ggc_size_t start[1];
+};
+
 /* GC header (this shape must be shared by all GC'd objects) */
 struct GGGGC_Header {
     struct GGGGC_Descriptor *descriptor__ptr;

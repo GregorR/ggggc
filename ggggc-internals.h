@@ -30,13 +30,21 @@ extern "C" {
 void *ggggc_mallocRaw(struct GGGGC_Descriptor **descriptor, ggc_size_t size);
 
 /* allocate and initialize a pool */
-struct GGGGC_Pool *ggggc_newPool(unsigned char gen, int mustSucceed);
+struct GGGGC_Pool *ggggc_newPool(int mustSucceed);
 
-/* heuristically expand a generation if it has too many survivors */
-void ggggc_expandGeneration(struct GGGGC_Pool *pool);
+/* allocate and initialize a pool, based on a prototype */
+struct GGGGC_Pool *ggggc_newPoolProto(struct GGGGC_Pool *pool);
+
+/* heuristically expand a pool list if it has too many survivors
+ * poolList: Pool list to expand
+ * newPool: Function to allocate a new pool based on a prototype pool
+ * ratio: As a power of two, portion of pool that should be survivors */
+void ggggc_expandPoolList(struct GGGGC_Pool *poolList,
+                          struct GGGGC_Pool *(*newPool)(struct GGGGC_Pool *),
+                          int ratio);
 
 /* free a generation (used when a thread exits) */
-void ggggc_freeGeneration(struct GGGGC_Pool *pool);
+void ggggc_freeGeneration(struct GGGGC_Pool *proto);
 
 /* run a collection */
 void ggggc_collect0(unsigned char gen);

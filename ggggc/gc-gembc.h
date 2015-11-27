@@ -22,38 +22,32 @@
 
 #define GGGGC_COLLECTOR_GEMBC 1
 
-/* GC pool (forms a list) */
-struct GGGGC_Pool {
-#if GGGGC_GENERATIONS > 1
-    /* the remembered set for this pool. NOTE: It's important this be first to
-     * make assigning to the remembered set take one less operation */
-    unsigned char remember[GGGGC_CARDS_PER_POOL];
-
-    /* the locations of objects within the cards */
-    unsigned short firstObject[GGGGC_CARDS_PER_POOL];
-#endif
-
-    /* the next pool in this generation */
-    struct GGGGC_Pool *next;
-
-    /* the generation of this pool */
-    unsigned char gen;
-
-    /* the current free space and end of the pool */
-    ggc_size_t *free, *end;
-
-    /* how much survived the last collection */
-    ggc_size_t survivors;
-
-    /* size of the break table (in entries, used only during collection) */
-    ggc_size_t breakTableSize;
-
-    /* pointer to the break table (used only during collection) */
+/* pool members */
+#define GGGGC_COLLECTOR_POOL_MEMBERS_BREAK_TABLE \
+    /* size of the break table (in entries, used only during collection) */ \
+    ggc_size_t breakTableSize; \
+    \
+    /* pointer to the break table (used only during collection) */ \
     void *breakTable;
 
-    /* and the actual content */
-    ggc_size_t start[1];
-};
+#if GGGGC_GENERATIONS > 1
+#define GGGGC_COLLECTOR_POOL_MEMBERS \
+    /* the remembered set for this pool. NOTE: It's important this be first to \
+     * make assigning to the remembered set take one less operation */ \
+    unsigned char remember[GGGGC_CARDS_PER_POOL]; \
+    \
+    /* the locations of objects within the cards */ \
+    unsigned short firstObject[GGGGC_CARDS_PER_POOL]; \
+    \
+    /* the generation of this pool */ \
+    unsigned char gen; \
+    \
+    GGGGC_COLLECTOR_POOL_MEMBERS_BREAK_TABLE
+
+#else
+#define GGGGC_COLLECTOR_POOL_MEMBERS GGGGC_COLLECTOR_POOL_MEMBERS_BREAK_TABLE
+
+#endif
 
 /* write barriers */
 #if GGGGC_GENERATIONS > 1

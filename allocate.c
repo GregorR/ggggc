@@ -80,7 +80,7 @@ static ggc_mutex_t freePoolsLock = GGC_MUTEX_INITIALIZER;
 static struct GGGGC_Pool *freePoolsHead, *freePoolsTail;
 
 /* allocate and initialize a pool */
-struct GGGGC_Pool *ggggc_newPool(unsigned char gen, int mustSucceed)
+struct GGGGC_Pool *ggggc_newPool(int mustSucceed)
 {
     struct GGGGC_Pool *ret;
 #ifdef GGGGC_DEBUG_TINY_HEAP
@@ -116,26 +116,27 @@ struct GGGGC_Pool *ggggc_newPool(unsigned char gen, int mustSucceed)
 
     /* set it up */
     ret->next = NULL;
-    ret->gen = gen;
     ret->free = ret->start;
     ret->end = (ggc_size_t *) ((unsigned char *) ret + GGGGC_POOL_BYTES);
-
-#if GGGGC_GENERATIONS > 1
-    /* clear the remembered set */
-    if (gen > 0)
-        memset(ret->remember, 0, GGGGC_CARDS_PER_POOL);
-
-    /* the first object in the first usable card */
-    ret->firstObject[GGGGC_CARD_OF(ret->start)] =
-        (((ggc_size_t) ret->start) & GGGGC_CARD_INNER_MASK) / sizeof(ggc_size_t);
-#endif
 
     return ret;
 }
 
-/* heuristically expand a generation if it has too many survivors */
-void ggggc_expandGeneration(struct GGGGC_Pool *pool)
+/* allocate and initialize a pool based on a prototype */
+struct GGGGC_Pool *ggggc_newPoolProto(struct GGGGC_Pool *proto)
 {
+    return ggggc_newPool(0);
+}
+
+/* heuristically expand a pool list if it has too many survivors
+ * poolList: Pool list to expand
+ * newPool: Function to allocate a new pool based on a prototype pool
+ * ratio: As a power of two, portion of pool that should be survivors */
+void ggggc_expandPoolList(struct GGGGC_Pool *poolList,
+                          struct GGGGC_Pool *(*newPool)(struct GGGGC_Pool *),
+                          int ratio)
+{
+    struct GGGGC_Pool *pool = poolList;
     ggc_size_t space, survivors, poolCt;
 
     if (!pool) return;
@@ -154,11 +155,11 @@ void ggggc_expandGeneration(struct GGGGC_Pool *pool)
     }
 
     /* now decide if it's too much */
-    if (survivors > space/2) {
+    if ((survivors<<ratio) > space) {
         /* allocate more */
         ggc_size_t i;
         for (i = 0; i < poolCt; i++) {
-            pool->next = ggggc_newPool(pool->gen, 0);
+            pool->next = newPool(poolList);
             pool = pool->next;
             if (!pool) break;
         }

@@ -31,6 +31,36 @@
 extern "C" {
 #endif
 
+/* create a GC pool */
+struct GGGGC_Pool *ggggc_newPoolGen(unsigned char gen, int mustSucceed)
+{
+    struct GGGGC_Pool *ret = ggggc_newPool(mustSucceed);
+    if (!ret) return ret;
+
+#if GGGGC_GENERATIONS > 1
+    ret->gen = gen;
+    
+    /* clear the remembered set */
+    if (gen > 0)
+        memset(ret->remember, 0, GGGGC_CARDS_PER_POOL);
+
+    /* the first object in the first usable card */
+    ret->firstObject[GGGGC_CARD_OF(ret->start)] =
+        (((ggc_size_t) ret->start) & GGGGC_CARD_INNER_MASK) / sizeof(ggc_size_t);
+#endif
+
+    return ret;
+}
+
+/* create a GC pool based on a prototype */
+static struct GGGGC_Pool *newPoolGenProto(struct GGGGC_Pool *proto) {
+#if GGGGC_GENERATIONS > 1
+    return ggggc_newPoolGen(proto->gen, 0);
+#else
+    return ggggc_newPoolGen(0, 0);
+#endif
+}
+
 /* NOTE: there is code duplication between ggggc_malloc and ggggc_mallocGen1
  * because I can't trust a compiler to inline and optimize for the 0 case */
 
@@ -46,7 +76,7 @@ retry:
     if (ggggc_pool0) {
         pool = ggggc_pool0;
     } else {
-        ggggc_gen0 = ggggc_pool0 = pool = ggggc_newPool(0, 1);
+        ggggc_gen0 = ggggc_pool0 = pool = ggggc_newPoolGen(0, 1);
     }
 
     /* do we have enough space? */
@@ -94,7 +124,7 @@ retry:
     if (ggggc_pools[gen]) {
         pool = ggggc_pools[gen];
     } else {
-        ggggc_gens[gen] = ggggc_pools[gen] = pool = ggggc_newPool(gen, 1);
+        ggggc_gens[gen] = ggggc_pools[gen] = pool = ggggc_newPoolGen(gen, 1);
     }
 
     /* do we have enough space? */
@@ -502,9 +532,9 @@ collect:
 
     /* heuristically expand too-small generations */
     for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next)
-        ggggc_expandGeneration(plCur->pool);
+        ggggc_expandPoolList(plCur->pool, newPoolGenProto, 1);
     for (genCur = 1; genCur <= gen; genCur++)
-        ggggc_expandGeneration(ggggc_gens[genCur]);
+        ggggc_expandPoolList(ggggc_gens[genCur], newPoolGenProto, 1);
 
     /* clear out the now-empty generations, unless we did a full collection */
     if (gen < GGGGC_GENERATIONS - 1) {
