@@ -1,5 +1,7 @@
 /*
- * Allocation functions
+ * Functions related to allocation of pools and various data structures, but
+ * not objects themselves, the implementation of which is in the collector
+ * implementation files.
  *
  * Copyright (c) 2014, 2015 Gregor Richards
  *
@@ -78,7 +80,7 @@ static ggc_mutex_t freePoolsLock = GGC_MUTEX_INITIALIZER;
 static struct GGGGC_Pool *freePoolsHead, *freePoolsTail;
 
 /* allocate and initialize a pool */
-static struct GGGGC_Pool *newPool(unsigned char gen, int mustSucceed)
+struct GGGGC_Pool *ggggc_newPool(unsigned char gen, int mustSucceed)
 {
     struct GGGGC_Pool *ret;
 #ifdef GGGGC_DEBUG_TINY_HEAP
@@ -156,7 +158,7 @@ void ggggc_expandGeneration(struct GGGGC_Pool *pool)
         /* allocate more */
         ggc_size_t i;
         for (i = 0; i < poolCt; i++) {
-            pool->next = newPool(pool->gen, 0);
+            pool->next = ggggc_newPool(pool->gen, 0);
             pool = pool->next;
             if (!pool) break;
         }
@@ -176,114 +178,6 @@ void ggggc_freeGeneration(struct GGGGC_Pool *pool)
     while (pool->next) pool = pool->next;
     freePoolsTail = pool;
     ggc_mutex_unlock(&freePoolsLock);
-}
-
-/* NOTE: there is code duplication between ggggc_mallocGen0 and
- * ggggc_mallocGenN because I can't trust a compiler to inline and optimize for
- * the 0 case */
-
-/* allocate an object in generation 0 */
-void *ggggc_mallocGen0(struct GGGGC_Descriptor **descriptor, /* descriptor to protect, if applicable */
-                       ggc_size_t size /* size of object to allocate */
-                       ) {
-    struct GGGGC_Pool *pool;
-    struct GGGGC_Header *ret;
-
-retry:
-    /* get our allocation pool */
-    if (ggggc_pool0) {
-        pool = ggggc_pool0;
-    } else {
-        ggggc_gen0 = ggggc_pool0 = pool = newPool(0, 1);
-    }
-
-    /* do we have enough space? */
-    if (pool->end - pool->free >= size) {
-        /* good, allocate here */
-        ret = (struct GGGGC_Header *) pool->free;
-        pool->free += size;
-
-        ret->descriptor__ptr = NULL;
-#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
-        /* set its canary */
-        ret->ggggc_memoryCorruptionCheck = GGGGC_MEMORY_CORRUPTION_VAL;
-#endif
-
-        /* and clear the rest (necessary since this goes to the untrusted mutator) */
-        memset(ret + 1, 0, size * sizeof(ggc_size_t) - sizeof(struct GGGGC_Header));
-
-    } else if (pool->next) {
-        ggggc_pool0 = pool = pool->next;
-        goto retry;
-
-    } else {
-        /* need to collect, which means we need to actually be a GC-safe function */
-        GGC_PUSH_1(*descriptor);
-        ggggc_collect0(0);
-        GGC_POP();
-        pool = ggggc_pool0;
-        goto retry;
-
-    }
-
-    return ret;
-}
-
-#if GGGGC_GENERATIONS > 1
-/* allocate an object in the requested generation > 0 */
-void *ggggc_mallocGen1(ggc_size_t size, /* size of object to allocate */
-                       unsigned char gen /* generation to allocate in */
-                       ) {
-    struct GGGGC_Pool *pool;
-    struct GGGGC_Header *ret;
-
-retry:
-    /* get our allocation pool */
-    if (ggggc_pools[gen]) {
-        pool = ggggc_pools[gen];
-    } else {
-        ggggc_gens[gen] = ggggc_pools[gen] = pool = newPool(gen, 1);
-    }
-
-    /* do we have enough space? */
-    if (pool->end - pool->free >= size) {
-        ggc_size_t retCard, freeCard;
-
-        /* good, allocate here */
-        ret = (struct GGGGC_Header *) pool->free;
-        pool->free += size;
-        retCard = GGGGC_CARD_OF(ret);
-        freeCard = GGGGC_CARD_OF(pool->free);
-
-        /* if we passed a card, mark the first object */
-        if (retCard != freeCard && pool->free < pool->end)
-            pool->firstObject[freeCard] =
-                ((ggc_size_t) pool->free & GGGGC_CARD_INNER_MASK) / sizeof(ggc_size_t);
-
-        /* and clear the next descriptor so that it's clear there's no object
-         * there (yet) */
-        if (pool->free < pool->end) *pool->free = 0;
-
-    } else if (pool->next) {
-        ggggc_pools[gen] = pool = pool->next;
-        goto retry;
-
-    } else {
-        /* failed to allocate */
-        return NULL;
-
-    }
-
-    return ret;
-}
-#endif
-
-/* allocate an object */
-void *ggggc_malloc(struct GGGGC_Descriptor *descriptor)
-{
-    struct GGGGC_Header *ret = (struct GGGGC_Header *) ggggc_mallocGen0(&descriptor, descriptor->size);
-    ret->descriptor__ptr = descriptor;
-    return ret;
 }
 
 struct GGGGC_Array {

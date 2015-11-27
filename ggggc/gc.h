@@ -82,38 +82,17 @@ typedef size_t ggc_size_t;
 /* an empty defined for all the various conditions in which empty defines are necessary */
 #define GGGGC_EMPTY
 
-/* GC pool (forms a list) */
-struct GGGGC_Pool {
-#if GGGGC_GENERATIONS > 1
-    /* the remembered set for this pool. NOTE: It's important this be first to
-     * make assigning to the remembered set take one less operation */
-    unsigned char remember[GGGGC_CARDS_PER_POOL];
-
-    /* the locations of objects within the cards */
-    unsigned short firstObject[GGGGC_CARDS_PER_POOL];
+/* which collector we implement */
+#ifndef GGGGC_COLLECTOR
+#define GGGGC_COLLECTOR gembc
 #endif
-
-    /* the next pool in this generation */
-    struct GGGGC_Pool *next;
-
-    /* the generation of this pool */
-    unsigned char gen;
-
-    /* the current free space and end of the pool */
-    ggc_size_t *free, *end;
-
-    /* how much survived the last collection */
-    ggc_size_t survivors;
-
-    /* size of the break table (in entries, used only during collection) */
-    ggc_size_t breakTableSize;
-
-    /* pointer to the break table (used only during collection) */
-    void *breakTable;
-
-    /* and the actual content */
-    ggc_size_t start[1];
-};
+#define GGGGC_STRINGIFY(x) #x
+#define GGGGC_COLLECTOR_F2(x) GGGGC_STRINGIFY(gc-x.h)
+#define GGGGC_COLLECTOR_F GGGGC_COLLECTOR_F2(GGGGC_COLLECTOR)
+#include GGGGC_COLLECTOR_F
+#undef GGGGC_COLLECTOR_F
+#undef GGGGC_COLLECTOR_F2
+#undef GGGGC_STRINGIFY
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
 #define GGGGC_MEMORY_CORRUPTION_VAL 0x0DEFACED
@@ -234,32 +213,6 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
     (void) thing ## _must_be_an_identifier; \
 } while(0)
 
-/* write barriers */
-#if GGGGC_GENERATIONS > 1
-#define GGGGC_WP(object, member, value) do { \
-    ggc_size_t ggggc_o = (ggc_size_t) (object); \
-    struct GGGGC_Pool *ggggc_pool = GGGGC_POOL_OF(ggggc_o); \
-    GGGGC_ASSERT_ID(object); \
-    GGGGC_ASSERT_ID(value); \
-    if (ggggc_pool->gen) { \
-        /* a high-gen object, let's remember it */ \
-        ggggc_pool->remember[GGGGC_CARD_OF(ggggc_o)] = 1; \
-    } \
-    (object)->member = (value); \
-} while(0)
-#else
-#define GGGGC_WP(object, member, value) do { \
-    GGGGC_ASSERT_ID(object); \
-    GGGGC_ASSERT_ID(value); \
-    (object)->member = (value); \
-} while(0)
-#endif
-#define GGGGC_WD(object, member, value) do { \
-    GGGGC_ASSERT_ID(object); \
-    GGGGC_ASSERT_ID(if_not_a_value_then_ ## value); \
-    (object)->member = (value); \
-} while(0)
-
 /* write a normal member */
 #define GGC_WP(object, member, value) GGGGC_WP(object, member ## __ptr, value)
 #define GGC_WD(object, member, value) GGGGC_WD(object, member ## __data, value)
@@ -276,10 +229,10 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
 } while(0)
 
 /* although pointers don't need a read barrier, the renaming sort of forces one */
-#define GGC_RP(object, member)  ((object)->member ## __ptr)
-#define GGC_RD(object, member)  ((object)->member ## __data)
-#define GGC_RAP(object, index)  ((object)->a__ptrs[(index)])
-#define GGC_RAD(object, index)  ((object)->a__data[(index)])
+#define GGC_RP(object, member)  GGGGC_RP(object, member ## __ptr)
+#define GGC_RD(object, member)  GGGGC_RD(object, member ## __data)
+#define GGC_RAP(object, index)  GGGGC_RP(object, a__ptrs[(index)])
+#define GGC_RAD(object, index)  GGGGC_RD(object, a__data[(index)])
 #define GGC_RUP(object)         ((object)->header.descriptor__ptr->user__ptr)
 #define GGC_LENGTH(object)      ((object)->header.descriptor__ptr->length)
 
