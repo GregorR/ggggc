@@ -1,0 +1,1064 @@
+# HG changeset patch
+# Parent 58cff3df00edcd157c05a67a3abaf915acf0de5a
+Entirely strip out everything to do with threads.
+
+
+diff -r 58cff3df00ed -r f3131025f51e Makefile
+--- a/Makefile	Fri Nov 27 13:54:51 2015 -0500
++++ b/Makefile	Fri Nov 27 15:23:56 2015 -0500
+@@ -8,7 +8,7 @@
+ PATCH_DEST=../ggggc
+ PATCHES=
+ 
+-OBJS=allocate.o collector-gembc.o globals.o roots.o threads.o \
++OBJS=allocate.o collector-gembc.o globals.o roots.o \
+      collections/list.o collections/map.o
+ 
+ all: libggggc.a
+diff -r 58cff3df00ed -r f3131025f51e allocate.c
+--- a/allocate.c	Fri Nov 27 13:54:51 2015 -0500
++++ b/allocate.c	Fri Nov 27 15:23:56 2015 -0500
+@@ -76,7 +76,6 @@
+ #endif
+ 
+ /* pools which are freely available */
+-static ggc_mutex_t freePoolsLock = GGC_MUTEX_INITIALIZER;
+ static struct GGGGC_Pool *freePoolsHead, *freePoolsTail;
+ 
+ /* allocate and initialize a pool */
+@@ -100,13 +99,11 @@
+ 
+     /* try to reuse a pool */
+     if (freePoolsHead) {
+-        ggc_mutex_lock_raw(&freePoolsLock);
+         if (freePoolsHead) {
+             ret = freePoolsHead;
+             freePoolsHead = freePoolsHead->next;
+             if (!freePoolsHead) freePoolsTail = NULL;
+         }
+-        ggc_mutex_unlock(&freePoolsLock);
+     }
+ 
+     /* otherwise, allocate one */
+@@ -170,7 +167,6 @@
+ void ggggc_freeGeneration(struct GGGGC_Pool *pool)
+ {
+     if (!pool) return;
+-    ggc_mutex_lock_raw(&freePoolsLock);
+     if (freePoolsHead) {
+         freePoolsTail->next = pool;
+     } else {
+@@ -178,7 +174,6 @@
+     }
+     while (pool->next) pool = pool->next;
+     freePoolsTail = pool;
+-    ggc_mutex_unlock(&freePoolsLock);
+ }
+ 
+ struct GGGGC_Array {
+@@ -223,9 +218,7 @@
+         ddd = ggggc_allocateDescriptorDescriptor(ddSize);
+ 
+     /* otherwise, need to allocate one. First lock the space */
+-    ggc_mutex_lock_raw(&ggggc_descriptorDescriptorsLock);
+     if (ggggc_descriptorDescriptors[size]) {
+-        ggc_mutex_unlock(&ggggc_descriptorDescriptorsLock);
+         return ggggc_descriptorDescriptors[size];
+     }
+ 
+@@ -242,7 +235,6 @@
+ 
+     /* put it in the list */
+     ggggc_descriptorDescriptors[size] = ret;
+-    ggc_mutex_unlock(&ggggc_descriptorDescriptorsLock);
+     GGC_PUSH_1(ggggc_descriptorDescriptors[size]);
+     GGC_GLOBALIZE();
+ 
+@@ -323,14 +315,11 @@
+ struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot)
+ {
+     if (slot->descriptor) return slot->descriptor;
+-    ggc_mutex_lock_raw(&slot->lock);
+     if (slot->descriptor) {
+-        ggc_mutex_unlock(&slot->lock);
+         return slot->descriptor;
+     }
+ 
+     slot->descriptor = ggggc_allocateDescriptor(slot->size, slot->pointers);
+-    ggc_mutex_unlock(&slot->lock);
+ 
+     /* make the slot descriptor a root */
+     GGC_PUSH_1(slot->descriptor);
+diff -r 58cff3df00ed -r f3131025f51e collector-gembc.c
+--- a/collector-gembc.c	Fri Nov 27 13:54:51 2015 -0500
++++ b/collector-gembc.c	Fri Nov 27 15:23:56 2015 -0500
+@@ -375,38 +375,15 @@
+     unsigned char genCur;
+     ggc_size_t i;
+ 
+-    /* first, make sure we stop the world */
+-    while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0) {
+-        /* somebody else is collecting */
+-        GGC_YIELD();
+-        return;
+-    }
+-
+     TOSEARCH_INIT();
+ 
+-    /* if nobody ever initialized the barrier, do so */
+-    if (ggggc_threadCount == 0) {
+-        ggggc_threadCount = 1;
+-        ggc_barrier_init(&ggggc_worldBarrier, ggggc_threadCount);
+-    }
+-
+     /* initialize our roots */
+-    ggc_mutex_lock_raw(&ggggc_rootsLock);
+     pool0Node.pool = ggggc_gen0;
+     pool0Node.next = ggggc_blockedThreadPool0s;
+     ggggc_rootPool0List = &pool0Node;
+     pointerStackNode.pointerStack = ggggc_pointerStack;
+     pointerStackNode.next = ggggc_blockedThreadPointerStacks;
+     ggggc_rootPointerStackList = &pointerStackNode;
+-    ggc_mutex_unlock(&ggggc_rootsLock);
+-
+-    /* stop the world */
+-    ggggc_stopTheWorld = 1;
+-    ggc_barrier_wait_raw(&ggggc_worldBarrier);
+-    ggggc_stopTheWorld = 0;
+-
+-    /* wait for them to fill roots */
+-    ggc_barrier_wait_raw(&ggggc_worldBarrier);
+ 
+ #ifdef GGGGC_DEBUG_REPORT_COLLECTIONS
+     report(gen, "pre-collection");
+@@ -576,10 +553,6 @@
+     }
+     memoryCorruptionCheck("post-collection");
+ #endif
+-
+-    /* free the other threads */
+-    ggc_barrier_wait_raw(&ggggc_worldBarrier);
+-    ggc_mutex_unlock(&ggggc_worldBarrierLock);
+ }
+ 
+ /* type for an element of our break table */
+@@ -1019,33 +992,6 @@
+ /* explicitly yield to the collector */
+ int ggggc_yield()
+ {
+-    struct GGGGC_PoolList pool0Node;
+-    struct GGGGC_PointerStackList pointerStackNode;
+-
+-    if (ggggc_stopTheWorld) {
+-        /* wait for the barrier once to stop the world */
+-        ggc_barrier_wait_raw(&ggggc_worldBarrier);
+-
+-        /* feed it my globals */
+-        ggc_mutex_lock_raw(&ggggc_rootsLock);
+-        pool0Node.pool = ggggc_gen0;
+-        pool0Node.next = ggggc_rootPool0List;
+-        ggggc_rootPool0List = &pool0Node;
+-        pointerStackNode.pointerStack = ggggc_pointerStack;
+-        pointerStackNode.next = ggggc_rootPointerStackList;
+-        ggggc_rootPointerStackList = &pointerStackNode;
+-        ggc_mutex_unlock(&ggggc_rootsLock);
+-
+-        /* wait for the barrier once to allow collection */
+-        ggc_barrier_wait_raw(&ggggc_worldBarrier);
+-
+-        /* wait for the barrier to know when collection is done */
+-        ggc_barrier_wait_raw(&ggggc_worldBarrier);
+-
+-        /* now we can reset our pool */
+-        ggggc_pool0 = ggggc_gen0;
+-    }
+-
+     return 0;
+ }
+ 
+diff -r 58cff3df00ed -r f3131025f51e ggggc-internals.h
+--- a/ggggc-internals.h	Fri Nov 27 13:54:51 2015 -0500
++++ b/ggggc-internals.h	Fri Nov 27 15:23:56 2015 -0500
+@@ -49,25 +49,10 @@
+ /* run a collection */
+ void ggggc_collect0(unsigned char gen);
+ 
+-/* ggggc_worldBarrierLock protects:
+- *  ggggc_worldBarrier
+- *  ggggc_threadCount
+- *  ggggc_blockedThreadPool0s
+- *  ggggc_blockedThreadPointerStacks
+- *
+- * It should be acquired to change any of these, and by the main thread during
+- * collection, for the ENTIRE duration of collection
+- */
+-extern ggc_mutex_t ggggc_worldBarrierLock;
+-
+-/* global world-stopping barrier */
+-extern ggc_barrier_t ggggc_worldBarrier;
+-
+ /* number of threads in the system */
+ extern ggc_size_t ggggc_threadCount;
+ 
+ /* during stop-the-world, need a queue of pools and pointer stacks to scan */
+-extern ggc_mutex_t ggggc_rootsLock;
+ struct GGGGC_PoolList {
+     struct GGGGC_PoolList *next;
+     struct GGGGC_Pool *pool;
+@@ -84,10 +69,10 @@
+ extern struct GGGGC_PointerStackList *ggggc_blockedThreadPointerStacks;
+ 
+ /* the generation 0 pools are thread-local */
+-extern ggc_thread_local struct GGGGC_Pool *ggggc_gen0;
++extern struct GGGGC_Pool *ggggc_gen0;
+ 
+ /* the current allocation pool for generation 0 */
+-extern ggc_thread_local struct GGGGC_Pool *ggggc_pool0;
++extern struct GGGGC_Pool *ggggc_pool0;
+ 
+ /* the later-generation pools are shared */
+ extern struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS];
+@@ -98,9 +83,6 @@
+ /* descriptor descriptors */
+ extern struct GGGGC_Descriptor *ggggc_descriptorDescriptors[GGGGC_WORDS_PER_POOL/GGGGC_BITS_PER_WORD+sizeof(struct GGGGC_Descriptor)];
+ 
+-/* and a lock for the descriptor descriptors */
+-extern ggc_mutex_t ggggc_descriptorDescriptorsLock;
+-
+ #ifdef __cplusplus
+ }
+ #endif
+diff -r 58cff3df00ed -r f3131025f51e ggggc/gc.h
+--- a/ggggc/gc.h	Fri Nov 27 13:54:51 2015 -0500
++++ b/ggggc/gc.h	Fri Nov 27 15:23:56 2015 -0500
+@@ -31,9 +31,6 @@
+ #include <alloca.h>
+ #endif
+ 
+-#include "thread-locals.h"
+-#include "threads.h"
+-
+ /* debugging flags */
+ #ifdef GGGGC_DEBUG
+ #define GGGGC_DEBUG_MEMORY_CORRUPTION 1
+@@ -140,7 +137,6 @@
+ /* descriptor slots are global locations where descriptors may eventually be
+  * stored */
+ struct GGGGC_DescriptorSlot {
+-    ggc_mutex_t lock;
+     struct GGGGC_Descriptor *descriptor;
+     ggc_size_t size;
+     ggc_size_t pointers;
+@@ -179,7 +175,6 @@
+ 
+ #define GGC_DESCRIPTOR(type, pointers) \
+     static struct GGGGC_DescriptorSlot type ## __descriptorSlot = { \
+-        GGC_MUTEX_INITIALIZER, \
+         NULL, \
+         (sizeof(struct type ## __ggggc_struct) + sizeof(ggc_size_t) - 1) / sizeof(ggc_size_t), \
+         ((ggc_size_t)0) pointers \
+@@ -306,14 +301,14 @@
+  * explicitly yield to the garbage collector (e.g. if you're in a tight loop
+  * that doesn't allocate in a multithreaded program), call this */
+ int ggggc_yield(void);
+-#define GGC_YIELD() (ggggc_stopTheWorld ? ggggc_yield() : 0)
++#define GGC_YIELD() (0)
+ 
+ /* to handle global variables, GGC_PUSH them then GGC_GLOBALIZE */
+ void ggggc_globalize(void);
+ #define GGC_GLOBALIZE() ggggc_globalize()
+ 
+ /* each thread has its own pointer stack, including global references */
+-extern ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerStackGlobals;
++extern struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerStackGlobals;
+ 
+ /* macros to push and pop pointers from the pointer stack */
+ #define GGGGC_POP() do { \
+diff -r 58cff3df00ed -r f3131025f51e ggggc/thread-locals.h
+--- a/ggggc/thread-locals.h	Fri Nov 27 13:54:51 2015 -0500
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,24 +0,0 @@
+-#ifndef GGGGC_THREAD_LOCALS_H
+-#define GGGGC_THREAD_LOCALS_H 1
+-
+-#if defined(GGGGC_NO_THREADS)
+-/* no threads = no thread locals either */
+-#define ggc_thread_local
+-
+-#elif __STDC_VERSION__ >= 201112L
+-#define ggc_thread_local _Thread_local
+-
+-#elif defined(__GNUC__)
+-#define ggc_thread_local __thread
+-
+-#elif defined(_WIN32)
+-#define ggc_thread_local __declspec(thread)
+-
+-#else
+-#warning No known thread-local storage specifier. Disabling threads.
+-#define ggc_thread_local
+-#define GGGGC_NO_THREADS 1
+-
+-#endif
+-
+-#endif
+diff -r 58cff3df00ed -r f3131025f51e ggggc/threads-macosx.h
+--- a/ggggc/threads-macosx.h	Fri Nov 27 13:54:51 2015 -0500
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,52 +0,0 @@
+-/*
+- * Thread support for Mac OS X's awful almost-pthreads
+- *
+- * Copyright (c) 2014, 2015 Gregor Richards
+- *
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+- */
+-
+-#ifndef GGGGC_THREADS_MACOSX_H
+-#define GGGGC_THREADS_MACOSX_H 1
+-
+-#include <pthread.h>
+-#include <dispatch/dispatch.h>
+-
+-/* functions */
+-#define ggc_mutex_lock_raw              pthread_mutex_lock
+-#define ggc_mutex_trylock               pthread_mutex_trylock
+-#define ggc_mutex_unlock                pthread_mutex_unlock
+-
+-/* types */
+-#define ggc_mutex_t     pthread_mutex_t
+-#define ggc_sem_t       dispatch_semaphore_t
+-#define ggc_thread_t    pthread_t
+-
+-/* predefs */
+-#define GGC_MUTEX_INITIALIZER (pthread_mutex_t) PTHREAD_MUTEX_INITIALIZER
+-
+-/* real code below */
+-
+-/* functions */
+-int ggc_mutex_lock(ggc_mutex_t *mutex);
+-int ggc_sem_destroy(ggc_sem_t *sem);
+-int ggc_sem_init(ggc_sem_t *sem, unsigned int value);
+-int ggc_sem_post(ggc_sem_t *sem);
+-int ggc_sem_wait(ggc_sem_t *sem);
+-int ggc_sem_wait_raw(ggc_sem_t *sem);
+-int ggc_thread_create(ggc_thread_t *thread, void (*func)(struct ThreadArg__ggggc_struct *), struct ThreadArg__ggggc_struct *arg);
+-int ggc_thread_join(ggc_thread_t thread);
+-
+-#include "gen-barriers.h"
+-
+-#endif
+diff -r 58cff3df00ed -r f3131025f51e ggggc/threads-none.h
+--- a/ggggc/threads-none.h	Fri Nov 27 13:54:51 2015 -0500
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,48 +0,0 @@
+-/*
+- * Stubs when there are no threads
+- *
+- * Copyright (c) 2014 Gregor Richards
+- *
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+- */
+-
+-#ifndef GGGGC_THREADS_NONE_H
+-#define GGGGC_THREADS_NONE_H 1
+-
+-/* functions */
+-#define ggc_barrier_destroy(x)          0
+-#define ggc_barrier_init(x,y)           0
+-#define ggc_barrier_wait(x)             0
+-#define ggc_barrier_wait_raw(x)         0
+-#define ggc_mutex_lock(x)               0
+-#define ggc_mutex_lock_raw(x)           0
+-#define ggc_mutex_trylock(x)            0
+-#define ggc_mutex_unlock(x)             0
+-#define ggc_sem_destroy(x)              0
+-#define ggc_sem_init(x,y)               0
+-#define ggc_sem_post(x)                 0
+-#define ggc_sem_wait(x)                 0
+-#define ggc_sem_wait_raw(x)             0
+-#define ggc_thread_create(x,y,z)        (-1)
+-#define ggc_thread_join(x)              (-1)
+-
+-/* types */
+-#define ggc_barrier_t   int
+-#define ggc_mutex_t     int
+-#define ggc_sem_t       int
+-#define ggc_thread_t    int
+-
+-/* predefs */
+-#define GGC_MUTEX_INITIALIZER 0
+-
+-#endif
+diff -r 58cff3df00ed -r f3131025f51e ggggc/threads-posix.h
+--- a/ggggc/threads-posix.h	Fri Nov 27 13:54:51 2015 -0500
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,65 +0,0 @@
+-/*
+- * Thread support for pthreads
+- *
+- * Copyright (c) 2014, 2015 Gregor Richards
+- *
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+- */
+-
+-#ifndef GGGGC_THREADS_POSIX_H
+-#define GGGGC_THREADS_POSIX_H 1
+-
+-#include <pthread.h>
+-#include <semaphore.h>
+-
+-/* functions */
+-#if _POSIX_BARRIERS
+-#define ggc_barrier_destroy             pthread_barrier_destroy
+-#define ggc_barrier_init(x,y)           pthread_barrier_init(x,NULL,y)
+-#define ggc_barrier_wait_raw            pthread_barrier_wait
+-#endif
+-#define ggc_mutex_lock_raw              pthread_mutex_lock
+-#define ggc_mutex_trylock               pthread_mutex_trylock
+-#define ggc_mutex_unlock                pthread_mutex_unlock
+-#define ggc_sem_destroy                 sem_destroy
+-#define ggc_sem_init(x,y)               sem_init(x,0,y)
+-#define ggc_sem_post                    sem_post
+-#define ggc_sem_wait_raw                sem_wait
+-
+-/* types */
+-#if _POSIX_BARRIERS
+-#define ggc_barrier_t   pthread_barrier_t
+-#endif
+-#define ggc_mutex_t     pthread_mutex_t
+-#define ggc_sem_t       sem_t
+-#define ggc_thread_t    pthread_t
+-
+-/* predefs */
+-#define GGC_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
+-
+-/* real code below */
+-
+-/* functions */
+-#if _POSIX_BARRIERS
+-int ggc_barrier_wait(void *barrier); /* void because some configurations don't have pthread_barrier_t */
+-#endif
+-int ggc_mutex_lock(ggc_mutex_t *mutex);
+-int ggc_sem_wait(ggc_sem_t *sem);
+-int ggc_thread_create(ggc_thread_t *thread, void (*func)(struct ThreadArg__ggggc_struct *), struct ThreadArg__ggggc_struct *arg);
+-int ggc_thread_join(ggc_thread_t thread);
+-
+-#if !_POSIX_BARRIERS
+-#include "gen-barriers.h"
+-#endif
+-
+-#endif
+diff -r 58cff3df00ed -r f3131025f51e ggggc/threads-windows.h
+--- a/ggggc/threads-windows.h	Fri Nov 27 13:54:51 2015 -0500
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,49 +0,0 @@
+-/*
+- * Thread support for Windows
+- *
+- * Copyright (c) 2014 Gregor Richards
+- *
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+- */
+-
+-#ifndef GGGGC_THREADS_WINDOWS_H
+-#define GGGGC_THREADS_WINDOWS_H 1
+-
+-/* functions */
+-#define ggc_mutex_unlock(mutex)         (!ReleaseMutex(*(mutex)))
+-#define ggc_sem_destroy(sem)            (!CloseHandle(*(sem)))
+-#define ggc_sem_init(sem,ct)            ((*(sem)=CreateSemaphore(NULL,0,(ct),NULL))?0:-1)
+-#define ggc_sem_post(sem)               (!ReleaseSemaphore(*(sem),1,NULL))
+-#define ggc_sem_wait_raw(sem)           (WaitForSingleObject(*(sem),INFINITE)==WAIT_FAILED)
+-
+-/* types */
+-#define ggc_mutex_t     HANDLE
+-#define ggc_sem_t       HANDLE
+-#define ggc_thread_t    HANDLE
+-
+-/* predefs */
+-#define GGC_MUTEX_INITIALIZER NULL
+-
+-/* real code below */
+-
+-/* functions */
+-int ggc_mutex_lock(ggc_mutex_t *mutex);
+-int ggc_mutex_lock_raw(ggc_mutex_t *mutex);
+-int ggc_mutex_trylock(ggc_mutex_t *mutex);
+-int ggc_sem_wait(ggc_sem_t *sem);
+-int ggc_thread_create(ggc_thread_t *thread, void (*func)(struct ThreadArg__ggggc_struct *), struct ThreadArg__ggggc_struct *arg);
+-int ggc_thread_join(ggc_thread_t thread);
+-
+-#include "gen-barriers.h"
+-
+-#endif
+diff -r 58cff3df00ed -r f3131025f51e ggggc/threads.h
+--- a/ggggc/threads.h	Fri Nov 27 13:54:51 2015 -0500
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,44 +0,0 @@
+-#ifndef GGGGC_THREADS_H 
+-#define GGGGC_THREADS_H 1
+-
+-/* get our feature macros */
+-#if defined(unix) || defined(__unix) || defined(__unix__) || \
+-    (defined(__APPLE__) && defined(__MACH__))
+-#include <unistd.h>
+-#endif
+-
+-#ifdef _WIN32
+-#include <windows.h>
+-#endif
+-
+-/* blocking on thread behaviors is unsafe unless the GC is informed */
+-void ggc_pre_blocking(void);
+-void ggc_post_blocking(void);
+-
+-/* ThreadArg will be defined later, but is needed immediately */
+-struct ThreadArg__ggggc_struct;
+-
+-/* choose our threads */
+-#if defined(GGGGC_NO_THREADS)
+-#include "threads-none.h"
+-
+-#elif defined(__APPLE__) && defined(__MACH__)
+-#define GGGGC_THREADS_MACOSX 1
+-#include "threads-macosx.h"
+-
+-#elif defined(_POSIX_THREADS)
+-#define GGGGC_THREADS_POSIX 1
+-#include "threads-posix.h"
+-
+-#elif defined(_WIN32)
+-#define GGGGC_THREADS_WINDOWS 1
+-#include "threads-windows.h"
+-
+-#else
+-#define GGGGC_NO_THREADS 1
+-#warning Unsupported threading platform. Disabling threads.
+-#include "threads-none.h"
+-
+-#endif
+-
+-#endif
+diff -r 58cff3df00ed -r f3131025f51e globals.c
+--- a/globals.c	Fri Nov 27 13:54:51 2015 -0500
++++ b/globals.c	Fri Nov 27 15:23:56 2015 -0500
+@@ -1,21 +1,15 @@
+ #include "ggggc-internals.h"
+ 
+ /* publics */
+-ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerStackGlobals;
++struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerStackGlobals;
+ 
+ /* internals */
+-volatile int ggggc_stopTheWorld;
+-ggc_barrier_t ggggc_worldBarrier;
+-ggc_size_t ggggc_threadCount;
+-ggc_mutex_t ggggc_worldBarrierLock = GGC_MUTEX_INITIALIZER;
+-ggc_mutex_t ggggc_rootsLock = GGC_MUTEX_INITIALIZER;
+ struct GGGGC_PoolList *ggggc_rootPool0List;
+ struct GGGGC_PointerStackList *ggggc_rootPointerStackList;
+ struct GGGGC_PoolList *ggggc_blockedThreadPool0s;
+ struct GGGGC_PointerStackList *ggggc_blockedThreadPointerStacks;
+-ggc_thread_local struct GGGGC_Pool *ggggc_gen0;
+-ggc_thread_local struct GGGGC_Pool *ggggc_pool0;
++struct GGGGC_Pool *ggggc_gen0;
++struct GGGGC_Pool *ggggc_pool0;
+ struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS];
+ struct GGGGC_Pool *ggggc_pools[GGGGC_GENERATIONS];
+ struct GGGGC_Descriptor *ggggc_descriptorDescriptors[GGGGC_WORDS_PER_POOL/GGGGC_BITS_PER_WORD+sizeof(struct GGGGC_Descriptor)];
+-ggc_mutex_t ggggc_descriptorDescriptorsLock;
+diff -r 58cff3df00ed -r f3131025f51e tests/Makefile
+--- a/tests/Makefile	Fri Nov 27 13:54:51 2015 -0500
++++ b/tests/Makefile	Fri Nov 27 15:23:56 2015 -0500
+@@ -11,7 +11,7 @@
+ BTOBJS=binary_trees_td.o
+ BTGCOBJS=binary_trees_gc_td.o
+ BTGGGGCOBJS=binary_trees_ggggc_td.o
+-BTGGGGCTHOBJS=binary_trees_ggggc_td_th.o
++BTGGGGCTHOBJS=binary_trees_ggggc_td.o
+ 
+ BADLLLOBJS=badlll.o
+ 
+diff -r 58cff3df00ed -r f3131025f51e threads-macosx.c
+--- a/threads-macosx.c	Fri Nov 27 13:54:51 2015 -0500
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,95 +0,0 @@
+-/*
+- * Thread support for Mac OS X's awful almost-pthreads
+- *
+- * Copyright (c) 2014, 2015 Gregor Richards
+- *
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+- */
+-
+-#define BLOCKING(func, call) \
+-int func \
+-{ \
+-    int ret, err; \
+-    ggc_pre_blocking(); \
+-    err = call; \
+-    ggc_post_blocking(); \
+-    ret = err ? -1 : 0; \
+-    errno = err; \
+-    return ret; \
+-}
+-
+-BLOCKING(
+-    ggc_mutex_lock(ggc_mutex_t *mutex),
+-    pthread_mutex_lock(mutex)
+-)
+-
+-int ggc_sem_destroy(ggc_sem_t *sem)
+-{
+-    dispatch_release(*sem);
+-    return 0;
+-}
+-
+-int ggc_sem_init(ggc_sem_t *sem, unsigned int value)
+-{
+-    *sem = dispatch_semaphore_create(value);
+-    return (*sem ? 0 : -1);
+-}
+-
+-int ggc_sem_post(ggc_sem_t *sem)
+-{
+-    dispatch_semaphore_signal(*sem);
+-    return 0;
+-}
+-
+-BLOCKING(
+-    ggc_sem_wait(ggc_sem_t *sem),
+-    ggc_sem_wait_raw(sem)
+-)
+-
+-int ggc_sem_wait_raw(ggc_sem_t *sem)
+-{
+-    return dispatch_semaphore_wait(*sem, DISPATCH_TIME_FOREVER);
+-}
+-
+-int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg arg)
+-{
+-    ThreadInfo ti = NULL;
+-
+-    GGC_PUSH_2(arg, ti);
+-
+-    /* set up its thread info */
+-    ti = GGC_NEW(ThreadInfo);
+-    GGC_WD(ti, func, func);
+-    GGC_WP(ti, arg, arg);
+-
+-    /* update our thread barrier */
+-    while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)
+-        GGC_YIELD();
+-    if (ggggc_threadCount == 0) ggggc_threadCount++;
+-    else ggc_barrier_destroy(&ggggc_worldBarrier);
+-    ggc_barrier_init(&ggggc_worldBarrier, ++ggggc_threadCount);
+-    ggc_mutex_unlock(&ggggc_worldBarrierLock);
+-
+-    /* spawn the pthread */
+-    if ((errno = pthread_create(thread, NULL, ggggcThreadWrapper, ti)))
+-        return -1;
+-
+-    return 0;
+-}
+-
+-BLOCKING(
+-    ggc_thread_join(ggc_thread_t thread),
+-    pthread_join(thread, NULL)
+-)
+-
+-#include "gen-barriers.c"
+diff -r 58cff3df00ed -r f3131025f51e threads-posix.c
+--- a/threads-posix.c	Fri Nov 27 13:54:51 2015 -0500
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,76 +0,0 @@
+-/*
+- * Thread functionality for pthreads
+- *
+- * Copyright (c) 2014, 2015 Gregor Richards
+- *
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+- */
+-
+-#define BLOCKING(func, call) \
+-int func \
+-{ \
+-    int ret, err; \
+-    ggc_pre_blocking(); \
+-    err = call; \
+-    ggc_post_blocking(); \
+-    ret = err ? -1 : 0; \
+-    errno = err; \
+-    return ret; \
+-}
+-
+-#if _POSIX_BARRIERS
+-BLOCKING(
+-    ggc_barrier_wait(void *barrier),
+-    pthread_barrier_wait((pthread_barrier_t *) barrier)
+-)
+-#endif
+-
+-BLOCKING(
+-    ggc_mutex_lock(ggc_mutex_t *mutex),
+-    pthread_mutex_lock(mutex)
+-)
+-
+-int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg arg)
+-{
+-    ThreadInfo ti = NULL;
+-
+-    GGC_PUSH_2(arg, ti);
+-
+-    /* set up its thread info */
+-    ti = GGC_NEW(ThreadInfo);
+-    GGC_WD(ti, func, func);
+-    GGC_WP(ti, arg, arg);
+-
+-    /* update our thread barrier */
+-    while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)
+-        GGC_YIELD();
+-    if (ggggc_threadCount == 0) ggggc_threadCount++;
+-    else ggc_barrier_destroy(&ggggc_worldBarrier);
+-    ggc_barrier_init(&ggggc_worldBarrier, ++ggggc_threadCount);
+-    ggc_mutex_unlock(&ggggc_worldBarrierLock);
+-
+-    /* spawn the pthread */
+-    if ((errno = pthread_create(thread, NULL, ggggcThreadWrapper, ti)))
+-        return -1;
+-
+-    return 0;
+-}
+-
+-BLOCKING(
+-    ggc_thread_join(ggc_thread_t thread),
+-    pthread_join(thread, NULL)
+-)
+-
+-#if !_POSIX_BARRIERS
+-#include "gen-barriers.c"
+-#endif
+diff -r 58cff3df00ed -r f3131025f51e threads-windows.c
+--- a/threads-windows.c	Fri Nov 27 13:54:51 2015 -0500
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,102 +0,0 @@
+-/*
+- * Thread functionality for Windows
+- *
+- * Copyright (c) 2014, 2015 Gregor Richards
+- *
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+- */
+-
+-static HANDLE lockInitLock;
+-#if defined(__GNUC__)
+-static void __attribute__((constructor)) lockInitLockConstructor() {
+-#elif defined(__cplusplus)
+-class GGGGC_LockInitLockConstructor {
+-    public:
+-    GGGGC_LockInitLockConstructor() {
+-#else
+-#error No means of global construction: Please compile ggggc as C++.
+-#endif
+-        lockInitLock = CreateMutex(NULL, 0, NULL);
+-    }
+-#if defined(__cplusplus)
+-};
+-#endif
+-
+-#define BLOCKING(func, call) \
+-int func \
+-{ \
+-    BOOL ret; \
+-    ggc_pre_blocking(); \
+-    ret = call; \
+-    ggc_post_blocking(); \
+-    errno = ret ? 0 : ENOMEM; \
+-    return ret ? 0 : -1; \
+-}
+-
+-static void initLock(ggc_mutex_t *mutex)
+-{
+-    WaitForSingleObject(lockInitLock, INFINITE);
+-    *mutex = CreateMutex(NULL, 0, NULL);
+-    ReleaseMutex(lockInitLock);
+-}
+-
+-BLOCKING(
+-    ggc_mutex_lock(ggc_mutex_t *mutex),
+-    WaitForSingleObject(*(mutex), INFINITE)
+-)
+-
+-int ggc_mutex_lock_raw(ggc_mutex_t *mutex)
+-{
+-    if (!*mutex) initLock(mutex);
+-    return (WaitForSingleObject(*mutex, INFINITE) == WAIT_FAILED);
+-}
+-
+-int ggc_mutex_trylock(ggc_mutex_t *mutex)
+-{
+-    if (!*mutex) initLock(mutex);
+-    return (WaitForSingleObject(*mutex, 0) == WAIT_FAILED);
+-}
+-
+-int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg arg)
+-{
+-    ThreadInfo ti = NULL;
+-
+-    GGC_PUSH_2(arg, ti);
+-
+-    /* set up its thread info */
+-    ti = GGC_NEW(ThreadInfo);
+-    GGC_WD(ti, func, func);
+-    GGC_WP(ti, arg, arg);
+-
+-    /* update our thread barrier */
+-    while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)
+-        GGC_YIELD();
+-    if (ggggc_threadCount == 0) ggggc_threadCount++;
+-    else ggc_barrier_destroy(&ggggc_worldBarrier);
+-    ggc_barrier_init(&ggggc_worldBarrier, ++ggggc_threadCount);
+-    ggc_mutex_unlock(&ggggc_worldBarrierLock);
+-
+-    /* spawn the thread */
+-    *thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) ggggcThreadWrapper, ti, 0, NULL);
+-    if (!*thread)
+-        return -1;
+-
+-    return 0;
+-}
+-
+-BLOCKING(
+-    ggc_thread_join(ggc_thread_t thread),
+-    WaitForSingleObject(thread, INFINITE)
+-)
+-
+-#include "gen-barriers.c"
+diff -r 58cff3df00ed -r f3131025f51e threads.c
+--- a/threads.c	Fri Nov 27 13:54:51 2015 -0500
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,153 +0,0 @@
+-/*
+- * Functionality related to thread wrapping
+- *
+- * Copyright (c) 2014, 2015 Gregor Richards
+- *
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+- */
+-
+-#include <errno.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <sys/types.h>
+-
+-#include "ggggc/gc.h"
+-#include "ggggc-internals.h"
+-
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-/* general purpose thread info */
+-typedef void (*ggggc_threadFunc)(ThreadArg arg);
+-GGC_TYPE(ThreadInfo)
+-    GGC_MDATA(ggggc_threadFunc, func);
+-    GGC_MPTR(ThreadArg, arg);
+-GGC_END_TYPE(ThreadInfo,
+-    GGC_PTR(ThreadInfo, arg)
+-    )
+-
+-/* general purpose thread wrapper */
+-static void *ggggcThreadWrapper(void *arg)
+-{
+-    ThreadInfo ti = (ThreadInfo) arg;
+-    GGC_PUSH_1(ti);
+-
+-    GGC_RD(ti, func)(GGC_RP(ti, arg));
+-
+-    /* now remove this thread from the thread barrier */
+-    while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)
+-        GGC_YIELD();
+-    ggggc_threadCount--;
+-    if (ggggc_threadCount > 0) {
+-        ggc_barrier_destroy(&ggggc_worldBarrier);
+-        ggc_barrier_init(&ggggc_worldBarrier, ggggc_threadCount);
+-    }
+-    ggc_mutex_unlock(&ggggc_worldBarrierLock);
+-
+-    /* and give back its pools */
+-    ggggc_freeGeneration(ggggc_gen0);
+-
+-    return 0;
+-}
+-
+-static ggc_thread_local struct GGGGC_PoolList blockedPoolListNode;
+-static ggc_thread_local struct GGGGC_PointerStackList blockedPointerStackListNode;
+-
+-/* call this before blocking */
+-void ggc_pre_blocking()
+-{
+-    /* get a lock on the thread count etc */
+-    while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)
+-        GGC_YIELD();
+-
+-    /* take ourselves out of contention */
+-    ggggc_threadCount--;
+-    if (ggggc_threadCount > 0) {
+-        ggc_barrier_destroy(&ggggc_worldBarrier);
+-        ggc_barrier_init(&ggggc_worldBarrier, ggggc_threadCount);
+-    }
+-
+-    /* add our roots and pools */
+-    blockedPoolListNode.pool = ggggc_gen0;
+-    blockedPoolListNode.next = ggggc_blockedThreadPool0s;
+-    ggggc_blockedThreadPool0s = &blockedPoolListNode;
+-    blockedPointerStackListNode.pointerStack = ggggc_pointerStack;
+-    blockedPointerStackListNode.next = ggggc_blockedThreadPointerStacks;
+-    ggggc_blockedThreadPointerStacks = &blockedPointerStackListNode;
+-
+-    ggc_mutex_unlock(&ggggc_worldBarrierLock);
+-}
+-
+-/* and this after */
+-void ggc_post_blocking()
+-{
+-    struct GGGGC_PoolList *plCur;
+-    struct GGGGC_PointerStackList *pslCur;
+-
+-    /* get a lock on the thread count etc */
+-    while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0);
+-    /* FIXME: can't yield here, as yielding waits for stop-the-world if
+-     * applicable. Perhaps something would be more ideal than a spin-loop
+-     * though. */
+-
+-    /* add ourselves back to the world barrier */
+-    ggc_barrier_destroy(&ggggc_worldBarrier);
+-    ggc_barrier_init(&ggggc_worldBarrier, ++ggggc_threadCount);
+-
+-    /* remove our roots and pools from the list */
+-    if (ggggc_blockedThreadPool0s == &blockedPoolListNode) {
+-        ggggc_blockedThreadPool0s = ggggc_blockedThreadPool0s->next;
+-
+-    } else {
+-        for (plCur = ggggc_blockedThreadPool0s; plCur->next; plCur = plCur->next) {
+-            if (plCur->next == &blockedPoolListNode) {
+-                plCur->next = plCur->next->next;
+-                break;
+-            }
+-        }
+-
+-    }
+-    if (ggggc_blockedThreadPointerStacks == &blockedPointerStackListNode) {
+-        ggggc_blockedThreadPointerStacks = ggggc_blockedThreadPointerStacks->next;
+-
+-    } else {
+-        for (pslCur = ggggc_blockedThreadPointerStacks; pslCur->next; pslCur = pslCur->next) {
+-            if (pslCur->next == &blockedPointerStackListNode) {
+-                pslCur->next = pslCur->next->next;
+-                break;
+-            }
+-        }
+-
+-    }
+-
+-    ggc_mutex_unlock(&ggggc_worldBarrierLock);
+-}
+-
+-#if defined(GGGGC_THREADS_POSIX)
+-#include "threads-posix.c"
+-
+-#elif defined(GGGGC_THREADS_MACOSX)
+-#include "threads-macosx.c"
+-
+-#elif defined(GGGGC_THREADS_WINDOWS)
+-#include "threads-windows.c"
+-
+-#elif !defined(GGGGC_NO_THREADS)
+-#error Unknown threading platform.
+-
+-#endif
+-
+-#ifdef __cplusplus
+-}
+-#endif
