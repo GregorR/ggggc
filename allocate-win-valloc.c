@@ -1,5 +1,5 @@
 /*
- * Allocation functions (mmap)
+ * Allocation functions (Windows VirtualAlloc)
  *
  * Copyright (c) 2014, 2015 Gregor Richards
  *
