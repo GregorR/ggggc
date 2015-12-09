@@ -21,6 +21,10 @@
 
 #include "../gc.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* generic list type */
 GGC_TYPE(GGC_ListNode)
     GGC_MPTR(GGC_ListNode, next);
@@ -114,5 +118,9 @@ static type ## Array type ## ListToArray(type ## List list) \
 { \
     return (type ## Array) GGC_ListToArray((GGC_List) list); \
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

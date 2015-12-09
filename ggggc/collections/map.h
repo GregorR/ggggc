@@ -21,6 +21,10 @@
 
 #include "../gc.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* generic map type */
 GGC_TYPE(GGC_MapEntry)
     GGC_MPTR(GGC_MapEntry, next);
@@ -93,5 +97,9 @@ static name name ## Clone(name map) \
 { \
     return (name) GGC_MapClone((GGC_Map) map); \
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

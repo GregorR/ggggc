@@ -3,6 +3,10 @@
 
 #include "../gc.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define GGC_UNIT(type) \
 GGC_TYPE(GGC_ ## type ## _Unit) \
     GGC_MDATA(type, v); \
@@ -24,5 +28,9 @@ static GGC_ ## type ## _Array GGC_ ## type ## _UnitArrayDeunit(GGC_ ## type ## _
     \
     return ret; \
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
