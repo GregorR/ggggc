@@ -40,7 +40,7 @@ int main()
                "    void *pointers[%d];\n"
                "};\n"
                "#define GGC_PUSH_%d(",
-               i, i, i);
+               i, i+1, i);
         for (j = 0; j < i; j++) {
             if (j != 0) printf(", ");
             printf("ggggc_ptr_%c", 'a' + j);
