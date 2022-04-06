@@ -1,0 +1,6 @@
+include Makefile
+
+CC=owcc -bdos -mcmodel=h -xc++
+AR=wlib
+ARFLAGS=
+RANLIB=true

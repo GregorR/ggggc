@@ -31,6 +31,10 @@ extern "C" {
 #include <malloc.h>
 #endif
 
+#ifdef M_I86
+#include "dos16.h"
+#endif
+
 #include "thread-locals.h"
 #include "threads.h"
 

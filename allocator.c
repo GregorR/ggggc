@@ -76,6 +76,10 @@ extern "C" {
 #define GGGGC_ALLOCATOR_VIRTUALALLOC 1
 #include "allocator/win-valloc.c"
 
+#elif defined(M_I86)
+#define GGGGC_ALLOCATOR_HALLOC 1
+#include "allocate-halloc.c"
+
 #else
 #define GGGGC_ALLOCATOR_SBRK 1
 #include "allocator/sbrk.c"
