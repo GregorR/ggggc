@@ -168,9 +168,12 @@ following definitions are available:
    if no thread-local storage or no threading library can be found, but may be
    set explicitly to avoid the preprocessor warning in these cases.
 
- * `GGGGC_USE_MALLOC`: Use `malloc` instead of a smarter allocator. `malloc`
-   will be used by default if no smarter allocator can be found, but this may
-   be set explicitly to avoid the preprocessor warning in this case.
+ * `GGGGC_USE_SBRK`: Use `sbrk` instead of a smarter (or at least more
+   system-specific) allocator.
+
+ * `GGGGC_USE_MALLOC`: Use `malloc` instead of a smarter allocator. This is
+   necessary on systems that don't have any smarter allocator (even `sbrk`!),
+   as `sbrk` is used as the fallback.
 
 
 Portability
@@ -188,8 +191,8 @@ are the OS-level allocator (see the beginning of `allocate.c`, which includes
 e.g. `allocate-mmap.c`) and thread support. If no thread support is needed, it
 can be excluded with the configuration macro GGGGC_NO_THREADS. Otherwise, new
 thread intrinsics can be added in `ggggc/threads.h` and `threads.c`. For
-OS-level allocation, if nothing else suffices, `malloc` can be used, but this
-is extremely wasteful.
+OS-level allocation, if nothing else suffices, `malloc` can be used with a
+flag, but this is extremely wasteful.
 
 Support for true 16-bit systems is likely infeasible. 16-bit systems compiling
 in "huge mode" (i.e., with 32-bit data pointers) can be supported with little

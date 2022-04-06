@@ -56,6 +56,10 @@ extern "C" {
 #define GGGGC_ALLOCATOR_MALLOC 1
 #include "allocate-malloc.c"
 
+#elif defined(GGGGC_USE_SBRK)
+#define GGGGC_ALLOCATOR_SBRK 1
+#include "allocate-sbrk.c"
+
 #elif _POSIX_ADVISORY_INFO >= 200112L
 #define GGGGC_ALLOCATOR_POSIX_MEMALIGN 1
 #include "allocate-malign.c"
@@ -69,9 +73,8 @@ extern "C" {
 #include "allocate-win-valloc.c"
 
 #else
-#warning GGGGC: No allocator available other than malloc!
-#define GGGGC_ALLOCATOR_MALLOC 1
-#include "allocate-malloc.c"
+#define GGGGC_ALLOCATOR_SBRK 1
+#include "allocate-sbrk.c"
 
 #endif
 

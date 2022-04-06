@@ -29,7 +29,7 @@ static void *allocPool(int mustSucceed)
 
         /* since we can't pre-align, align by getting as much as we can manage */
         for (i = 16; i >= 2; i /= 2) {
-            space = malloc(GGGGC_POOL_BYTES * i);
+            space = (unsigned char *) malloc(GGGGC_POOL_BYTES * i);
             if (space) break;
         }
         if (!space) {
