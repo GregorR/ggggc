@@ -1,11 +1,8 @@
-# HG changeset patch
-# Parent c67b2f27b659b87554a5ee554bd3744642ba4709
-Implementation of finalizers, as a standard list over appropriate pools to be searched after the initial trace.
-
-diff -r c67b2f27b659 allocate.c
---- a/allocate.c	Fri Nov 27 12:05:34 2015 -0500
-+++ b/allocate.c	Fri Nov 27 12:06:45 2015 -0500
-@@ -345,6 +345,47 @@
+diff --git a/allocate.c b/allocate.c
+index 5dcc0c2..3b3a21c 100644
+--- a/allocate.c
++++ b/allocate.c
+@@ -345,6 +345,47 @@ void *ggggc_mallocSlot(struct GGGGC_DescriptorSlot *slot)
      return ggggc_malloc(ggggc_allocateDescriptorSlot(slot));
  }
  
@@ -53,10 +50,11 @@ diff -r c67b2f27b659 allocate.c
  #ifdef __cplusplus
  }
  #endif
-diff -r c67b2f27b659 collector-gembc.c
---- a/collector-gembc.c	Fri Nov 27 12:05:34 2015 -0500
-+++ b/collector-gembc.c	Fri Nov 27 12:06:45 2015 -0500
-@@ -170,7 +170,7 @@
+diff --git a/collector-gembc.c b/collector-gembc.c
+index 416918a..42fd891 100644
+--- a/collector-gembc.c
++++ b/collector-gembc.c
+@@ -170,7 +170,7 @@ void *ggggc_malloc(struct GGGGC_Descriptor *descriptor)
  
  
  /* full collection */
@@ -65,7 +63,7 @@ diff -r c67b2f27b659 collector-gembc.c
  
  /* helper functions for full collection */
  void ggggc_countUsed(struct GGGGC_Pool *);
-@@ -258,6 +258,53 @@
+@@ -258,6 +258,53 @@ struct ToSearch {
  
  static struct ToSearch toSearchList;
  
@@ -119,7 +117,7 @@ diff -r c67b2f27b659 collector-gembc.c
  #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
  static void memoryCorruptionCheckObj(const char *when, struct GGGGC_Header *obj)
  {
-@@ -375,6 +422,10 @@
+@@ -375,6 +422,10 @@ void ggggc_collect0(unsigned char gen)
      unsigned char genCur;
      ggc_size_t i;
  
@@ -130,7 +128,7 @@ diff -r c67b2f27b659 collector-gembc.c
      /* first, make sure we stop the world */
      while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0) {
          /* somebody else is collecting */
-@@ -418,7 +469,7 @@
+@@ -418,7 +469,7 @@ void ggggc_collect0(unsigned char gen)
  
  #if GGGGC_GENERATIONS == 1
      /* with only one generation, we only want a full collection */
@@ -139,7 +137,7 @@ diff -r c67b2f27b659 collector-gembc.c
  
  #else
      /************************************************************
-@@ -455,6 +506,9 @@
+@@ -455,6 +506,9 @@ collect:
          }
      }
  
@@ -149,7 +147,7 @@ diff -r c67b2f27b659 collector-gembc.c
      /* now test all our pointers */
      while (toSearch->used) {
          void **ptr;
-@@ -491,6 +545,9 @@
+@@ -491,6 +545,9 @@ collect:
              /* allocate in the new generation */
              nobj = (struct GGGGC_Header *) ggggc_mallocGen1(descriptor->size, gen + 1);
              if (!nobj) {
@@ -159,7 +157,7 @@ diff -r c67b2f27b659 collector-gembc.c
                  /* failed to allocate, need to collect gen+1 too */
                  gen += 1;
                  TOSEARCH_INIT();
-@@ -499,11 +556,11 @@
+@@ -499,11 +556,11 @@ collect:
  #endif
  #if GGGGC_GENERATIONS > 2
                  if (gen >= GGGGC_GENERATIONS - 1) {
@@ -173,7 +171,7 @@ diff -r c67b2f27b659 collector-gembc.c
                  break;
  #endif
              }
-@@ -526,10 +583,37 @@
+@@ -526,10 +583,37 @@ collect:
              abort();
          }
  #endif
@@ -211,7 +209,7 @@ diff -r c67b2f27b659 collector-gembc.c
      /* heuristically expand too-small generations */
      for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next)
          ggggc_expandPoolList(plCur->pool, newPoolGenProto, 1);
-@@ -580,6 +664,9 @@
+@@ -580,6 +664,9 @@ collect:
      /* free the other threads */
      ggc_barrier_wait_raw(&ggggc_worldBarrier);
      ggc_mutex_unlock(&ggggc_worldBarrierLock);
@@ -221,7 +219,7 @@ diff -r c67b2f27b659 collector-gembc.c
  }
  
  /* type for an element of our break table */
-@@ -685,7 +772,7 @@
+@@ -685,7 +772,7 @@ static struct BreakTableEl *findBreakTableEntry(struct BreakTableEl *breakTable,
  }
  
  /* perform a full, in-place collection */
@@ -230,7 +228,7 @@ diff -r c67b2f27b659 collector-gembc.c
  {
      struct GGGGC_PoolList *plCur;
      struct GGGGC_Pool *poolCur;
-@@ -695,6 +782,10 @@
+@@ -695,6 +782,10 @@ void ggggc_collectFull()
      unsigned char genCur;
      ggc_size_t i;
  
@@ -241,7 +239,7 @@ diff -r c67b2f27b659 collector-gembc.c
      TOSEARCH_INIT();
  
      /* add our roots to the to-search list */
-@@ -737,6 +828,30 @@
+@@ -737,6 +828,30 @@ void ggggc_collectFull()
              /* add its pointers */
              ADD_OBJECT_POINTERS(obj, descriptor);
          }
@@ -272,7 +270,7 @@ diff -r c67b2f27b659 collector-gembc.c
      }
  
      /* find all our sizes, for later compaction */
-@@ -773,6 +888,17 @@
+@@ -773,6 +888,17 @@ void ggggc_collectFull()
              }
          }
      }
@@ -290,7 +288,7 @@ diff -r c67b2f27b659 collector-gembc.c
      for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
          for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
              ggggc_postCompact(poolCur);
-@@ -805,6 +931,10 @@
+@@ -805,6 +931,10 @@ void ggggc_collectFull()
          }
      }
  #endif
@@ -301,10 +299,11 @@ diff -r c67b2f27b659 collector-gembc.c
  }
  
  /* determine the size of every contiguous chunk of used or unused space in this
-diff -r c67b2f27b659 ggggc-internals.h
---- a/ggggc-internals.h	Fri Nov 27 12:05:34 2015 -0500
-+++ b/ggggc-internals.h	Fri Nov 27 12:06:45 2015 -0500
-@@ -101,6 +101,19 @@
+diff --git a/ggggc-internals.h b/ggggc-internals.h
+index e885193..f3a88b4 100644
+--- a/ggggc-internals.h
++++ b/ggggc-internals.h
+@@ -101,6 +101,19 @@ extern struct GGGGC_Descriptor *ggggc_descriptorDescriptors[GGGGC_WORDS_PER_POOL
  /* and a lock for the descriptor descriptors */
  extern ggc_mutex_t ggggc_descriptorDescriptorsLock;
  
@@ -324,20 +323,21 @@ diff -r c67b2f27b659 ggggc-internals.h
  #ifdef __cplusplus
  }
  #endif
-diff -r c67b2f27b659 ggggc/gc.h
---- a/ggggc/gc.h	Fri Nov 27 12:05:34 2015 -0500
-+++ b/ggggc/gc.h	Fri Nov 27 12:06:45 2015 -0500
-@@ -112,6 +112,9 @@
- 
+diff --git a/ggggc/gc.h b/ggggc/gc.h
+index c6740e2..3dd362d 100644
+--- a/ggggc/gc.h
++++ b/ggggc/gc.h
+@@ -114,6 +114,9 @@ struct GGGGC_Pool {
      /* how much survived the last collection */
      ggc_size_t survivors;
-+ 
+ 
 +    /* and pointer to the first finalizer in this pool */
 +    void *finalizers;
- 
++
      /* and the actual content */
      ggc_size_t start[1];
-@@ -299,6 +302,13 @@
+ };
+@@ -364,6 +367,13 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(ggc_size_t size);
  /* allocate a descriptor from a descriptor slot */
  struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot);
  
