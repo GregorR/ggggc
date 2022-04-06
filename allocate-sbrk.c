@@ -38,7 +38,7 @@ static void mallocBump()
         /* enough space to safely try this */
         void **list = NULL;
         while (sbrk(0) == brk) {
-            void **next = malloc(offset - 2 * sizeof(void *));
+            void **next = (void **) malloc(offset - 2 * sizeof(void *));
             if (!next) break;
             next[0] = list;
             list = next;
@@ -46,7 +46,7 @@ static void mallocBump()
 
         /* return it all */
         while (list) {
-            void **next = list[0];
+            void **next = (void **) list[0];
             free(list);
             list = next;
         }
