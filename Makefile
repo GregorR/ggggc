@@ -39,7 +39,7 @@ patch:
 	    fi; \
 	done
 	[ -e $(PATCH_DEST)/Makefile ] || \
-	    for p in $(PATCHES); do ( cd patches/$$p; cat `cat series` ); done | \
+	    for p in $(PATCHES); do cat patches/$$p/*.diff; done | \
 	        ( cd $(PATCH_DEST); patch -p1 )
 	cp Makefile $(PATCH_DEST)/Makefile
 

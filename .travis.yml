@@ -7,8 +7,3 @@ os:
     - osx
 
 sudo: false
-
-notifications:
-    irc:
-        channels: "irc.freenode.net#plof"
-        template: "%{repository} (%{branch} - %{commit} : %{author}): %{message}"
