@@ -388,6 +388,9 @@ void ggggc_globalize(void);
 /* each thread has its own pointer stack, including global references */
 extern ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerStackGlobals;
 
+/* [jitpstack] and a pointer stack for JIT purposes */
+extern ggc_thread_local void **ggc_jitPointerStack, **ggc_jitPointerStackTop;
+
 /* macros to push and pop pointers from the pointer stack */
 #define GGGGC_POP() do { \
     ggggc_pointerStack = ggggc_pointerStack->next; \

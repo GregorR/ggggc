@@ -19,6 +19,8 @@
 #ifndef GGGGC_COLLECTIONS_MAP_H
 #define GGGGC_COLLECTIONS_MAP_H 1
 
+#include <string.h>
+
 #include "../gc.h"
 
 #ifdef __cplusplus
