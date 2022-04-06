@@ -52,6 +52,7 @@ extern "C" {
 typedef size_t ggc_size_t;
 #endif
 
+/* global configuration */
 #ifndef GGGGC_GENERATIONS
 #define GGGGC_GENERATIONS 2
 #endif
@@ -309,7 +310,8 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
     GGGGC_WP(ggggc_desc, user__ptr, value); \
 } while(0)
 
-/* although pointers don't need a read barrier, the renaming sort of forces one */
+/* although pointers don't usually need a read barrier, the renaming sort of
+ * forces one */
 #define GGC_RP(object, member)  GGGGC_RP(object, member ## __ptr)
 #define GGC_RD(object, member)  GGGGC_RD(object, member ## __data)
 #define GGC_RAP(object, index)  GGGGC_RP(object, a__ptrs[(index)])
@@ -317,7 +319,8 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
 #define GGC_RUP(object)         ((object)->header.descriptor__ptr->user__ptr)
 #define GGC_LENGTH(object)      ((object)->header.descriptor__ptr->length)
 
-/* because the write barrier forces you to use identifiers, an identifier version of NULL */
+/* because the write barrier forces you to use identifiers, an identifier
+ * version of NULL */
 static void * const ggggc_null = NULL;
 #define GGC_NULL ggggc_null
 
@@ -429,11 +432,6 @@ GGC_TYPE(ThreadArg)
 GGC_END_TYPE(ThreadArg,
     GGC_PTR(ThreadArg, parg)
     )
-
-/* support for ggggcify tool */
-#ifdef GGGGC_GGGGCIFY
-#include "ggggcify.h"
-#endif
 
 /* a few simple builtin types */
 GGC_DA_TYPE(char)
