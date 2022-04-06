@@ -191,15 +191,7 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
     | (1<<GGGGC_OFFSETOF(type, member))
 #define GGC_NO_PTRS | 0
 
-/* macros for defining types 
- * Example:
- * GGC_TYPE(Foo)
- *     GGC_MPTR(Bar, fooMemberOfTypeBar);
- *     GGC_MDATA(int, fooMemberOfTypeInt);
- * GGC_END_TYPE(Foo,
- *     GGC_PTR(Foo, fooMemberOfTypeBar)
- *     )
- */
+/* macros for array types */
 #define GGC_DA_TYPE(type) \
     typedef struct type ## __ggggc_darray *GGC_ ## type ## _Array; \
     struct type ## __ggggc_darray { \
@@ -214,15 +206,85 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
         ggc_size_t length; \
         type a__ptrs[1]; \
     };
+
+/* macros for defining types
+ * Example:
+ * GGC_TYPE(Foo)
+ *     GGC_MPTR(Bar, fooMemberOfTypeBar);
+ *     GGC_MDATA(int, fooMemberOfTypeInt);
+ * GGC_END_TYPE(Foo,
+ *     GGC_PTR(Foo, fooMemberOfTypeBar)
+ *     )
+ */
+#ifdef __cplusplus
+#define GGGGC_CURRENT_TYPEDEF(type) \
+    typedef struct type ## __ggggc_struct ggggc_current_struct;
+#else
+#define GGGGC_CURRENT_TYPEDEF(type)
+#endif
 #define GGC_TYPE(type) \
     typedef struct type ## __ggggc_struct *type; \
     GGC_PA_TYPE(type) \
     struct type ## __ggggc_struct { \
+        GGGGC_CURRENT_TYPEDEF(type) \
         struct GGGGC_Header header;
+
+#ifdef __cplusplus
+#define GGC_MDATA(type, name) \
+        ; \
+        \
+        union { \
+            type name ## __data; \
+            struct { \
+                inline operator type () { \
+                    ggggc_current_struct *that = (ggggc_current_struct *) (void *) ( \
+                        (char *) (void *) this - \
+                        (size_t) (void *) &(((ggggc_current_struct *) NULL)->name ## __data) \
+                    ); \
+                    return GGC_RD(that, name); \
+                } \
+                inline void operator=(type &x) { \
+                    ggggc_current_struct *that = (ggggc_current_struct *) (void *) ( \
+                        (char *) (void *) this - \
+                        (size_t) (void *) &(((ggggc_current_struct *) NULL)->name ## __data) \
+                    ); \
+                    GGC_WD(that, name, x); \
+                } \
+                type data; \
+            } name; \
+        }
+#define GGC_MPTR(type, name) \
+        ; \
+        \
+        union { \
+            type name ## __ptr; \
+            struct { \
+                inline operator type () { \
+                    ggggc_current_struct *that = (ggggc_current_struct *) (void *) ( \
+                        (char *) (void *) this - \
+                        (size_t) (void *) &(((ggggc_current_struct *) NULL)->name ## __ptr) \
+                    ); \
+                    return GGC_RP(that, name); \
+                } \
+                inline void operator=(type &x) { \
+                    ggggc_current_struct *that = (ggggc_current_struct *) (void *) ( \
+                        (char *) (void *) this - \
+                        (size_t) (void *) &(((ggggc_current_struct *) NULL)->name ## __ptr) \
+                    ); \
+                    GGC_WP(that, name, x); \
+                } \
+                type data; \
+            } name; \
+        }
+
+#else
 #define GGC_MDATA(type, name) \
         type name ## __data
 #define GGC_MPTR(type, name) \
         type name ## __ptr
+
+#endif
+
 #define GGC_END_TYPE(type, pointers) \
     }; \
     GGC_DESCRIPTOR(type, pointers)
