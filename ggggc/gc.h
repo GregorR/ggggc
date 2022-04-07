@@ -51,6 +51,8 @@ extern "C" {
 #ifndef ggc_size_t
 typedef size_t ggc_size_t;
 #endif
+typedef char ggggc_size_t_check
+    [(sizeof(ggc_size_t) == sizeof(void *)) ? 1 : -1];
 
 /* global configuration */
 #ifndef GGGGC_GENERATIONS
