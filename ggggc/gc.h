@@ -89,7 +89,7 @@ typedef char ggggc_size_t_check
 /* which collector we implement */
 #ifndef GGGGC_COLLECTOR
 #if UINT_MAX <= 65535U
-#define GGGGC_COLLECTOR portablemc
+#define GGGGC_COLLECTOR portablems
 #else
 #define GGGGC_COLLECTOR gembc
 #endif

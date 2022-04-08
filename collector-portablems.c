@@ -186,7 +186,7 @@ static void mark(struct GGGGC_Header *obj)
             if (curDescription & 1) {
                 /* it's a pointer */
                 if (objVp[curWord])
-                    mark(objVp[curWord]);
+                    mark((struct GGGGC_Header *) objVp[curWord]);
             }
             curDescription >>= 1;
         }
@@ -285,7 +285,6 @@ void ggggc_collect0(unsigned char gen)
         GGC_YIELD();
         return;
     }
-    fprintf(stderr, "Primary: Waiting to collect\n");
 
     /* if nobody ever initialized the barrier, do so */
     if (ggggc_threadCount == 0) {
@@ -310,7 +309,6 @@ void ggggc_collect0(unsigned char gen)
 
     /* wait for them to fill roots */
     ggc_barrier_wait_raw(&ggggc_worldBarrier);
-    fprintf(stderr, "Primary: Collecting\n");
 
     /* mark from roots */
     for (pslCur = ggggc_rootPointerStackList; pslCur; pslCur = pslCur->next) {
@@ -353,7 +351,6 @@ void ggggc_collect0(unsigned char gen)
     /* free the other threads */
     ggc_barrier_wait_raw(&ggggc_worldBarrier);
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
-    fprintf(stderr, "Primary: Collection done\n");
 }
 
 /* explicitly yield to the collector */
@@ -376,13 +373,11 @@ int ggggc_yield()
         ggggc_rootPointerStackList = &pointerStackNode;
         ggc_mutex_unlock(&ggggc_rootsLock);
 
-        fprintf(stderr, "Secondary: Waiting for collection\n");
         /* wait for the barrier once to allow collection */
         ggc_barrier_wait_raw(&ggggc_worldBarrier);
 
         /* wait for the barrier to know when collection is done */
         ggc_barrier_wait_raw(&ggggc_worldBarrier);
-        fprintf(stderr, "Secondary: Collection done\n");
     }
 
     return 0;
