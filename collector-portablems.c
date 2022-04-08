@@ -193,77 +193,99 @@ static void mark(struct GGGGC_Header *obj)
     }
 }
 
-/* sweep this pool */
+/* sweep this heap */
 static void sweep(struct GGGGC_Pool *pool)
 {
-    union {
-        ggc_size_t *w;
-        struct GGGGC_Header *obj;
-        struct FreeListNode *fl;
-    } cur;
-    struct FreeListNode *lastFree = NULL;
-    ggc_size_t *end;
+    ggc_size_t survivors = 0, total = 0;
 
-    pool->survivors = 0;
+    for (; pool; pool = pool->next) {
+        union {
+            ggc_size_t *w;
+            struct GGGGC_Header *obj;
+            struct FreeListNode *fl;
+        } cur;
+        struct FreeListNode *lastFree = NULL;
+        ggc_size_t *end;
 
-    /* start at the beginning of the pool */
-    cur.w = pool->start;
+        pool->survivors = 0;
 
-    /* and work our way to the end */
-    end = pool->end;
-    while (cur.w < end) {
-        struct GGGGC_Descriptor *descriptor;
-        struct FreeListNode *nextFree;
-        ggc_size_t descriptorI;
+        /* start at the beginning of the pool */
+        cur.w = pool->start;
 
-        if (cur.fl->zero == 0) {
-            /* it's a free-list entry already */
-            lastFree = cur.fl;
-            cur.w += cur.fl->size;
-            continue;
-        }
+        /* and work our way to the end */
+        end = pool->end;
+        while (cur.w < end) {
+            struct GGGGC_Descriptor *descriptor;
+            struct FreeListNode *nextFree;
+            ggc_size_t descriptorI;
 
-        /* it's an allocated object */
-        descriptorI = (ggc_size_t) (void *) cur.obj->descriptor__ptr;
-        if (descriptorI & 1) {
-            /* it's marked, so still in use */
-            descriptorI--;
+            if (cur.fl->zero == 0) {
+                /* it's a free-list entry already */
+                lastFree = cur.fl;
+                cur.w += cur.fl->size;
+                continue;
+            }
+
+            /* it's an allocated object */
+            descriptorI = (ggc_size_t) (void *) cur.obj->descriptor__ptr;
+            if (descriptorI & 1) {
+                /* it's marked, so still in use */
+                descriptorI--;
+                descriptor = (struct GGGGC_Descriptor *) (void *) descriptorI;
+                pool->survivors += descriptor->size;
+                cur.obj->descriptor__ptr = descriptor;
+                cur.w += descriptor->size;
+                continue;
+            }
+
+            /* it's a free object (FIXME: what if the descriptor was freed?) */
             descriptor = (struct GGGGC_Descriptor *) (void *) descriptorI;
-            pool->survivors += descriptor->size;
-            cur.obj->descriptor__ptr = descriptor;
-            cur.w += descriptor->size;
-            continue;
-        }
+            cur.fl->zero = 0;
+            cur.fl->size = descriptor->size;
 
-        /* it's a free object (FIXME: what if the descriptor was freed?) */
-        descriptor = (struct GGGGC_Descriptor *) (void *) descriptorI;
-        cur.fl->zero = 0;
-        cur.fl->size = descriptor->size;
-
-        /* free this object */
-        if (lastFree) {
-            if (cur.w == ((ggc_size_t *) lastFree) + lastFree->size) {
-                /* coalesce */
-                lastFree->size += descriptor->size;
+            /* free this object */
+            if (lastFree) {
+                if (cur.w == ((ggc_size_t *) lastFree) + lastFree->size) {
+                    /* coalesce */
+                    lastFree->size += descriptor->size;
+                } else {
+                    /* free separately */
+                    cur.fl->next = lastFree->next;
+                    lastFree->next = cur.fl;
+                    lastFree = cur.fl;
+                }
             } else {
-                /* free separately */
-                cur.fl->next = lastFree->next;
-                lastFree->next = cur.fl;
+                ggggc_free(cur.fl);
                 lastFree = cur.fl;
             }
-        } else {
-            ggggc_free(cur.fl);
-            lastFree = cur.fl;
+
+            /* possibly coalesce it with the next object */
+            nextFree = (struct FreeListNode *) (void *)
+                (((ggc_size_t) lastFree) + lastFree->size);
+            if (lastFree->next == nextFree)
+                lastFree->next = nextFree->next;
+
+            /* and continue */
+            cur.w = ((ggc_size_t *) lastFree) + lastFree->size;
         }
 
-        /* possibly coalesce it with the next object */
-        nextFree = (struct FreeListNode *) (void *)
-            (((ggc_size_t) lastFree) + lastFree->size);
-        if (lastFree->next == nextFree)
-            lastFree->next = nextFree->next;
+        /* now count */
+        survivors += pool->survivors;
+        total += pool->end - pool->start;
+    }
 
-        /* and continue */
-        cur.w = ((ggc_size_t *) lastFree) + lastFree->size;
+    /* possibly expand our heap */
+    if (survivors > total>>1) {
+        /* less than half free */
+        total = survivors - (total>>1);
+        while (total > GGGGC_POOL_BYTES) {
+            pool = ggggc_newPoolFree(0);
+            if (!pool)
+                break;
+            pool->next = ggggc_gen0;
+            ggggc_gen0 = pool;
+            total -= GGGGC_POOL_BYTES;
+        }
     }
 }
 
@@ -322,31 +344,11 @@ void ggggc_collect0(unsigned char gen)
         }
     }
 
-    /* and sweep */
-    for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
-        ggc_size_t survivors = 0, total = 0;
-        for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
-            sweep(poolCur);
-            survivors += poolCur->survivors;
-            total += poolCur->end - poolCur->start;
-        }
+    /* indicate that we're now ready to sweep */
+    ggc_barrier_wait_raw(&ggggc_worldBarrier);
 
-        if (plCur->pool == ggggc_gen0) {
-            /* we triggered the GC, so possibly expand our heap */
-            if (survivors > total>>1) {
-                /* less than half free */
-                total = survivors - (total>>1);
-                while (total > GGGGC_POOL_BYTES) {
-                    poolCur = ggggc_newPoolFree(0);
-                    if (!poolCur)
-                        break;
-                    poolCur->next = ggggc_gen0;
-                    ggggc_gen0 = poolCur;
-                    total -= GGGGC_POOL_BYTES;
-                }
-            }
-        }
-    }
+    /* sweep our own heap */
+    sweep(ggggc_gen0);
 
     /* free the other threads */
     ggc_barrier_wait_raw(&ggggc_worldBarrier);
@@ -373,10 +375,16 @@ int ggggc_yield()
         ggggc_rootPointerStackList = &pointerStackNode;
         ggc_mutex_unlock(&ggggc_rootsLock);
 
-        /* wait for the barrier once to allow collection */
+        /* wait for the barrier once to allow marking */
         ggc_barrier_wait_raw(&ggggc_worldBarrier);
 
-        /* wait for the barrier to know when collection is done */
+        /* wait until marking is done */
+        ggc_barrier_wait_raw(&ggggc_worldBarrier);
+
+        /* local sweep */
+        sweep(ggggc_gen0);
+
+        /* and continue */
         ggc_barrier_wait_raw(&ggggc_worldBarrier);
     }
 
