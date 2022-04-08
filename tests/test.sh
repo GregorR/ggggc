@@ -56,9 +56,13 @@ else
         doTests "$patch" g++ '-DGGGGC_NO_GNUC_FEATURES'
 
         doTests "$patch" gcc '-DGGGGC_DEBUG_TINY_HEAP'
+
         doTests "$patch" gcc '-DGGGGC_GENERATIONS=1'
         doTests "$patch" gcc '-DGGGGC_GENERATIONS=5'
+        doTests "$patch" gcc '-DGGGGC_COLLECTOR=portablems'
+
         doTests "$patch" gcc '-DGGGGC_USE_MALLOC'
+        doTests "$patch" gcc '-DGGGGC_USE_SBRK -DGGGGC_NO_THREADS'
     done
 
 fi
