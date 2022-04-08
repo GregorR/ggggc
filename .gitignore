@@ -1,0 +1,13 @@
+*.o
+deps
+libggggc.a
+tests/badlll
+tests/bt
+tests/btgc
+tests/btggggc
+tests/btggggcth
+tests/dosbox.conf
+tests/gcbench
+tests/ggggcbench
+tests/lists
+tests/maps
