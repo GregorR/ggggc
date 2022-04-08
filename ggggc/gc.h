@@ -23,6 +23,7 @@
 extern "C" {
 #endif
 
+#include <limits.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #ifdef _WIN32
@@ -87,7 +88,11 @@ typedef char ggggc_size_t_check
 
 /* which collector we implement */
 #ifndef GGGGC_COLLECTOR
+#if UINT_MAX <= 65535U
+#define GGGGC_COLLECTOR portablemc
+#else
 #define GGGGC_COLLECTOR gembc
+#endif
 #endif
 #define GGGGC_STRINGIFY(x) #x
 #define GGGGC_COLLECTOR_F2(x) GGGGC_STRINGIFY(gc-x.h)

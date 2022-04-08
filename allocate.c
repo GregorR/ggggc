@@ -60,6 +60,10 @@ extern "C" {
 #define GGGGC_ALLOCATOR_SBRK 1
 #include "allocate-sbrk.c"
 
+#elif defined(GGGGC_USE_PORTABLE_ALLOCATOR)
+#define GGGGC_ALLOCATOR_PORTABLE 1
+#include "allocate-portable.c"
+
 #elif _POSIX_ADVISORY_INFO >= 200112L
 #define GGGGC_ALLOCATOR_POSIX_MEMALIGN 1
 #include "allocate-malign.c"
@@ -123,12 +127,6 @@ struct GGGGC_Pool *ggggc_newPool(int mustSucceed)
     ret->end = (ggc_size_t *) ((unsigned char *) ret + GGGGC_POOL_BYTES);
 
     return ret;
-}
-
-/* allocate and initialize a pool based on a prototype */
-struct GGGGC_Pool *ggggc_newPoolProto(struct GGGGC_Pool *proto)
-{
-    return ggggc_newPool(0);
 }
 
 /* heuristically expand a pool list if it has too many survivors
