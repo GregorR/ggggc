@@ -101,6 +101,51 @@ extern struct GGGGC_Descriptor *ggggc_descriptorDescriptors[GGGGC_WORDS_PER_POOL
 /* and a lock for the descriptor descriptors */
 extern ggc_mutex_t ggggc_descriptorDescriptorsLock;
 
+/* list of pointers to search and associated macros */
+#define TOSEARCH_SZ 1024
+struct ToSearch {
+    struct ToSearch *prev, *next;
+    ggc_size_t used;
+    void **buf;
+};
+
+#define TOSEARCH_INIT() do { \
+    if (toSearchList.buf == NULL) { \
+        toSearchList.buf = (void **) malloc(TOSEARCH_SZ * sizeof(void *)); \
+        if (toSearchList.buf == NULL) { \
+            /* FIXME: handle somehow? */ \
+            perror("malloc"); \
+            abort(); \
+        } \
+    } \
+    toSearch = &toSearchList; \
+    toSearch->used = 0; \
+} while(0)
+#define TOSEARCH_NEXT() do { \
+    if (!toSearch->next) { \
+        struct ToSearch *tsn = (struct ToSearch *) malloc(sizeof(struct ToSearch)); \
+        toSearch->next = tsn; \
+        tsn->prev = toSearch; \
+        tsn->next = NULL; \
+        tsn->buf = (void **) malloc(TOSEARCH_SZ * sizeof(void *)); \
+        if (tsn->buf == NULL) { \
+            perror("malloc"); \
+            abort(); \
+        } \
+    } \
+    toSearch = toSearch->next; \
+    toSearch->used = 0; \
+} while(0)
+#define TOSEARCH_ADD(ptr) do { \
+    if (toSearch->used >= TOSEARCH_SZ) TOSEARCH_NEXT(); \
+    toSearch->buf[toSearch->used++] = (ptr); \
+} while(0)
+#define TOSEARCH_POP(type, into) do { \
+    into = (type) toSearch->buf[--toSearch->used]; \
+    if (toSearch->used == 0 && toSearch->prev) \
+        toSearch = toSearch->prev; \
+} while(0)
+
 #ifdef __cplusplus
 }
 #endif

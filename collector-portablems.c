@@ -150,45 +150,56 @@ void *ggggc_malloc(struct GGGGC_Descriptor *descriptor)
     return ret;
 }
 
+static struct ToSearch toSearchList;
+
 /* mark this object and all objects it refers to */
 static void mark(struct GGGGC_Header *obj)
 {
+    struct ToSearch *toSearch;
     struct GGGGC_Descriptor *descriptor;
     ggc_size_t descriptorI;
     void **objVp;
     ggc_size_t curWord, curDescription, curDescriptorWord;
 
-    /* check if it's already marked */
-    descriptor = obj->descriptor__ptr;
-    descriptorI = (ggc_size_t) (void *) descriptor;
-    if (descriptorI & 1) {
-        /* already marked */
-        return;
-    }
+    TOSEARCH_INIT();
+    TOSEARCH_ADD(obj);
 
-    /* mark it */
-    descriptorI |= 1;
-    obj->descriptor__ptr = (struct GGGGC_Descriptor *) (void *) descriptorI;
+    while (toSearch->used) {
+        TOSEARCH_POP(struct GGGGC_Header *, obj);
 
-    /* mark its descriptor */
-    mark((struct GGGGC_Header *) descriptor);
+        /* check if it's already marked */
+        descriptor = obj->descriptor__ptr;
+        descriptorI = (ggc_size_t) (void *) descriptor;
+        if (descriptorI & 1) {
+            /* already marked */
+            continue;
+        }
 
-    /* and recurse */
-    if (descriptor->pointers[0] & 1) {
-        /* it has pointers */
-        objVp = (void **) obj;
-        curDescriptorWord = 0;
+        /* mark it */
+        descriptorI |= 1;
+        obj->descriptor__ptr = (struct GGGGC_Descriptor *) (void *) descriptorI;
 
-        curDescription = descriptor->pointers[0] >> 1;
-        for (curWord = 1; curWord < descriptor->size; curWord++) {
-            if (curWord % GGGGC_BITS_PER_WORD == 0)
-                curDescription = descriptor->pointers[++curDescriptorWord];
-            if (curDescription & 1) {
-                /* it's a pointer */
-                if (objVp[curWord])
-                    mark((struct GGGGC_Header *) objVp[curWord]);
+        /* mark its descriptor */
+        TOSEARCH_ADD(descriptor);
+
+        /* and recurse */
+        if (descriptor->pointers[0] & 1) {
+            /* it has pointers */
+            objVp = (void **) obj;
+            curDescriptorWord = 0;
+
+            curDescription = descriptor->pointers[0] >> 1;
+            for (curWord = 1; curWord < descriptor->size; curWord++) {
+                if (curWord % GGGGC_BITS_PER_WORD == 0)
+                    curDescription = descriptor->pointers[++curDescriptorWord];
+                if (curDescription & 1) {
+                    /* it's a pointer */
+                    if (objVp[curWord]) {
+                        TOSEARCH_ADD(objVp[curWord]);
+                    }
+                }
+                curDescription >>= 1;
             }
-            curDescription >>= 1;
         }
     }
 }
