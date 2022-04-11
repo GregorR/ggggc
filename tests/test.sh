@@ -49,7 +49,7 @@ else
     PATCHES=`ls patches`
     for patch in '' $PATCHES
     do
-        doTests "$patch" gcc '-O0 -g -Wall -Werror -std=c99 -pedantic -Wno-array-bounds -Wno-unused-function -Werror=shadow -Wno-cpp -DGGGGC_DEBUG_MEMORY_CORRUPTION'
+        doTests "$patch" gcc '-O0 -g -Wall -Werror -std=c99 -pedantic -Wno-array-bounds -Wno-unused-function -Werror=shadow -DGGGGC_DEBUG_MEMORY_CORRUPTION'
         doTests "$patch" gcc ''
         doTests "$patch" g++ ''
         #doTests "$patch" gcc '-DGGGGC_NO_GNUC_FEATURES'

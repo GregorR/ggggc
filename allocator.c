@@ -19,6 +19,7 @@
  */
 
 #define _BSD_SOURCE /* for MAP_ANON */
+#define _DEFAULT_SOURCE /* for glibc */
 #define _DARWIN_C_SOURCE /* for MAP_ANON on OS X */
 
 /* for standards info */
