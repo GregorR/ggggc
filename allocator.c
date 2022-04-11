@@ -303,14 +303,12 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(ggc_size_t size)
 
     /* fill our pointer-words with 1s */
     dPWords = GGGGC_DESCRIPTOR_WORDS_REQ(size);
-    pointers = (ggc_size_t *)
 #ifdef alloca
-        alloca
+    pointers = (ggc_size_t *)
+        alloca(sizeof(ggc_size_t) * dPWords);
 #else
-        malloc
-#endif
-        (sizeof(ggc_size_t) * dPWords);
-#ifndef alloca
+    pointers = (ggc_size_t *)
+        malloc(sizeof(ggc_size_t) * dPWords);
     if (!pointers) abort();
 #endif
     for (i = 0; i < dPWords; i++) pointers[i] = (ggc_size_t) -1;
