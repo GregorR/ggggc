@@ -1,8 +1,8 @@
-diff --git a/collector-gembc.c b/collector-gembc.c
-index 416918a..9df9c67 100644
---- a/collector-gembc.c
-+++ b/collector-gembc.c
-@@ -370,7 +370,9 @@ void ggggc_collect0(unsigned char gen)
+diff --git a/collector/gembc.c b/collector/gembc.c
+index d8dfe6f..6a88663 100644
+--- a/collector/gembc.c
++++ b/collector/gembc.c
+@@ -325,7 +325,9 @@ void ggggc_collect0(unsigned char gen)
      struct GGGGC_PoolList pool0Node, *plCur;
      struct GGGGC_Pool *poolCur;
      struct GGGGC_PointerStackList pointerStackNode, *pslCur;
@@ -12,7 +12,7 @@ index 416918a..9df9c67 100644
      struct ToSearch *toSearch;
      unsigned char genCur;
      ggc_size_t i;
-@@ -398,6 +400,10 @@ void ggggc_collect0(unsigned char gen)
+@@ -354,6 +356,10 @@ void ggggc_collect0(unsigned char gen)
      pointerStackNode.pointerStack = ggggc_pointerStack;
      pointerStackNode.next = ggggc_blockedThreadPointerStacks;
      ggggc_rootPointerStackList = &pointerStackNode;
@@ -23,7 +23,7 @@ index 416918a..9df9c67 100644
      ggc_mutex_unlock(&ggggc_rootsLock);
  
      /* stop the world */
-@@ -436,6 +442,11 @@ collect:
+@@ -392,6 +398,11 @@ collect:
              }
          }
      }
@@ -35,7 +35,7 @@ index 416918a..9df9c67 100644
  
      /* add our remembered sets to the to-search list */
      for (genCur = gen + 1; genCur < GGGGC_GENERATIONS; genCur++) {
-@@ -691,6 +702,8 @@ void ggggc_collectFull()
+@@ -647,6 +658,8 @@ void ggggc_collectFull()
      struct GGGGC_Pool *poolCur;
      struct GGGGC_PointerStackList *pslCur;
      struct GGGGC_PointerStack *psCur;
@@ -44,7 +44,7 @@ index 416918a..9df9c67 100644
      struct ToSearch *toSearch;
      unsigned char genCur;
      ggc_size_t i;
-@@ -705,6 +718,11 @@ void ggggc_collectFull()
+@@ -661,6 +674,11 @@ void ggggc_collectFull()
              }
          }
      }
@@ -56,7 +56,7 @@ index 416918a..9df9c67 100644
  
      /* now mark */
      while (toSearch->used) {
-@@ -773,6 +791,12 @@ void ggggc_collectFull()
+@@ -729,6 +747,12 @@ void ggggc_collectFull()
              }
          }
      }
@@ -69,7 +69,7 @@ index 416918a..9df9c67 100644
      for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
          for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
              ggggc_postCompact(poolCur);
-@@ -1021,6 +1045,7 @@ int ggggc_yield()
+@@ -977,6 +1001,7 @@ int ggggc_yield()
  {
      struct GGGGC_PoolList pool0Node;
      struct GGGGC_PointerStackList pointerStackNode;
@@ -77,7 +77,7 @@ index 416918a..9df9c67 100644
  
      if (ggggc_stopTheWorld) {
          /* wait for the barrier once to stop the world */
-@@ -1034,6 +1059,10 @@ int ggggc_yield()
+@@ -990,6 +1015,10 @@ int ggggc_yield()
          pointerStackNode.pointerStack = ggggc_pointerStack;
          pointerStackNode.next = ggggc_rootPointerStackList;
          ggggc_rootPointerStackList = &pointerStackNode;
@@ -89,7 +89,7 @@ index 416918a..9df9c67 100644
  
          /* wait for the barrier once to allow collection */
 diff --git a/ggggc-internals.h b/ggggc-internals.h
-index e885193..3d0bace 100644
+index 519ecfc..8a57d0c 100644
 --- a/ggggc-internals.h
 +++ b/ggggc-internals.h
 @@ -78,10 +78,16 @@ struct GGGGC_PointerStackList {
@@ -123,10 +123,10 @@ index 4f4f118..fa4ea3a 100644
  
  #ifdef __cplusplus
 diff --git a/ggggc/gc.h b/ggggc/gc.h
-index c6740e2..705708f 100644
+index c763819..6adcd93 100644
 --- a/ggggc/gc.h
 +++ b/ggggc/gc.h
-@@ -380,6 +380,9 @@ void ggggc_globalize(void);
+@@ -388,6 +388,9 @@ void ggggc_globalize(void);
  /* each thread has its own pointer stack, including global references */
  extern ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerStackGlobals;
  
