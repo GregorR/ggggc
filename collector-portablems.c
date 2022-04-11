@@ -111,8 +111,8 @@ retry:
 
         /* Collect and retry. */
         if (retried < 1) {
-            retried = 1;
             GGC_PUSH_1(*descriptor);
+            retried = 1;
             ggggc_collect0(0);
             GGC_POP();
             goto retry;

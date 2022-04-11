@@ -24,12 +24,11 @@ extern "C" {
 #endif
 
 #include <limits.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #ifdef _WIN32
 #include <malloc.h>
-#else
-#include <alloca.h>
 #endif
 
 #include "thread-locals.h"
@@ -52,8 +51,10 @@ extern "C" {
 #ifndef ggc_size_t
 typedef size_t ggc_size_t;
 #endif
+#if defined(__STDC__) || defined(__cplusplus)
 typedef char ggggc_size_t_check
     [(sizeof(ggc_size_t) == sizeof(void *)) ? 1 : -1];
+#endif
 
 /* global configuration */
 #ifndef GGGGC_GENERATIONS

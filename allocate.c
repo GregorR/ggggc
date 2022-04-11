@@ -244,8 +244,10 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(ggc_size_t size)
     /* put it in the list */
     ggggc_descriptorDescriptors[size] = ret;
     ggc_mutex_unlock(&ggggc_descriptorDescriptorsLock);
-    GGC_PUSH_1(ggggc_descriptorDescriptors[size]);
-    GGC_GLOBALIZE();
+    {
+        GGC_PUSH_1(ggggc_descriptorDescriptors[size]);
+        GGC_GLOBALIZE();
+    }
 
     return ret;
 }
@@ -297,10 +299,20 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(ggc_size_t size)
 {
     ggc_size_t *pointers;
     ggc_size_t dPWords, i;
+    struct GGGGC_Descriptor *ret;
 
     /* fill our pointer-words with 1s */
     dPWords = GGGGC_DESCRIPTOR_WORDS_REQ(size);
-    pointers = (ggc_size_t *) alloca(sizeof(ggc_size_t) * dPWords);
+    pointers = (ggc_size_t *)
+#ifdef alloca
+        alloca
+#else
+        malloc
+#endif
+        (sizeof(ggc_size_t) * dPWords);
+#ifndef alloca
+    if (!pointers) abort();
+#endif
     for (i = 0; i < dPWords; i++) pointers[i] = (ggc_size_t) -1;
 
     /* get rid of non-pointers */
@@ -310,7 +322,11 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(ggc_size_t size)
         );
 
     /* and allocate */
-    return ggggc_allocateDescriptorL(size, pointers);
+    ret = ggggc_allocateDescriptorL(size, pointers);
+#ifndef alloca
+    free(pointers);
+#endif
+    return ret;
 }
 
 /* descriptor allocator for data arrays */
@@ -334,8 +350,10 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlo
     ggc_mutex_unlock(&slot->lock);
 
     /* make the slot descriptor a root */
-    GGC_PUSH_1(slot->descriptor);
-    GGC_GLOBALIZE();
+    {
+        GGC_PUSH_1(slot->descriptor);
+        GGC_GLOBALIZE();
+    }
 
     return slot->descriptor;
 }
