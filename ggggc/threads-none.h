@@ -1,7 +1,7 @@
 /*
  * Stubs when there are no threads
  *
- * Copyright (c) 2014 Gregor Richards
+ * Copyright (c) 2014-2022 Gregor Richards
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
