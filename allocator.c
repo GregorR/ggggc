@@ -78,7 +78,7 @@ extern "C" {
 
 #elif defined(M_I86)
 #define GGGGC_ALLOCATOR_HALLOC 1
-#include "allocate-halloc.c"
+#include "allocator/halloc.c"
 
 #else
 #define GGGGC_ALLOCATOR_SBRK 1
