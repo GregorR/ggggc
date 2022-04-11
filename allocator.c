@@ -54,31 +54,31 @@ extern "C" {
 /* figure out which allocator to use */
 #if defined(GGGGC_USE_MALLOC)
 #define GGGGC_ALLOCATOR_MALLOC 1
-#include "allocate-malloc.c"
+#include "allocator/malloc.c"
 
 #elif defined(GGGGC_USE_SBRK)
 #define GGGGC_ALLOCATOR_SBRK 1
-#include "allocate-sbrk.c"
+#include "allocator/sbrk.c"
 
 #elif defined(GGGGC_USE_PORTABLE_ALLOCATOR)
 #define GGGGC_ALLOCATOR_PORTABLE 1
-#include "allocate-portable.c"
+#include "allocator/portable.c"
 
 #elif _POSIX_ADVISORY_INFO >= 200112L
 #define GGGGC_ALLOCATOR_POSIX_MEMALIGN 1
-#include "allocate-malign.c"
+#include "allocator/malign.c"
 
 #elif defined(MAP_ANON)
 #define GGGGC_ALLOCATOR_MMAP 1
-#include "allocate-mmap.c"
+#include "allocator/mmap.c"
 
 #elif defined(_WIN32)
 #define GGGGC_ALLOCATOR_VIRTUALALLOC 1
-#include "allocate-win-valloc.c"
+#include "allocator/win-valloc.c"
 
 #else
 #define GGGGC_ALLOCATOR_SBRK 1
-#include "allocate-sbrk.c"
+#include "allocator/sbrk.c"
 
 #endif
 

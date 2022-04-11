@@ -135,13 +135,13 @@ void ggc_post_blocking()
 }
 
 #if defined(GGGGC_THREADS_POSIX)
-#include "threads-posix.c"
+#include "threads/posix.c"
 
 #elif defined(GGGGC_THREADS_MACOSX)
-#include "threads-macosx.c"
+#include "threads/macosx.c"
 
 #elif defined(GGGGC_THREADS_WINDOWS)
-#include "threads-windows.c"
+#include "threads/windows.c"
 
 #elif !defined(GGGGC_NO_THREADS)
 #error Unknown threading platform.

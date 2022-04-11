@@ -8,7 +8,7 @@ RANLIB=ranlib
 PATCH_DEST=../ggggc
 PATCHES=
 
-OBJS=allocate.o collector-gembc.o collector-portablems.o globals.o roots.o \
+OBJS=allocator.o collector/gembc.o collector/portablems.o globals.o roots.o \
      threads.o collections/list.o collections/map.o
 
 all: libggggc.a
