@@ -67,8 +67,11 @@ int ggc_mutex_trylock(ggc_mutex_t *mutex)
     return (WaitForSingleObject(*mutex, 0) == WAIT_FAILED);
 }
 
-int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg arg)
-{
+int ggc_thread_create(
+        ggc_thread_t *thread,
+        void (*func)(GGC_ThreadArg),
+        GGC_ThreadArg arg
+) {
     ThreadInfo ti = NULL;
 
     GGC_PUSH_2(arg, ti);

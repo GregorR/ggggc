@@ -29,10 +29,10 @@ extern "C" {
 #endif
 
 /* general purpose thread info */
-typedef void (*ggggc_threadFunc)(ThreadArg arg);
+typedef void (*ggggc_threadFunc)(GGC_ThreadArg arg);
 GGC_TYPE(ThreadInfo)
     GGC_MDATA(ggggc_threadFunc, func);
-    GGC_MPTR(ThreadArg, arg);
+    GGC_MPTR(GGC_ThreadArg, arg);
 GGC_END_TYPE(ThreadInfo,
     GGC_PTR(ThreadInfo, arg)
     )

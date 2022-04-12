@@ -61,8 +61,11 @@ int ggc_sem_wait_raw(ggc_sem_t *sem)
     return dispatch_semaphore_wait(*sem, DISPATCH_TIME_FOREVER);
 }
 
-int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg arg)
-{
+int ggc_thread_create(
+        ggc_thread_t *thread,
+        void (*func)(GGC_ThreadArg),
+        GGC_ThreadArg arg
+) {
     ThreadInfo ti = NULL;
 
     GGC_PUSH_2(arg, ti);
