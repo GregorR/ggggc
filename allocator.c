@@ -240,7 +240,8 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(ggc_size_t size)
     else
         ret->header.descriptor__ptr = ret;
     ret->size = size;
-    ret->pointers[0] = GGGGC_DESCRIPTOR_DESCRIPTION;
+    ret->tags[0] = 1;
+    ret->tags[GGGGC_OFFSETOF(struct GGGGC_Descriptor *, user)] = 1;
 
     /* put it in the list */
     ggggc_descriptorDescriptors[size] = ret;
@@ -286,10 +287,19 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_si
 
     /* and set it up */
     if (pointers) {
-        memcpy(ret->pointers, pointers, sizeof(ggc_size_t) * dPWords);
-        ret->pointers[0] |= 1; /* first word is always the descriptor pointer */
-    } else {
-        ret->pointers[0] = 0;
+        ggc_size_t pi, si, curP, curM;
+        pi = -1;
+        curM = 0;
+        for (si = 0; si < size; si++) {
+            if (!curM) {
+                curP = pointers[++pi];
+                curM = 1;
+            }
+            if (curP & curM)
+                ret->tags[si] = 1;
+            curM <<= 1;
+        }
+        ret->tags[0] = 1; /* first word is always the descriptor pointer */
     }
 
     return ret;

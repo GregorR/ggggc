@@ -139,12 +139,14 @@ struct GGGGC_Descriptor {
     struct GGGGC_Header header;
     void *user__ptr; /* for the user to use however they please */
     ggc_size_t size; /* size of the described object in words */
-    ggc_size_t pointers[1]; /* location of pointers within the object (as a special
-                         * case, if pointers[0]&1==0, this means "no pointers") */
+    unsigned char tags[1]; /* Tags for each of the words in the object. Pointer
+                              tags must be odd. As a special case, if the first
+                              value (the header pointer) is 0, this means "no
+                              pointers". */
 };
 #define GGGGC_DESCRIPTOR_DESCRIPTION (((ggc_size_t)1<<(((ggc_size_t) (void *) &((struct GGGGC_Header *) 0)->descriptor__ptr)/sizeof(ggc_size_t)))|\
                                       ((ggc_size_t)1<<(((ggc_size_t) (void *) &((struct GGGGC_Descriptor *) 0)->user__ptr)/sizeof(ggc_size_t)))) 
-#define GGGGC_DESCRIPTOR_WORDS_REQ(sz) (((sz) + GGGGC_BITS_PER_WORD - 1) / GGGGC_BITS_PER_WORD)
+#define GGGGC_DESCRIPTOR_WORDS_REQ(sz) (((sz) * 8 + GGGGC_BITS_PER_WORD - 1) / GGGGC_BITS_PER_WORD)
 
 /* descriptor slots are global locations where descriptors may eventually be
  * stored */
@@ -362,6 +364,10 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptor(ggc_size_t size, ggc_size_t po
 /* descriptor allocator when more than one word is required to describe the
  * pointers */
 struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_size_t *pointers);
+
+/* descriptor allocator when deeper tag information than presence of pointers
+ * is provided */
+struct GGGGC_Descriptor *ggggc_allocateDescriptorT(ggc_size_t size, const unsigned char *tags);
 
 /* descriptor allocator for pointer arrays */
 struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(ggc_size_t size);

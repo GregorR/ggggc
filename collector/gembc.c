@@ -196,16 +196,12 @@ void ggggc_postCompact(struct GGGGC_Pool *);
 #define ADD_OBJECT_POINTERS(obj, descriptor) do { \
     void **objVp = (void **) (obj); \
     ggc_size_t curWord, curDescription, curDescriptorWord = 0; \
-    if (descriptor->pointers[0] & 1) { \
+    if (descriptor->tags[0]) { \
         /* it has pointers */ \
-        curDescription = descriptor->pointers[0] >> 1; \
         for (curWord = 1; curWord < descriptor->size; curWord++) { \
-            if (curWord % GGGGC_BITS_PER_WORD == 0) \
-                curDescription = descriptor->pointers[++curDescriptorWord]; \
-            if (curDescription & 1) \
+            if (descriptor->tags[curWord] & 1) \
                 /* it's a pointer */ \
                 TOSEARCH_ADD(&objVp[curWord]); \
-            curDescription >>= 1; \
         } \
     } \
     TOSEARCH_ADD(&objVp[0]); \
@@ -223,12 +219,10 @@ static void memoryCorruptionCheckObj(const char *when, struct GGGGC_Header *obj)
         fprintf(stderr, "GGGGC: Memory corruption (%s)!\n", when);
         abort();
     }
-    if (descriptor->pointers[0] & 1) {
+    if (descriptor->tags[0]) {
         /* it has pointers */
         for (curWord = 0; curWord < descriptor->size; curWord++) {
-            if (curWord % GGGGC_BITS_PER_WORD == 0)
-                curDescription = descriptor->pointers[curDescriptorWord++];
-            if (curDescription & 1) {
+            if (descriptor->tags[curWord] & 1) {
                 /* it's a pointer */
                 struct GGGGC_Header *nobj = (struct GGGGC_Header *) objVp[curWord];
                 if (nobj && nobj->ggggc_memoryCorruptionCheck != GGGGC_MEMORY_CORRUPTION_VAL) {
@@ -918,12 +912,10 @@ void ggggc_postCompact(struct GGGGC_Pool *pool)
         FOLLOW_COMPACTED_DESCRIPTOR(descriptor);
 
         /* and walk through all its pointers */
-        if (descriptor->pointers[0] & 1) {
+        if (descriptor->tags[0]) {
             /* it has pointers */
             for (curWord = 0; curWord < descriptor->size; curWord++) {
-                if (curWord % GGGGC_BITS_PER_WORD == 0)
-                    curDescription = descriptor->pointers[curDescriptorWord++];
-                if ((curDescription & 1) && obj[curWord]) {
+                if ((descriptor->tags[curWord] & 1) && obj[curWord]) {
                     /* it's a pointer */
                     FOLLOW_COMPACTED_OBJECT(obj[curWord]);
 
