@@ -195,7 +195,7 @@ void ggggc_postCompact(struct GGGGC_Pool *);
 /* macro to add an object's pointers to the tosearch list */
 #define ADD_OBJECT_POINTERS(obj, descriptor) do { \
     void **objVp = (void **) (obj); \
-    ggc_size_t curWord, curDescription, curDescriptorWord = 0; \
+    ggc_size_t curWord; \
     if (descriptor->tags[0]) { \
         /* it has pointers */ \
         for (curWord = 1; curWord < descriptor->size; curWord++) { \
@@ -214,7 +214,7 @@ static void memoryCorruptionCheckObj(const char *when, struct GGGGC_Header *obj)
 {
     struct GGGGC_Descriptor *descriptor = obj->descriptor__ptr;
     void **objVp = (void **) (obj);
-    ggc_size_t curWord, curDescription = 0, curDescriptorWord = 0;
+    ggc_size_t curWord;
     if (obj->ggggc_memoryCorruptionCheck != GGGGC_MEMORY_CORRUPTION_VAL) {
         fprintf(stderr, "GGGGC: Memory corruption (%s)!\n", when);
         abort();
@@ -230,7 +230,6 @@ static void memoryCorruptionCheckObj(const char *when, struct GGGGC_Header *obj)
                     abort();
                 }
             }
-            curDescription >>= 1;
         }
     } else {
         /* no pointers other than the descriptor */
@@ -894,7 +893,7 @@ void ggggc_postCompact(struct GGGGC_Pool *pool)
 
     for (obj = (ggc_size_t **) pool->start; obj < (ggc_size_t **) pool->free;) {
         struct GGGGC_Descriptor *descriptor;
-        ggc_size_t curWord, curDescription = 0, curDescriptorWord = 0;
+        ggc_size_t curWord;
 
 #if GGGGC_GENERATIONS > 1
         /* set its card metadata */
@@ -925,7 +924,6 @@ void ggggc_postCompact(struct GGGGC_Pool *pool)
                         pool->remember[card] = 1;
 #endif
                 }
-                curDescription >>= 1;
             }
         } else {
             /* no pointers other than the descriptor */
