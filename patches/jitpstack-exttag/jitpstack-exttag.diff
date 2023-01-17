@@ -1,0 +1,199 @@
+diff --git a/collector/gembc.c b/collector/gembc.c
+index 3285f09..f9594c3 100644
+--- a/collector/gembc.c
++++ b/collector/gembc.c
+@@ -325,7 +325,9 @@ void ggggc_collect0(unsigned char gen)
+     struct GGGGC_PoolList pool0Node, *plCur;
+     struct GGGGC_Pool *poolCur;
+     struct GGGGC_PointerStackList pointerStackNode, *pslCur;
++    struct GGGGC_JITPointerStackList jitPointerStackNode, *jpslCur;
+     struct GGGGC_PointerStack *psCur;
++    void **jpsCur;
+     struct ToSearch *toSearch;
+     unsigned char genCur;
+     ggc_size_t i;
+@@ -354,6 +356,10 @@ void ggggc_collect0(unsigned char gen)
+     pointerStackNode.pointerStack = ggggc_pointerStack;
+     pointerStackNode.next = ggggc_blockedThreadPointerStacks;
+     ggggc_rootPointerStackList = &pointerStackNode;
++    jitPointerStackNode.cur = ggc_jitPointerStack;
++    jitPointerStackNode.top = ggc_jitPointerStackTop;
++    jitPointerStackNode.next = ggggc_blockedThreadJITPointerStacks;
++    ggggc_rootJITPointerStackList = &jitPointerStackNode;
+     ggc_mutex_unlock(&ggggc_rootsLock);
+ 
+     /* stop the world */
+@@ -392,6 +398,24 @@ collect:
+             }
+         }
+     }
++    for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
++        for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
++            int wordIdx;
++            size_t tags = *((size_t *) *jpsCur);
++            for (wordIdx = 0; wordIdx < sizeof(size_t); wordIdx++) {
++                unsigned char tag = tags & 0xFF;
++                tags >>= 8;
++                if (tag == 0xFF) {
++                    /* End-of-tags tag */
++                    break;
++                }
++                jpsCur++;
++                /* Lowest bit indicates pointer */
++                if ((tag & 0x1) == 0)
++                    TOSEARCH_ADD(jpsCur);
++            }
++        }
++    }
+ 
+     /* add our remembered sets to the to-search list */
+     for (genCur = gen + 1; genCur < GGGGC_GENERATIONS; genCur++) {
+@@ -647,6 +671,8 @@ void ggggc_collectFull()
+     struct GGGGC_Pool *poolCur;
+     struct GGGGC_PointerStackList *pslCur;
+     struct GGGGC_PointerStack *psCur;
++    struct GGGGC_JITPointerStackList *jpslCur;
++    void **jpsCur;
+     struct ToSearch *toSearch;
+     unsigned char genCur;
+     ggc_size_t i;
+@@ -661,6 +687,24 @@ void ggggc_collectFull()
+             }
+         }
+     }
++    for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
++        for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
++            int wordIdx;
++            size_t tags = *((size_t *) *jpsCur);
++            for (wordIdx = 0; wordIdx < sizeof(size_t); wordIdx++) {
++                unsigned char tag = tags & 0xFF;
++                tags >>= 8;
++                if (tag == 0xFF) {
++                    /* End-of-tags tag */
++                    break;
++                }
++                jpsCur++;
++                /* Lowest bit indicates pointer */
++                if ((tag & 0x1) == 0)
++                    TOSEARCH_ADD(jpsCur);
++            }
++        }
++    }
+ 
+     /* now mark */
+     while (toSearch->used) {
+@@ -729,6 +773,24 @@ void ggggc_collectFull()
+             }
+         }
+     }
++    for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
++        for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
++            int wordIdx;
++            size_t tags = *((size_t *) *jpsCur);
++            for (wordIdx = 0; wordIdx < sizeof(size_t); wordIdx++) {
++                unsigned char tag = tags & 0xFF;
++                tags >>= 8;
++                if (tag == 0xFF) {
++                    /* End-of-tags tag */
++                    break;
++                }
++                jpsCur++;
++                /* Lowest bit indicates pointer */
++                if ((tag & 0x1) == 0 && *jpsCur)
++                    FOLLOW_COMPACTED_OBJECT(*jpsCur);
++            }
++        }
++    }
+     for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
+         for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
+             ggggc_postCompact(poolCur);
+@@ -977,6 +1039,7 @@ int ggggc_yield()
+ {
+     struct GGGGC_PoolList pool0Node;
+     struct GGGGC_PointerStackList pointerStackNode;
++    struct GGGGC_JITPointerStackList jitPointerStackNode;
+ 
+     if (ggggc_stopTheWorld) {
+         /* wait for the barrier once to stop the world */
+@@ -990,6 +1053,10 @@ int ggggc_yield()
+         pointerStackNode.pointerStack = ggggc_pointerStack;
+         pointerStackNode.next = ggggc_rootPointerStackList;
+         ggggc_rootPointerStackList = &pointerStackNode;
++        jitPointerStackNode.cur = ggc_jitPointerStack;
++        jitPointerStackNode.top = ggc_jitPointerStackTop;
++        jitPointerStackNode.next = ggggc_rootJITPointerStackList;
++        ggggc_rootJITPointerStackList = &jitPointerStackNode;
+         ggc_mutex_unlock(&ggggc_rootsLock);
+ 
+         /* wait for the barrier once to allow collection */
+diff --git a/ggggc-internals.h b/ggggc-internals.h
+index 6e0813e..6d23641 100644
+--- a/ggggc-internals.h
++++ b/ggggc-internals.h
+@@ -78,10 +78,16 @@ struct GGGGC_PointerStackList {
+     struct GGGGC_PointerStack *pointerStack;
+ };
+ extern struct GGGGC_PointerStackList *ggggc_rootPointerStackList;
++struct GGGGC_JITPointerStackList {
++    struct GGGGC_JITPointerStackList *next;
++    void **cur, **top;
++};
++extern struct GGGGC_JITPointerStackList *ggggc_rootJITPointerStackList;
+ 
+ /* threads which are blocked need to store their roots and pools aside when they can't stop the world */
+ extern struct GGGGC_PoolList *ggggc_blockedThreadPool0s;
+ extern struct GGGGC_PointerStackList *ggggc_blockedThreadPointerStacks;
++extern struct GGGGC_JITPointerStackList *ggggc_blockedThreadJITPointerStacks;
+ 
+ /* the generation 0 pools are thread-local */
+ extern ggc_thread_local struct GGGGC_Pool *ggggc_gen0;
+diff --git a/ggggc/collections/map.h b/ggggc/collections/map.h
+index 9711455..a5ca425 100644
+--- a/ggggc/collections/map.h
++++ b/ggggc/collections/map.h
+@@ -19,6 +19,8 @@
+ #ifndef GGGGC_COLLECTIONS_MAP_H
+ #define GGGGC_COLLECTIONS_MAP_H 1
+ 
++#include <string.h>
++
+ #include "../gc.h"
+ 
+ #ifdef __cplusplus
+diff --git a/ggggc/gc.h b/ggggc/gc.h
+index 2db6b5c..0c0859b 100644
+--- a/ggggc/gc.h
++++ b/ggggc/gc.h
+@@ -388,6 +388,9 @@ void ggggc_globalize(void);
+ /* each thread has its own pointer stack, including global references */
+ extern ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerStackGlobals;
+ 
++/* [jitpstack] and a pointer stack for JIT purposes */
++extern ggc_thread_local void **ggc_jitPointerStack, **ggc_jitPointerStackTop;
++
+ /* macros to push and pop pointers from the pointer stack */
+ #define GGGGC_POP() do { \
+     ggggc_pointerStack = ggggc_pointerStack->next; \
+diff --git a/globals.c b/globals.c
+index 412769d..d4dbc13 100644
+--- a/globals.c
++++ b/globals.c
+@@ -2,6 +2,7 @@
+ 
+ /* publics */
+ ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerStackGlobals;
++ggc_thread_local void **ggc_jitPointerStack, **ggc_jitPointerStackTop;
+ 
+ /* internals */
+ volatile int ggggc_stopTheWorld;
+@@ -11,8 +12,10 @@ ggc_mutex_t ggggc_worldBarrierLock = GGC_MUTEX_INITIALIZER;
+ ggc_mutex_t ggggc_rootsLock = GGC_MUTEX_INITIALIZER;
+ struct GGGGC_PoolList *ggggc_rootPool0List;
+ struct GGGGC_PointerStackList *ggggc_rootPointerStackList;
++struct GGGGC_JITPointerStackList *ggggc_rootJITPointerStackList;
+ struct GGGGC_PoolList *ggggc_blockedThreadPool0s;
+ struct GGGGC_PointerStackList *ggggc_blockedThreadPointerStacks;
++struct GGGGC_JITPointerStackList *ggggc_blockedThreadJITPointerStacks;
+ ggc_thread_local struct GGGGC_Pool *ggggc_gen0;
+ ggc_thread_local struct GGGGC_Pool *ggggc_pool0;
+ struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS];
