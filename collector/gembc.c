@@ -400,7 +400,20 @@ collect:
     }
     for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
         for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
-            TOSEARCH_ADD(jpsCur);
+            int wordIdx;
+            size_t tags = *((size_t *) *jpsCur);
+            for (wordIdx = 0; wordIdx < sizeof(size_t); wordIdx++) {
+                unsigned char tag = tags & 0xFF;
+                tags >>= 8;
+                if (tag == 0xFF) {
+                    /* End-of-tags tag */
+                    break;
+                }
+                jpsCur++;
+                /* Lowest bit indicates pointer */
+                if ((tag & 0x1) == 0)
+                    TOSEARCH_ADD(jpsCur);
+            }
         }
     }
 
@@ -676,7 +689,20 @@ void ggggc_collectFull()
     }
     for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
         for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
-            TOSEARCH_ADD(jpsCur);
+            int wordIdx;
+            size_t tags = *((size_t *) *jpsCur);
+            for (wordIdx = 0; wordIdx < sizeof(size_t); wordIdx++) {
+                unsigned char tag = tags & 0xFF;
+                tags >>= 8;
+                if (tag == 0xFF) {
+                    /* End-of-tags tag */
+                    break;
+                }
+                jpsCur++;
+                /* Lowest bit indicates pointer */
+                if ((tag & 0x1) == 0)
+                    TOSEARCH_ADD(jpsCur);
+            }
         }
     }
 
@@ -749,8 +775,20 @@ void ggggc_collectFull()
     }
     for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
         for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
-            if (*jpsCur)
-                FOLLOW_COMPACTED_OBJECT(*jpsCur);
+            int wordIdx;
+            size_t tags = *((size_t *) *jpsCur);
+            for (wordIdx = 0; wordIdx < sizeof(size_t); wordIdx++) {
+                unsigned char tag = tags & 0xFF;
+                tags >>= 8;
+                if (tag == 0xFF) {
+                    /* End-of-tags tag */
+                    break;
+                }
+                jpsCur++;
+                /* Lowest bit indicates pointer */
+                if ((tag & 0x1) == 0 && *jpsCur)
+                    FOLLOW_COMPACTED_OBJECT(*jpsCur);
+            }
         }
     }
     for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
