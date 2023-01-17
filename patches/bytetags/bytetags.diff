@@ -1,0 +1,195 @@
+diff --git a/allocator.c b/allocator.c
+index 72e895f..9c4a757 100644
+--- a/allocator.c
++++ b/allocator.c
+@@ -240,7 +240,8 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(ggc_size_t size)
+     else
+         ret->header.descriptor__ptr = ret;
+     ret->size = size;
+-    ret->pointers[0] = GGGGC_DESCRIPTOR_DESCRIPTION;
++    ret->tags[0] = 1;
++    ret->tags[GGGGC_OFFSETOF(struct GGGGC_Descriptor *, user)] = 1;
+ 
+     /* put it in the list */
+     ggggc_descriptorDescriptors[size] = ret;
+@@ -286,10 +287,19 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_si
+ 
+     /* and set it up */
+     if (pointers) {
+-        memcpy(ret->pointers, pointers, sizeof(ggc_size_t) * dPWords);
+-        ret->pointers[0] |= 1; /* first word is always the descriptor pointer */
+-    } else {
+-        ret->pointers[0] = 0;
++        ggc_size_t pi, si, curP, curM;
++        pi = -1;
++        curM = 0;
++        for (si = 0; si < size; si++) {
++            if (!curM) {
++                curP = pointers[++pi];
++                curM = 1;
++            }
++            if (curP & curM)
++                ret->tags[si] = 1;
++            curM <<= 1;
++        }
++        ret->tags[0] = 1; /* first word is always the descriptor pointer */
+     }
+ 
+     return ret;
+diff --git a/collector/gembc.c b/collector/gembc.c
+index 3285f09..cc72147 100644
+--- a/collector/gembc.c
++++ b/collector/gembc.c
+@@ -195,17 +195,13 @@ void ggggc_postCompact(struct GGGGC_Pool *);
+ /* macro to add an object's pointers to the tosearch list */
+ #define ADD_OBJECT_POINTERS(obj, descriptor) do { \
+     void **objVp = (void **) (obj); \
+-    ggc_size_t curWord, curDescription, curDescriptorWord = 0; \
+-    if (descriptor->pointers[0] & 1) { \
++    ggc_size_t curWord; \
++    if (descriptor->tags[0]) { \
+         /* it has pointers */ \
+-        curDescription = descriptor->pointers[0] >> 1; \
+         for (curWord = 1; curWord < descriptor->size; curWord++) { \
+-            if (curWord % GGGGC_BITS_PER_WORD == 0) \
+-                curDescription = descriptor->pointers[++curDescriptorWord]; \
+-            if (curDescription & 1) \
++            if (descriptor->tags[curWord] & 1) \
+                 /* it's a pointer */ \
+                 TOSEARCH_ADD(&objVp[curWord]); \
+-            curDescription >>= 1; \
+         } \
+     } \
+     TOSEARCH_ADD(&objVp[0]); \
+@@ -218,17 +214,15 @@ static void memoryCorruptionCheckObj(const char *when, struct GGGGC_Header *obj)
+ {
+     struct GGGGC_Descriptor *descriptor = obj->descriptor__ptr;
+     void **objVp = (void **) (obj);
+-    ggc_size_t curWord, curDescription = 0, curDescriptorWord = 0;
++    ggc_size_t curWord;
+     if (obj->ggggc_memoryCorruptionCheck != GGGGC_MEMORY_CORRUPTION_VAL) {
+         fprintf(stderr, "GGGGC: Memory corruption (%s)!\n", when);
+         abort();
+     }
+-    if (descriptor->pointers[0] & 1) {
++    if (descriptor->tags[0]) {
+         /* it has pointers */
+         for (curWord = 0; curWord < descriptor->size; curWord++) {
+-            if (curWord % GGGGC_BITS_PER_WORD == 0)
+-                curDescription = descriptor->pointers[curDescriptorWord++];
+-            if (curDescription & 1) {
++            if (descriptor->tags[curWord] & 1) {
+                 /* it's a pointer */
+                 struct GGGGC_Header *nobj = (struct GGGGC_Header *) objVp[curWord];
+                 if (nobj && nobj->ggggc_memoryCorruptionCheck != GGGGC_MEMORY_CORRUPTION_VAL) {
+@@ -236,7 +230,6 @@ static void memoryCorruptionCheckObj(const char *when, struct GGGGC_Header *obj)
+                     abort();
+                 }
+             }
+-            curDescription >>= 1;
+         }
+     } else {
+         /* no pointers other than the descriptor */
+@@ -900,7 +893,7 @@ void ggggc_postCompact(struct GGGGC_Pool *pool)
+ 
+     for (obj = (ggc_size_t **) pool->start; obj < (ggc_size_t **) pool->free;) {
+         struct GGGGC_Descriptor *descriptor;
+-        ggc_size_t curWord, curDescription = 0, curDescriptorWord = 0;
++        ggc_size_t curWord;
+ 
+ #if GGGGC_GENERATIONS > 1
+         /* set its card metadata */
+@@ -918,12 +911,10 @@ void ggggc_postCompact(struct GGGGC_Pool *pool)
+         FOLLOW_COMPACTED_DESCRIPTOR(descriptor);
+ 
+         /* and walk through all its pointers */
+-        if (descriptor->pointers[0] & 1) {
++        if (descriptor->tags[0]) {
+             /* it has pointers */
+             for (curWord = 0; curWord < descriptor->size; curWord++) {
+-                if (curWord % GGGGC_BITS_PER_WORD == 0)
+-                    curDescription = descriptor->pointers[curDescriptorWord++];
+-                if ((curDescription & 1) && obj[curWord]) {
++                if ((descriptor->tags[curWord] & 1) && obj[curWord]) {
+                     /* it's a pointer */
+                     FOLLOW_COMPACTED_OBJECT(obj[curWord]);
+ 
+@@ -933,7 +924,6 @@ void ggggc_postCompact(struct GGGGC_Pool *pool)
+                         pool->remember[card] = 1;
+ #endif
+                 }
+-                curDescription >>= 1;
+             }
+         } else {
+             /* no pointers other than the descriptor */
+diff --git a/collector/portablems.c b/collector/portablems.c
+index b6d842d..b2d40c4 100644
+--- a/collector/portablems.c
++++ b/collector/portablems.c
+@@ -159,7 +159,7 @@ static void mark(struct GGGGC_Header *obj)
+     struct GGGGC_Descriptor *descriptor;
+     ggc_size_t descriptorI;
+     void **objVp;
+-    ggc_size_t curWord, curDescription, curDescriptorWord;
++    ggc_size_t curWord;
+ 
+     TOSEARCH_INIT();
+     TOSEARCH_ADD(obj);
+@@ -183,22 +183,17 @@ static void mark(struct GGGGC_Header *obj)
+         TOSEARCH_ADD(descriptor);
+ 
+         /* and recurse */
+-        if (descriptor->pointers[0] & 1) {
++        if (descriptor->tags[0]) {
+             /* it has pointers */
+             objVp = (void **) obj;
+-            curDescriptorWord = 0;
+ 
+-            curDescription = descriptor->pointers[0] >> 1;
+             for (curWord = 1; curWord < descriptor->size; curWord++) {
+-                if (curWord % GGGGC_BITS_PER_WORD == 0)
+-                    curDescription = descriptor->pointers[++curDescriptorWord];
+-                if (curDescription & 1) {
++                if (descriptor->tags[curWord] & 1) {
+                     /* it's a pointer */
+                     if (objVp[curWord]) {
+                         TOSEARCH_ADD(objVp[curWord]);
+                     }
+                 }
+-                curDescription >>= 1;
+             }
+         }
+     }
+diff --git a/ggggc/gc.h b/ggggc/gc.h
+index 2db6b5c..c029e17 100644
+--- a/ggggc/gc.h
++++ b/ggggc/gc.h
+@@ -139,12 +139,14 @@ struct GGGGC_Descriptor {
+     struct GGGGC_Header header;
+     void *user__ptr; /* for the user to use however they please */
+     ggc_size_t size; /* size of the described object in words */
+-    ggc_size_t pointers[1]; /* location of pointers within the object (as a special
+-                         * case, if pointers[0]&1==0, this means "no pointers") */
++    unsigned char tags[1]; /* Tags for each of the words in the object. Pointer
++                              tags must be odd. As a special case, if the first
++                              value (the header pointer) is 0, this means "no
++                              pointers". */
+ };
+ #define GGGGC_DESCRIPTOR_DESCRIPTION (((ggc_size_t)1<<(((ggc_size_t) (void *) &((struct GGGGC_Header *) 0)->descriptor__ptr)/sizeof(ggc_size_t)))|\
+                                       ((ggc_size_t)1<<(((ggc_size_t) (void *) &((struct GGGGC_Descriptor *) 0)->user__ptr)/sizeof(ggc_size_t)))) 
+-#define GGGGC_DESCRIPTOR_WORDS_REQ(sz) (((sz) + GGGGC_BITS_PER_WORD - 1) / GGGGC_BITS_PER_WORD)
++#define GGGGC_DESCRIPTOR_WORDS_REQ(sz) (((sz) * 8 + GGGGC_BITS_PER_WORD - 1) / GGGGC_BITS_PER_WORD)
+ 
+ /* descriptor slots are global locations where descriptors may eventually be
+  * stored */
+@@ -363,6 +365,10 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptor(ggc_size_t size, ggc_size_t po
+  * pointers */
+ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_size_t *pointers);
+ 
++/* descriptor allocator when deeper tag information than presence of pointers
++ * is provided */
++struct GGGGC_Descriptor *ggggc_allocateDescriptorT(ggc_size_t size, const unsigned char *tags);
++
+ /* descriptor allocator for pointer arrays */
+ struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(ggc_size_t size);
+ 

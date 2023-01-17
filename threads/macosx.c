@@ -1,7 +1,7 @@
 /*
  * Thread support for Mac OS X's awful almost-pthreads
  *
- * Copyright (c) 2014, 2015 Gregor Richards
+ * Copyright (c) 2014-2022 Gregor Richards
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -61,8 +61,11 @@ int ggc_sem_wait_raw(ggc_sem_t *sem)
     return dispatch_semaphore_wait(*sem, DISPATCH_TIME_FOREVER);
 }
 
-int ggc_thread_create(ggc_thread_t *thread, void (*func)(ThreadArg), ThreadArg arg)
-{
+int ggc_thread_create(
+        ggc_thread_t *thread,
+        void (*func)(GGC_ThreadArg),
+        GGC_ThreadArg arg
+) {
     ThreadInfo ti = NULL;
 
     GGC_PUSH_2(arg, ti);

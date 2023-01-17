@@ -437,11 +437,11 @@ static const int ggggc_localPush = 0;
 #include "push.h"
 
 /* the type passed to threads, which allows both GC and non-GC args */
-GGC_TYPE(ThreadArg)
+GGC_TYPE(GGC_ThreadArg)
     GGC_MPTR(void *, parg);
     GGC_MDATA(void *, darg);
-GGC_END_TYPE(ThreadArg,
-    GGC_PTR(ThreadArg, parg)
+GGC_END_TYPE(GGC_ThreadArg,
+    GGC_PTR(GGC_ThreadArg, parg)
     )
 
 /* a few simple builtin types */

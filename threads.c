@@ -1,7 +1,7 @@
 /*
  * Functionality related to thread wrapping
  *
- * Copyright (c) 2014, 2015 Gregor Richards
+ * Copyright (c) 2014-2022 Gregor Richards
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -29,10 +29,10 @@ extern "C" {
 #endif
 
 /* general purpose thread info */
-typedef void (*ggggc_threadFunc)(ThreadArg arg);
+typedef void (*ggggc_threadFunc)(GGC_ThreadArg arg);
 GGC_TYPE(ThreadInfo)
     GGC_MDATA(ggggc_threadFunc, func);
-    GGC_MPTR(ThreadArg, arg);
+    GGC_MPTR(GGC_ThreadArg, arg);
 GGC_END_TYPE(ThreadInfo,
     GGC_PTR(ThreadInfo, arg)
     )

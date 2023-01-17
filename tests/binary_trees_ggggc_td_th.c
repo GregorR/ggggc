@@ -70,7 +70,7 @@ treeNode TopDownTree(long item, unsigned depth)
 } /* BottomUpTree() */
 
 
-void treeThread(ThreadArg arg)
+void treeThread(GGC_ThreadArg arg)
 {
         unsigned minDepth, depth, maxDepth;
         long    i, iterations, check;
@@ -115,7 +115,7 @@ int main(int argc, char* argv[])
     treeNode   stretchTree, longLivedTree, tempTree;
     GGC_ggc_thread_t_Array threads;
     GGC_unsigned_Array targs;
-    ThreadArg targ;
+    GGC_ThreadArg targ;
 
     N = atol(argv[1]);
 
@@ -155,7 +155,7 @@ int main(int argc, char* argv[])
         GGC_WAD(targs, 0, minDepth);
         GGC_WAD(targs, 1, depth);
         GGC_WAD(targs, 2, maxDepth);
-        targ = GGC_NEW(ThreadArg);
+        targ = GGC_NEW(GGC_ThreadArg);
         GGC_WP(targ, parg, targs);
 
         /* and create the thread */

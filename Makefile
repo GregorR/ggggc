@@ -29,7 +29,8 @@ clean:
 	rm -f $(OBJS) libggggc.a deps
 
 patch:
-	for i in *.c *.h collections/*.c ggggc/*.h ggggc/collections/*.h; \
+	for i in *.c *.h allocator/*.c collections/*.c collector/*.c \
+	ggggc/*.h ggggc/collections/*.h threads/*.c; \
 	do \
 	    if [ ! -e $(PATCH_DEST)/$$i -o $$i -nt $(PATCH_DEST)/$$i ]; \
 	    then \

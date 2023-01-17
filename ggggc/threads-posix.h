@@ -1,7 +1,7 @@
 /*
  * Thread support for pthreads
  *
- * Copyright (c) 2014, 2015 Gregor Richards
+ * Copyright (c) 2014-2022 Gregor Richards
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -55,7 +55,10 @@ int ggc_barrier_wait(void *barrier); /* void because some configurations don't h
 #endif
 int ggc_mutex_lock(ggc_mutex_t *mutex);
 int ggc_sem_wait(ggc_sem_t *sem);
-int ggc_thread_create(ggc_thread_t *thread, void (*func)(struct ThreadArg__ggggc_struct *), struct ThreadArg__ggggc_struct *arg);
+int ggc_thread_create(
+        ggc_thread_t *thread,
+        void (*func)(struct GGC_ThreadArg__ggggc_struct *),
+        struct GGC_ThreadArg__ggggc_struct *arg);
 int ggc_thread_join(ggc_thread_t thread);
 
 #if !_POSIX_BARRIERS

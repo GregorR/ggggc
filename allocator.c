@@ -3,7 +3,7 @@
  * not objects themselves, the implementation of which is in the collector
  * implementation files.
  *
- * Copyright (c) 2014, 2015 Gregor Richards
+ * Copyright (c) 2014-2022 Gregor Richards
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -19,6 +19,7 @@
  */
 
 #define _BSD_SOURCE /* for MAP_ANON */
+#define _DEFAULT_SOURCE /* for glibc */
 #define _DARWIN_C_SOURCE /* for MAP_ANON on OS X */
 
 /* for standards info */
