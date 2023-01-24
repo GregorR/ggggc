@@ -408,7 +408,24 @@ collect:
 #ifdef GGGGC_FEATURE_JITPSTACK
     for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
         for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
+#ifndef GGGGC_FEATURE_EXTTAG
             TOSEARCH_ADD(jpsCur);
+#else
+            int wordIdx;
+            size_t tags = *((size_t *) *jpsCur);
+            for (wordIdx = 0; wordIdx < sizeof(size_t); wordIdx++) {
+                unsigned char tag = tags & 0xFF;
+                tags >>= 8;
+                if (tag == 0xFF) {
+                    /* End-of-tags tag */
+                    break;
+                }
+                jpsCur++;
+                /* Lowest bit indicates pointer */
+                if ((tag & 0x1) == 0)
+                    TOSEARCH_ADD(jpsCur);
+            }
+#endif
         }
     }
 #endif
@@ -689,7 +706,24 @@ void ggggc_collectFull()
 #ifdef GGGGC_FEATURE_JITPSTACK
     for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
         for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
+#ifndef GGGGC_FEATURE_EXTTAG
             TOSEARCH_ADD(jpsCur);
+#else
+            int wordIdx;
+            size_t tags = *((size_t *) *jpsCur);
+            for (wordIdx = 0; wordIdx < sizeof(size_t); wordIdx++) {
+                unsigned char tag = tags & 0xFF;
+                tags >>= 8;
+                if (tag == 0xFF) {
+                    /* End-of-tags tag */
+                    break;
+                }
+                jpsCur++;
+                /* Lowest bit indicates pointer */
+                if ((tag & 0x1) == 0)
+                    TOSEARCH_ADD(jpsCur);
+            }
+#endif
         }
     }
 #endif
@@ -765,8 +799,25 @@ void ggggc_collectFull()
 #ifdef GGGGC_FEATURE_JITPSTACK
     for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
         for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
+#ifndef GGGGC_FEATURE_EXTTAG
             if (*jpsCur)
                 FOLLOW_COMPACTED_OBJECT(*jpsCur);
+#else
+            int wordIdx;
+            size_t tags = *((size_t *) *jpsCur);
+            for (wordIdx = 0; wordIdx < sizeof(size_t); wordIdx++) {
+                unsigned char tag = tags & 0xFF;
+                tags >>= 8;
+                if (tag == 0xFF) {
+                    /* End-of-tags tag */
+                    break;
+                }
+                jpsCur++;
+                /* Lowest bit indicates pointer */
+                if ((tag & 0x1) == 0 && *jpsCur)
+                    FOLLOW_COMPACTED_OBJECT(*jpsCur);
+            }
+#endif
         }
     }
 #endif
