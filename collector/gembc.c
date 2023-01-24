@@ -192,6 +192,16 @@ void ggggc_postCompact(struct GGGGC_Pool *);
     d = (struct GGGGC_Descriptor *) dobj; \
 } while(0)
 
+/* check if a value is user-tagged as a non-GC pointer. It's done here, while
+ * adding to the to-check list, instead of while removing from the to-check
+ * list, because the descriptor may be tagged by the GC, and we can only
+ * distinguish the descriptor from other pointers at this point. */
+#ifdef GGGGC_FEATURE_TAGGING
+#define IS_TAGGED(p) ((ggc_size_t) (p) & (sizeof(ggc_size_t)-1))
+#else
+#define IS_TAGGED(p) 0
+#endif
+
 /* macro to add an object's pointers to the tosearch list */
 #define ADD_OBJECT_POINTERS(obj, descriptor) do { \
     void **objVp = (void **) (obj); \
@@ -204,7 +214,8 @@ void ggggc_postCompact(struct GGGGC_Pool *);
                 curDescription = descriptor->pointers[++curDescriptorWord]; \
             if (curDescription & 1) \
                 /* it's a pointer */ \
-                TOSEARCH_ADD(&objVp[curWord]); \
+                if (objVp[curWord] && !IS_TAGGED(objVp[curWord])) \
+                    TOSEARCH_ADD(&objVp[curWord]); \
             curDescription >>= 1; \
         } \
     } \
@@ -400,7 +411,8 @@ collect:
     for (pslCur = ggggc_rootPointerStackList; pslCur; pslCur = pslCur->next) {
         for (psCur = pslCur->pointerStack; psCur; psCur = psCur->next) {
             for (i = 0; i < psCur->size; i++) {
-                TOSEARCH_ADD(psCur->pointers[i]);
+                if (psCur->pointers[i] && !IS_TAGGED(*(void **) psCur->pointers[i]))
+                    TOSEARCH_ADD(psCur->pointers[i]);
             }
         }
     }
@@ -698,7 +710,8 @@ void ggggc_collectFull()
     for (pslCur = ggggc_rootPointerStackList; pslCur; pslCur = pslCur->next) {
         for (psCur = pslCur->pointerStack; psCur; psCur = psCur->next) {
             for (i = 0; i < psCur->size; i++) {
-                TOSEARCH_ADD(psCur->pointers[i]);
+                if (psCur->pointers[i] && !IS_TAGGED(*(void **) psCur->pointers[i]))
+                    TOSEARCH_ADD(psCur->pointers[i]);
             }
         }
     }
