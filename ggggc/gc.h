@@ -1,7 +1,7 @@
 /*
  * GGGGC: Gregor's General Generational Garbage Collector
  *
- * Copyright (c) 2014-2022 Gregor Richards
+ * Copyright (c) 2014-2023 Gregor Richards
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -387,6 +387,11 @@ void ggggc_globalize(void);
 
 /* each thread has its own pointer stack, including global references */
 extern ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerStackGlobals;
+
+#ifdef GGGGC_FEATURE_JITPSTACK
+/* and a pointer stack for JIT purposes */
+extern ggc_thread_local void **ggc_jitPointerStack, **ggc_jitPointerStackTop;
+#endif
 
 /* macros to push and pop pointers from the pointer stack */
 #define GGGGC_POP() do { \

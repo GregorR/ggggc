@@ -1,7 +1,7 @@
 /*
  * Header for internal GGGGC functions
  *
- * Copyright (c) 2014-2022 Gregor Richards
+ * Copyright (c) 2014-2023 Gregor Richards
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -79,9 +79,20 @@ struct GGGGC_PointerStackList {
 };
 extern struct GGGGC_PointerStackList *ggggc_rootPointerStackList;
 
+#ifdef GGGGC_FEATURE_JITPSTACK
+struct GGGGC_JITPointerStackList {
+    struct GGGGC_JITPointerStackList *next;
+    void **cur, **top;
+};
+extern struct GGGGC_JITPointerStackList *ggggc_rootJITPointerStackList;
+#endif
+
 /* threads which are blocked need to store their roots and pools aside when they can't stop the world */
 extern struct GGGGC_PoolList *ggggc_blockedThreadPool0s;
 extern struct GGGGC_PointerStackList *ggggc_blockedThreadPointerStacks;
+#ifdef GGGGC_FEATURE_JITPSTACK
+extern struct GGGGC_JITPointerStackList *ggggc_blockedThreadJITPointerStacks;
+#endif
 
 /* the generation 0 pools are thread-local */
 extern ggc_thread_local struct GGGGC_Pool *ggggc_gen0;

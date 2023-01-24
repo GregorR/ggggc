@@ -2,6 +2,9 @@
 
 /* publics */
 ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerStackGlobals;
+#ifdef GGGGC_FEATURE_JITPSTACK
+ggc_thread_local void **ggc_jitPointerStack, **ggc_jitPointerStackTop;
+#endif
 
 /* internals */
 volatile int ggggc_stopTheWorld;
@@ -11,8 +14,14 @@ ggc_mutex_t ggggc_worldBarrierLock = GGC_MUTEX_INITIALIZER;
 ggc_mutex_t ggggc_rootsLock = GGC_MUTEX_INITIALIZER;
 struct GGGGC_PoolList *ggggc_rootPool0List;
 struct GGGGC_PointerStackList *ggggc_rootPointerStackList;
+#ifdef GGGGC_FEATURE_JITPSTACK
+struct GGGGC_JITPointerStackList *ggggc_rootJITPointerStackList;
+#endif
 struct GGGGC_PoolList *ggggc_blockedThreadPool0s;
 struct GGGGC_PointerStackList *ggggc_blockedThreadPointerStacks;
+#ifdef GGGGC_FEATURE_JITPSTACK
+struct GGGGC_JITPointerStackList *ggggc_blockedThreadJITPointerStacks;
+#endif
 ggc_thread_local struct GGGGC_Pool *ggggc_gen0;
 ggc_thread_local struct GGGGC_Pool *ggggc_pool0;
 struct GGGGC_Pool *ggggc_gens[GGGGC_GENERATIONS];

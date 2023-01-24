@@ -1,7 +1,7 @@
 /*
  * Object allocation and the actual garbage collector
  *
- * Copyright (c) 2014-2022 Gregor Richards
+ * Copyright (c) 2014-2023 Gregor Richards
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -329,6 +329,10 @@ void ggggc_collect0(unsigned char gen)
     struct ToSearch *toSearch;
     unsigned char genCur;
     ggc_size_t i;
+#ifdef GGGGC_FEATURE_JITPSTACK
+    struct GGGGC_JITPointerStackList jitPointerStackNode, *jpslCur;
+    void **jpsCur;
+#endif
 
     /* first, make sure we stop the world */
     while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0) {
@@ -354,6 +358,14 @@ void ggggc_collect0(unsigned char gen)
     pointerStackNode.pointerStack = ggggc_pointerStack;
     pointerStackNode.next = ggggc_blockedThreadPointerStacks;
     ggggc_rootPointerStackList = &pointerStackNode;
+
+#ifdef GGGGC_FEATURE_JITPSTACK
+    jitPointerStackNode.cur = ggc_jitPointerStack;
+    jitPointerStackNode.top = ggc_jitPointerStackTop;
+    jitPointerStackNode.next = ggggc_blockedThreadJITPointerStacks;
+    ggggc_rootJITPointerStackList = &jitPointerStackNode;
+#endif
+
     ggc_mutex_unlock(&ggggc_rootsLock);
 
     /* stop the world */
@@ -392,6 +404,14 @@ collect:
             }
         }
     }
+
+#ifdef GGGGC_FEATURE_JITPSTACK
+    for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
+        for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
+            TOSEARCH_ADD(jpsCur);
+        }
+    }
+#endif
 
     /* add our remembered sets to the to-search list */
     for (genCur = gen + 1; genCur < GGGGC_GENERATIONS; genCur++) {
@@ -650,6 +670,10 @@ void ggggc_collectFull()
     struct ToSearch *toSearch;
     unsigned char genCur;
     ggc_size_t i;
+#ifdef GGGGC_FEATURE_JITPSTACK
+    struct GGGGC_JITPointerStackList *jpslCur;
+    void **jpsCur;
+#endif
 
     TOSEARCH_INIT();
 
@@ -661,6 +685,14 @@ void ggggc_collectFull()
             }
         }
     }
+
+#ifdef GGGGC_FEATURE_JITPSTACK
+    for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
+        for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
+            TOSEARCH_ADD(jpsCur);
+        }
+    }
+#endif
 
     /* now mark */
     while (toSearch->used) {
@@ -729,11 +761,22 @@ void ggggc_collectFull()
             }
         }
     }
+
+#ifdef GGGGC_FEATURE_JITPSTACK
+    for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
+        for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
+            if (*jpsCur)
+                FOLLOW_COMPACTED_OBJECT(*jpsCur);
+        }
+    }
+#endif
+
     for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
         for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
             ggggc_postCompact(poolCur);
         }
     }
+
     for (genCur = 1; genCur < GGGGC_GENERATIONS; genCur++) {
         for (poolCur = ggggc_gens[genCur]; poolCur; poolCur = poolCur->next) {
             ggggc_postCompact(poolCur);
@@ -977,6 +1020,9 @@ int ggggc_yield()
 {
     struct GGGGC_PoolList pool0Node;
     struct GGGGC_PointerStackList pointerStackNode;
+#ifdef GGGGC_FEATURE_JITPSTACK
+    struct GGGGC_JITPointerStackList jitPointerStackNode;
+#endif
 
     if (ggggc_stopTheWorld) {
         /* wait for the barrier once to stop the world */
@@ -990,6 +1036,14 @@ int ggggc_yield()
         pointerStackNode.pointerStack = ggggc_pointerStack;
         pointerStackNode.next = ggggc_rootPointerStackList;
         ggggc_rootPointerStackList = &pointerStackNode;
+
+#ifdef GGGGC_FEATURE_JITPSTACK
+        jitPointerStackNode.cur = ggc_jitPointerStack;
+        jitPointerStackNode.top = ggc_jitPointerStackTop;
+        jitPointerStackNode.next = ggggc_rootJITPointerStackList;
+        ggggc_rootJITPointerStackList = &jitPointerStackNode;
+#endif
+
         ggc_mutex_unlock(&ggggc_rootsLock);
 
         /* wait for the barrier once to allow collection */
