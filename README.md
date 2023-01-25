@@ -12,8 +12,8 @@ To use GGGGC, simply include `ggggc/gc.h` and observe the restrictions it
 enforces on your code. Excluding the threading library, all public API macros
 begin with `GGC_`, and there are no public API functions.
 
-GGGGC is not at present intended to be installed as a system library. Every
-program which needs GGGGC should include it.
+GGGGC is not intended to be installed as a system library. Every program which
+needs GGGGC should include it.
 
 
 Learning
@@ -48,6 +48,10 @@ pointers are. This is done with the `GGC_TYPE`, `GGC_MDATA`, `GGC_MPTR`,
 This is more verbose than a conventional type declaration, of course, but gives
 the GC the information it needs. New objects are created with `GGC_NEW`.
 
+Users may also create their own descriptors, so long as they follow the correct
+format, in which case the object described merely needs to start with its
+descriptor pointer. Look at struct `GGGGC_Descriptor` for the format.
+
 Because generational garbage collection requires a write barrier, members of
 GC'd types must be accessed through the `GGC_R*` and `GGC_W*` family of macros.
 Reading and writing pointer members is done through `GGC_RP` and `GGC_WP`,
@@ -59,6 +63,9 @@ done through `GGC_RD` and `GGC_WD`. For instance:
     GGC_WP(list, next, newObj);
     if (GGC_RP(list, fooMember) != NULL)
         GGC_WP(list, fooMember, NULL);
+
+In C++, these barriers are also implemented through operator overloading, so
+fields may be accessed with, e.g., `list->fooMember`.
 
 Each GGGGC type also has an array type, simply named the same as the user type
 with `Array` at the end, e.g. `ListOfFoosAndIntsArray`. Arrays of GC'd pointers
@@ -100,7 +107,7 @@ Because GGGGC is precise, it is necessary to inform the garbage collector of
 every pointer in the stack. This is done with the `GGC_PUSH_*` macros, where
 `*` is the number of pointers being described. You must assure that every
 pointer is valid or NULL before pushing it, and furthermore must not call the
-collector (GGC_NEW) before pushing pointers. For example:
+collector (`GGC_NEW`) before pushing pointers. For example:
 
     int addList(ListOfFoosAndInts list) {
         ListOfFoosAndInts newObj = NULL;
@@ -127,22 +134,25 @@ Configuration
 Some of GGGGC's behavior is configurable through preprocessor definitions. The
 following definitions are available:
 
- * `GGGGC_COLLECTOR`: Which collector to use. Presently, only the "gembc"
-   collector (generational, en-masse promotion, break-table compaction) is
-   available, in collector-gembc.c . Setting this to other values will cause
-   the inclusion of `gc-GGGGC_COLLECTOR.h` and `collector-GGGGC_COLLECTOR.c`,
-   which together may implement alternative collection schemes.
+ * `GGGGC_COLLECTOR`: Which collector to use. Presently, two collectors are
+   available. The "gembc" collector (generational, en-masse promotion,
+   break-table compaction) is default on most systems. The "portablems"
+   (portable mark-and-sweep) collector is used by default on 16-bit systems.
+   Setting this to other values will cause the inclusion of
+   `gc-GGGGC_COLLECTOR.h` and `collector-GGGGC_COLLECTOR.c`, which together may
+   implement alternative collection schemes.
 
- * `GGGGC_GENERATIONS`: Sets the number of generations. `GGGGC_GENERATIONS=1`
-   will yield a non-generational collector. `GGGGC_GENERATIONS=2` will yield a
-   conventional generational collector with a nursery and long-lived pool, and
-   is the default. Higher values yield more generations.
+ * `GGGGC_GENERATIONS`: Sets the number of generations used by the gembc
+   collector. `GGGGC_GENERATIONS=1` will yield a non-generational collector.
+   `GGGGC_GENERATIONS=2` will yield a conventional generational collector with a
+   nursery and long-lived pool, and is the default. Higher values yield more
+   generations.
 
  * `GGGGC_POOL_SIZE`: Sets the size of allocation pools, as a power of two.
-   Default is 24 (16MB).
+   Default is 24 (16MB), except on 16-bit systems, where it's 12 (4KB).
 
- * `GGGGC_CARD_SIZE`: Sets the size of remembered set cards, as a power of two.
-   Default is 12 (4KB).
+ * `GGGGC_CARD_SIZE`: Sets the size of remembered set cards in the gembc
+   collector, as a power of two. Default is 12 (4KB).
 
  * `GGGGC_DEBUG`: Enables all debugging options.
 
@@ -175,43 +185,43 @@ following definitions are available:
    necessary on systems that don't have any smarter allocator (even `sbrk`!),
    as `sbrk` is used as the fallback.
 
+ * `GGGGC_FEATURE_FINALIZERS`: Enable the finalizers feature. Finalizers are
+   documented in [doc/FINALIZERS.md](FINALIZERS.md).
+
+ * `GGGGC_FEATURE_TAGGING`: Enables the internal tagging feature. Tagging is
+   documented in [doc/TAGGING.md](TAGGING.md).
+
+ * `GGGGC_FEATURE_EXTTAG`: Enables the external tagging feature. Tagging is
+   documented in [doc/TAGGING.md](TAGGING.md).
+
+ * `GGGGC_FEATURE_JITPSTACK`: Enables the JIT pointer stack feature. JIT pointer
+   stacks are documented in [doc/JITPSTACK.md](JITPSTACK.md).
+
 
 Portability
 ===========
 
-GGGGC should work on any conforming POSIX system. It also works on Windows, in
-true Windows mode (e.g. Microsoft Visual Studio or MingW) or POSIX mode with
-Cygwin. 32- and 64-bit systems are supported. GGGGC configures itself to the
-target system by feature macros, such as `_POSIX_VERSION` for POSIX and
-`_WIN32` for windows, and thus requires no `configure` script or similar.
+GGGGC should work almost anywhere. It's tested on conforming POSIX systems,
+Windows, and DOS. GGGGC configures itself to the target system by feature
+macros, such as `_POSIX_VERSION` for POSIX and `_WIN32` for windows, and thus
+requires no `configure` script or similar.
 
 Most components of GGGGC are intrinsically portable and should not require
 modification to support a new platform. The two components that are unportable
 are the OS-level allocator (see the beginning of `allocate.c`, which includes
 e.g. `allocate-mmap.c`) and thread support. If no thread support is needed, it
-can be excluded with the configuration macro GGGGC_NO_THREADS. Otherwise, new
+can be excluded with the configuration macro `GGGGC_NO_THREADS`. Otherwise, new
 thread intrinsics can be added in `ggggc/threads.h` and `threads.c`. For
 OS-level allocation, if nothing else suffices, `malloc` can be used with a
 flag, but this is extremely wasteful.
 
-Support for true 16-bit systems is likely infeasible. 16-bit systems compiling
-in "huge mode" (i.e., with 32-bit data pointers) can be supported with little
-effort beyond reducing the default pool size.
 
+Optional Features
+=================
 
-Patching
-========
-
-Certain features are important for some users but unimportant for others. To
-avoid slowing down the mainline implementation, these features are available as
-patches in the `patches` directory. You may use them by either including a
-pre-patched version or, if you use Mercurial or Git subrepositories to include
-GGGGC and thus cannot include patches directly, may include GGGGC in an unused
-subdirectory, then use `make patch` to copy a patched version into ../ggggc.
-`make patch` takes one argument, `PATCHES`, as in `make patch
-PATCHES=jitpstack` or `make patch PATCHES="jitpstack tagging"`. `make patch` is
-careful not to redo work, and so is safe to run as part of a larger build
-process.
+Certain features are important for some users but unimportant for others. These
+features are implemented through feature macros starting with `GGGGC_FEATURE_`.
+See the documentation of those macros above for more information.
 
 
 Your Mileage May Vary
