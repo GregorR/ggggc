@@ -31,25 +31,31 @@ static size_t poolOffset()
  * wasted */
 static void mallocBump()
 {
-    void *brk = sbrk(0);
-    size_t offset = poolOffset();
+    size_t prevOffset = -1, offset = poolOffset();
+    void **list = NULL;
+    static int failure = 0;
 
-    if (offset > 3 * sizeof(void *)) {
-        /* enough space to safely try this */
-        void **list = NULL;
-        while (sbrk(0) == brk) {
-            void **next = (void **) malloc(offset - 2 * sizeof(void *));
-            if (!next) break;
-            next[0] = list;
-            list = next;
-        }
+    if (failure)
+        return;
 
-        /* return it all */
-        while (list) {
-            void **next = (void **) list[0];
-            free(list);
-            list = next;
-        }
+    while (offset > 4 * sizeof(void *) && offset < prevOffset) {
+        /* try to give some space to malloc */
+        void **next = malloc(offset >> 2);
+        if (!next) break;
+        next[0] = list;
+        list = next;
+        prevOffset = offset;
+        offset = poolOffset();
+    }
+
+    if (offset > prevOffset)
+        failure = 1;
+
+    /* return it all */
+    while (list) {
+        void **next = (void **) list[0];
+        free(list);
+        list = next;
     }
 }
 
@@ -58,11 +64,7 @@ static void *allocPool(int mustSucceed)
     void *ret;
     size_t offset = poolOffset();
 
-    if (offset != 0) {
-        /* We're not aligned. Try to get closer with malloc bumping. */
-        mallocBump();
-        mallocBump();
-    }
+    mallocBump();
 
     offset = poolOffset();
     if (offset != 0) {
