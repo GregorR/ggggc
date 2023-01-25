@@ -170,7 +170,7 @@ GGC_END_TYPE(GGGGC_FinalizerEntry,
 
 /* and function for running finalizers */
 void ggggc_runFinalizers(GGGGC_FinalizerEntry finalizers);
-#endif
+#endif /* GGGGC_FEATURE_FINALIZERS */
 
 #ifdef __cplusplus
 }

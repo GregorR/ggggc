@@ -232,7 +232,7 @@ void ggggc_postCompact(struct GGGGC_Pool *);
     TOSEARCH_ADD(&objVp[0]); \
 } while(0)
 
-#else
+#else /* !GGGGC_FEATURE_EXTTAG */
 #define ADD_OBJECT_POINTERS(obj, descriptor) do { \
     void **objVp = (void **) (obj); \
     ggc_size_t curWord; \
@@ -247,7 +247,7 @@ void ggggc_postCompact(struct GGGGC_Pool *);
     TOSEARCH_ADD(&objVp[0]); \
 } while (0)
 
-#endif
+#endif /* GGGGC_FEATURE_EXTTAG */
 
 static struct ToSearch toSearchList;
 
@@ -298,7 +298,7 @@ static struct ToSearch toSearchList;
     survivingFinalizers = readyFinalizers; \
     PRESERVE_FINALIZERS(); \
 } while(0)
-#endif
+#endif /* GGGGC_FEATURE_FINALIZERS */
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
 static void memoryCorruptionCheckObj(const char *when, struct GGGGC_Header *obj)
@@ -537,10 +537,10 @@ collect:
                 if ((tag & 0x1) == 0)
                     TOSEARCH_ADD(jpsCur);
             }
-#endif
+#endif /* GGGGC_FEATURE_EXTTAG */
         }
     }
-#endif
+#endif /* GGGGC_FEATURE_JITPSTACK */
 
     /* add our remembered sets to the to-search list */
     for (genCur = gen + 1; genCur < GGGGC_GENERATIONS; genCur++) {
@@ -676,7 +676,7 @@ collect:
             TOSEARCH_ADD(&survivingFinalizersTail);
             TOSEARCH_ADD(&readyFinalizers);
         }
-#endif
+#endif /* GGGGC_FEATURE_FINALIZERS */
     }
 #endif /* GGGGC_GENERATIONS > 1 */
 
@@ -895,10 +895,10 @@ void ggggc_collectFull(COLLECT_FULL_ARGS)
                 if ((tag & 0x1) == 0)
                     TOSEARCH_ADD(jpsCur);
             }
-#endif
+#endif /* GGGGC_FEATURE_EXTTAG */
         }
     }
-#endif
+#endif /* GGGGC_FEATURE_JITPSTACK */
 
     /* now mark */
     while (toSearch->used) {
@@ -956,7 +956,7 @@ void ggggc_collectFull(COLLECT_FULL_ARGS)
             TOSEARCH_ADD(&survivingFinalizersTail);
             TOSEARCH_ADD(&readyFinalizers);
         }
-#endif
+#endif /* GGGGC_FEATURE_FINALIZERS */
     }
 
     /* find all our sizes, for later compaction */
@@ -1015,10 +1015,10 @@ void ggggc_collectFull(COLLECT_FULL_ARGS)
                 if ((tag & 0x1) == 0 && *jpsCur)
                     FOLLOW_COMPACTED_OBJECT(*jpsCur);
             }
-#endif
+#endif /* GGGGC_FEATURE_EXTTAG */
         }
     }
-#endif
+#endif /* GGGGC_FEATURE_JITPSTACK */
 
 #ifdef GGGGC_FEATURE_FINALIZERS
 #define F(finalizer) do { \

@@ -299,7 +299,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_si
         ret->pointers[0] = 0;
     }
 
-#else
+#else /* !GGGGC_FEATURE_EXTTAG */
     memset(ret->tags, 1, size);
     if (pointers) {
         ggc_size_t pi, si, curP, curM;
@@ -317,7 +317,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_si
         ret->tags[0] = 0; /* first word is always the descriptor pointer */
     }
 
-#endif
+#endif /* GGGGC_FEATURE_EXTTAG */
 
     return ret;
 }
@@ -431,7 +431,7 @@ void ggggc_runFinalizers(GGGGC_FinalizerEntry finalizers)
         finalizer = GGC_RP(finalizer, next);
     }
 }
-#endif
+#endif /* GGGGC_FEATURE_FINALIZERS */
 
 #ifdef __cplusplus
 }

@@ -14,12 +14,10 @@ ggc_mutex_t ggggc_worldBarrierLock = GGC_MUTEX_INITIALIZER;
 ggc_mutex_t ggggc_rootsLock = GGC_MUTEX_INITIALIZER;
 struct GGGGC_PoolList *ggggc_rootPool0List;
 struct GGGGC_PointerStackList *ggggc_rootPointerStackList;
-#ifdef GGGGC_FEATURE_JITPSTACK
-struct GGGGC_JITPointerStackList *ggggc_rootJITPointerStackList;
-#endif
 struct GGGGC_PoolList *ggggc_blockedThreadPool0s;
 struct GGGGC_PointerStackList *ggggc_blockedThreadPointerStacks;
 #ifdef GGGGC_FEATURE_JITPSTACK
+struct GGGGC_JITPointerStackList *ggggc_rootJITPointerStackList;
 struct GGGGC_JITPointerStackList *ggggc_blockedThreadJITPointerStacks;
 #endif
 ggc_thread_local struct GGGGC_Pool *ggggc_gen0;
