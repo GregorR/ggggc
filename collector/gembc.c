@@ -212,6 +212,7 @@ void ggggc_postCompact(struct GGGGC_Pool *);
 #endif
 
 /* macro to add an object's pointers to the tosearch list */
+#ifndef GGGGC_FEATURE_EXTTAG
 #define ADD_OBJECT_POINTERS(obj, descriptor) do { \
     void **objVp = (void **) (obj); \
     ggc_size_t curWord, curDescription, curDescriptorWord = 0; \
@@ -230,6 +231,23 @@ void ggggc_postCompact(struct GGGGC_Pool *);
     } \
     TOSEARCH_ADD(&objVp[0]); \
 } while(0)
+
+#else
+#define ADD_OBJECT_POINTERS(obj, descriptor) do { \
+    void **objVp = (void **) (obj); \
+    ggc_size_t curWord; \
+    if (descriptor->tags[0] != 1) { \
+        /* it has pointers */ \
+        for (curWord = 1; curWord < descriptor->size; curWord++) { \
+            if ((descriptor->tags[curWord] & 1) == 0) \
+                /* it's a pointer */ \
+                TOSEARCH_ADD(&objVp[curWord]); \
+        } \
+    } \
+    TOSEARCH_ADD(&objVp[0]); \
+} while (0)
+
+#endif
 
 static struct ToSearch toSearchList;
 
@@ -287,17 +305,30 @@ static void memoryCorruptionCheckObj(const char *when, struct GGGGC_Header *obj)
 {
     struct GGGGC_Descriptor *descriptor = obj->descriptor__ptr;
     void **objVp = (void **) (obj);
-    ggc_size_t curWord, curDescription = 0, curDescriptorWord = 0;
+    ggc_size_t curWord;
+#ifndef GGGGC_FEATURE_EXTTAG
+    ggc_size_t curDescription = 0, curDescriptorWord = 0;
+#endif
     if (obj->ggggc_memoryCorruptionCheck != GGGGC_MEMORY_CORRUPTION_VAL) {
         fprintf(stderr, "GGGGC: Memory corruption (%s)!\n", when);
         abort();
     }
-    if (descriptor->pointers[0] & 1) {
+#ifndef GGGGC_FEATURE_EXTTAG
+    if (descriptor->pointers[0] & 1)
+#else
+    if (descriptor->tags[0] != 1)
+#endif
+    {
         /* it has pointers */
         for (curWord = 0; curWord < descriptor->size; curWord++) {
+#ifndef GGGGC_FEATURE_EXTTAG
             if (curWord % GGGGC_BITS_PER_WORD == 0)
                 curDescription = descriptor->pointers[curDescriptorWord++];
-            if (curDescription & 1) {
+            if (curDescription & 1)
+#else
+            if ((descriptor->tags[curWord] & 1) == 0)
+#endif
+            {
                 /* it's a pointer */
                 struct GGGGC_Header *nobj = (struct GGGGC_Header *) objVp[curWord];
                 if (nobj && nobj->ggggc_memoryCorruptionCheck != GGGGC_MEMORY_CORRUPTION_VAL) {
@@ -305,7 +336,9 @@ static void memoryCorruptionCheckObj(const char *when, struct GGGGC_Header *obj)
                     abort();
                 }
             }
+#ifndef GGGGC_FEATURE_EXTTAG
             curDescription >>= 1;
+#endif
         }
     } else {
         /* no pointers other than the descriptor */
@@ -1179,7 +1212,10 @@ void ggggc_postCompact(struct GGGGC_Pool *pool)
 
     for (obj = (ggc_size_t **) pool->start; obj < (ggc_size_t **) pool->free;) {
         struct GGGGC_Descriptor *descriptor;
-        ggc_size_t curWord, curDescription = 0, curDescriptorWord = 0;
+        ggc_size_t curWord;
+#ifndef GGGGC_FEATURE_EXTTAG
+        ggc_size_t curDescription = 0, curDescriptorWord = 0;
+#endif
 
 #if GGGGC_GENERATIONS > 1
         /* set its card metadata */
@@ -1197,12 +1233,22 @@ void ggggc_postCompact(struct GGGGC_Pool *pool)
         FOLLOW_COMPACTED_DESCRIPTOR(descriptor);
 
         /* and walk through all its pointers */
-        if (descriptor->pointers[0] & 1) {
+#ifndef GGGGC_FEATURE_EXTTAG
+        if (descriptor->pointers[0] & 1)
+#else
+        if (descriptor->tags[0] != 1)
+#endif
+        {
             /* it has pointers */
             for (curWord = 0; curWord < descriptor->size; curWord++) {
+#ifndef GGGGC_FEATURE_EXTTAG
                 if (curWord % GGGGC_BITS_PER_WORD == 0)
                     curDescription = descriptor->pointers[curDescriptorWord++];
-                if ((curDescription & 1) && obj[curWord]) {
+                if ((curDescription & 1) && obj[curWord])
+#else
+                if ((descriptor->tags[curWord] & 1) == 0 && obj[curWord])
+#endif
+                {
                     /* it's a pointer */
                     FOLLOW_COMPACTED_OBJECT(obj[curWord]);
 
@@ -1212,7 +1258,9 @@ void ggggc_postCompact(struct GGGGC_Pool *pool)
                         pool->remember[card] = 1;
 #endif
                 }
+#ifndef GGGGC_FEATURE_EXTTAG
                 curDescription >>= 1;
+#endif
             }
         } else {
             /* no pointers other than the descriptor */

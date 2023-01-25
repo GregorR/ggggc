@@ -240,7 +240,13 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(ggc_size_t size)
     else
         ret->header.descriptor__ptr = ret;
     ret->size = size;
+#ifndef GGGGC_FEATURE_EXTTAG
     ret->pointers[0] = GGGGC_DESCRIPTOR_DESCRIPTION;
+#else
+    memset(ret->tags, 1, size);
+    ret->tags[0] = 0;
+    ret->tags[GGGGC_OFFSETOF(struct GGGGC_Descriptor *, user)] = 0;
+#endif
 
     /* put it in the list */
     ggggc_descriptorDescriptors[size] = ret;
@@ -285,12 +291,33 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_si
     ret->size = size;
 
     /* and set it up */
+#ifndef GGGGC_FEATURE_EXTTAG
     if (pointers) {
         memcpy(ret->pointers, pointers, sizeof(ggc_size_t) * dPWords);
         ret->pointers[0] |= 1; /* first word is always the descriptor pointer */
     } else {
         ret->pointers[0] = 0;
     }
+
+#else
+    memset(ret->tags, 1, size);
+    if (pointers) {
+        ggc_size_t pi, si, curP, curM;
+        pi = -1;
+        curM = 0;
+        for (si = 0; si < size; si++) {
+            if (!curM) {
+                curP = pointers[++pi];
+                curM = 1;
+            }
+            if (curP & curM)
+                ret->tags[si] = 0;
+            curM <<= 1;
+        }
+        ret->tags[0] = 0; /* first word is always the descriptor pointer */
+    }
+
+#endif
 
     return ret;
 }

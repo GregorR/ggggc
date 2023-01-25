@@ -159,7 +159,10 @@ static void mark(struct GGGGC_Header *obj)
     struct GGGGC_Descriptor *descriptor;
     ggc_size_t descriptorI;
     void **objVp;
-    ggc_size_t curWord, curDescription, curDescriptorWord;
+    ggc_size_t curWord;
+#ifndef GGGGC_FEATURE_EXTTAG
+    ggc_size_t curDescription, curDescriptorWord;
+#endif
 
     TOSEARCH_INIT();
     TOSEARCH_ADD(obj);
@@ -183,22 +186,36 @@ static void mark(struct GGGGC_Header *obj)
         TOSEARCH_ADD(descriptor);
 
         /* and recurse */
-        if (descriptor->pointers[0] & 1) {
+#ifndef GGGGC_FEATURE_EXTTAG
+        if (descriptor->pointers[0] & 1)
+#else
+        if (descriptor->tags[0] != 1)
+#endif
+        {
             /* it has pointers */
             objVp = (void **) obj;
+#ifndef GGGGC_FEATURE_EXTTAG
             curDescriptorWord = 0;
-
             curDescription = descriptor->pointers[0] >> 1;
+#endif
+
             for (curWord = 1; curWord < descriptor->size; curWord++) {
+#ifndef GGGGC_FEATURE_EXTTAG
                 if (curWord % GGGGC_BITS_PER_WORD == 0)
                     curDescription = descriptor->pointers[++curDescriptorWord];
-                if (curDescription & 1) {
+                if (curDescription & 1)
+#else
+                if ((descriptor->tags[curWord] & 1) == 0)
+#endif
+                {
                     /* it's a pointer */
                     if (objVp[curWord]) {
                         TOSEARCH_ADD(objVp[curWord]);
                     }
                 }
+#ifndef GGGGC_FEATURE_EXTTAG
                 curDescription >>= 1;
+#endif
             }
         }
     }
