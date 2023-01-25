@@ -172,9 +172,9 @@ void *ggggc_malloc(struct GGGGC_Descriptor *descriptor)
 /* full collection */
 #ifdef GGGGC_FEATURE_FINALIZERS
 #define COLLECT_FULL_ARGS \
-    GGGGC_FinalizerEntry *survivingFinalizers, \
-    GGGGC_FinalizerEntry *survivingFinalizersTail, \
-    GGGGC_FinalizerEntry *readyFinalizers
+    GGGGC_FinalizerEntry *survivingFinalizersOut, \
+    GGGGC_FinalizerEntry *survivingFinalizersTailOut, \
+    GGGGC_FinalizerEntry *readyFinalizersOut
 #else
 #define COLLECT_FULL_ARGS void
 #endif
