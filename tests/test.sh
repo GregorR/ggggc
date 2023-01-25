@@ -15,17 +15,13 @@ eRun() {
 
 doTests() {
     (
-    rm -rf patched
-    make patch PATCH_DEST=patched PATCHES="$1"
-    cp -a tests patched/tests
-
-    cd patched
-    make CC="$2" ECFLAGS="-O3 -g $3"
+    make clean
+    make CC="$2" ECFLAGS="-O3 -g $3 -DGGGGC_FEATURE_$1"
 
     cd tests
     make clean
     make btggggc btggggcth badlll ggggcbench lists maps \
-        CC="$2" ECFLAGS="$3" GGGGC_LIBS="$GGGGC_LIBS"
+        CC="$2" ECFLAGS="-O3 -g $3 -DGGGGC_FEATURE_$1" GGGGC_LIBS="$GGGGC_LIBS"
 
     eRun ./btggggc 16
     eRun ./btggggcth 16
@@ -45,24 +41,24 @@ then
     done
 
 else
-    # Test each patchset
-    PATCHES=`ls patches`
-    for patch in '' $PATCHES
+    # Test each feature combo
+    FEATURES="FINALIZERS TAGGING EXTTAG JITPSTACK"
+    for feature in '' $FEATURES
     do
-        doTests "$patch" gcc '-O0 -g -Wall -Werror -std=c99 -pedantic -Wno-array-bounds -Wno-unused-function -Werror=shadow -DGGGGC_DEBUG_MEMORY_CORRUPTION'
-        doTests "$patch" gcc ''
-        doTests "$patch" g++ ''
-        #doTests "$patch" gcc '-DGGGGC_NO_GNUC_FEATURES'
-        doTests "$patch" g++ '-DGGGGC_NO_GNUC_FEATURES'
+        doTests "$feature" gcc '-O0 -g -Wall -Werror -std=c99 -pedantic -Wno-array-bounds -Wno-unused-function -Werror=shadow -DGGGGC_DEBUG_MEMORY_CORRUPTION'
+        doTests "$feature" gcc ''
+        doTests "$feature" g++ ''
+        #doTests "$feature" gcc '-DGGGGC_NO_GNUC_FEATURES'
+        doTests "$feature" g++ '-DGGGGC_NO_GNUC_FEATURES'
 
-        doTests "$patch" gcc '-DGGGGC_DEBUG_TINY_HEAP'
+        doTests "$feature" gcc '-DGGGGC_DEBUG_TINY_HEAP'
 
-        doTests "$patch" gcc '-DGGGGC_GENERATIONS=1'
-        doTests "$patch" gcc '-DGGGGC_GENERATIONS=5'
-        doTests "$patch" gcc '-DGGGGC_COLLECTOR=portablems'
+        doTests "$feature" gcc '-DGGGGC_GENERATIONS=1'
+        doTests "$feature" gcc '-DGGGGC_GENERATIONS=5'
+        doTests "$feature" gcc '-DGGGGC_COLLECTOR=portablems'
 
-        doTests "$patch" gcc '-DGGGGC_USE_MALLOC'
-        doTests "$patch" gcc '-DGGGGC_USE_SBRK -DGGGGC_NO_THREADS'
+        doTests "$feature" gcc '-DGGGGC_USE_MALLOC'
+        doTests "$feature" gcc '-DGGGGC_USE_SBRK -DGGGGC_NO_THREADS'
     done
 
 fi
