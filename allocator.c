@@ -363,6 +363,49 @@ void *ggggc_mallocSlot(struct GGGGC_DescriptorSlot *slot)
     return ggggc_malloc(ggggc_allocateDescriptorSlot(slot));
 }
 
+#ifdef GGGGC_FEATURE_FINALIZERS
+/* specify a finalizer for an object */
+void ggggc_finalize(void *obj, ggc_finalizer_t finalizer)
+{
+    GGGGC_FinalizerEntry entry = NULL, next = NULL;
+    struct GGGGC_Pool *pool = NULL;
+
+    GGC_PUSH_3(obj, entry, next);
+
+    /* allocate the entry */
+    entry = GGC_NEW(GGGGC_FinalizerEntry);
+
+    /* set it up */
+    GGC_WP(entry, obj, obj);
+    GGC_WD(entry, finalizer, finalizer);
+
+    /* add it to the list */
+    pool = GGGGC_POOL_OF(entry);
+    next = (GGGGC_FinalizerEntry) pool->finalizers;
+    GGC_WP(entry, next, next);
+    pool->finalizers = entry;
+}
+
+/* and function for running finalizers */
+void ggggc_runFinalizers(GGGGC_FinalizerEntry finalizers)
+{
+    GGGGC_FinalizerEntry finalizer = NULL;
+    void *obj = NULL;
+    ggc_finalizer_t ffunc;
+
+    GGC_PUSH_3(finalizers, finalizer, obj);
+
+    finalizer = finalizers;
+    while (finalizer) {
+        obj = GGC_RP(finalizer, obj);
+        ffunc = GGC_RD(finalizer, finalizer);
+        ffunc(obj);
+
+        finalizer = GGC_RP(finalizer, next);
+    }
+}
+#endif
+
 #ifdef __cplusplus
 }
 #endif

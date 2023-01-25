@@ -157,6 +157,21 @@ struct ToSearch {
         toSearch = toSearch->prev; \
 } while(0)
 
+#ifdef GGGGC_FEATURE_FINALIZERS
+/* the shape for finalizer entries */
+GGC_TYPE(GGGGC_FinalizerEntry)
+    GGC_MPTR(GGGGC_FinalizerEntry, next);
+    GGC_MPTR(void *, obj);
+    GGC_MDATA(ggc_finalizer_t, finalizer);
+GGC_END_TYPE(GGGGC_FinalizerEntry,
+    GGC_PTR(GGGGC_FinalizerEntry, next)
+    GGC_PTR(GGGGC_FinalizerEntry, obj)
+    )
+
+/* and function for running finalizers */
+void ggggc_runFinalizers(GGGGC_FinalizerEntry finalizers);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

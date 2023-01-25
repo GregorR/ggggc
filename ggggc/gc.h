@@ -122,6 +122,11 @@ struct GGGGC_Pool {
     /* how much survived the last collection */
     ggc_size_t survivors;
 
+#ifdef GGGGC_FEATURE_FINALIZERS
+    /* and pointer to the first finalizer in this pool */
+    void *finalizers;
+#endif
+
     /* and the actual content */
     ggc_size_t start[1];
 };
@@ -371,6 +376,15 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDA(ggc_size_t size);
 
 /* allocate a descriptor from a descriptor slot */
 struct GGGGC_Descriptor *ggggc_allocateDescriptorSlot(struct GGGGC_DescriptorSlot *slot);
+
+#ifdef GGGGC_FEATURE_FINALIZERS
+/* type for finalizers */
+typedef void (*ggc_finalizer_t)(void *obj);
+
+/* specify a finalizer for an object */
+void ggggc_finalize(void *obj, ggc_finalizer_t finalizer);
+#define GGC_FINALIZE(obj, finalizer) (ggggc_finalize((obj), (finalizer)))
+#endif
 
 /* global heuristic for "please stop the world" */
 extern volatile int ggggc_stopTheWorld;
