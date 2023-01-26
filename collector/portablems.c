@@ -383,6 +383,12 @@ void ggggc_collect0(unsigned char gen)
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
 }
 
+/* run full garbage collection (in gembc, just collect0) */
+void ggggc_collect()
+{
+    ggggc_collect0(0);
+}
+
 /* explicitly yield to the collector */
 int ggggc_yield()
 {

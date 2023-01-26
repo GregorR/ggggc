@@ -83,6 +83,7 @@ typedef char ggggc_size_t_check
 #define GGGGC_CARD_OF(ptr) (((ggc_size_t) (ptr) & GGGGC_POOL_INNER_MASK) >> GGGGC_CARD_SIZE)
 #define GGGGC_BITS_PER_WORD (8*sizeof(ggc_size_t))
 #define GGGGC_WORDS_PER_POOL (GGGGC_POOL_BYTES/sizeof(ggc_size_t))
+#define GGGGC_MINIMUM_OBJECT_SIZE 1
 
 /* an empty defined for all the various conditions in which empty defines are necessary */
 #define GGGGC_EMPTY
@@ -412,6 +413,11 @@ extern volatile int ggggc_stopTheWorld;
  * that doesn't allocate in a multithreaded program), call this */
 int ggggc_yield(void);
 #define GGC_YIELD() (ggggc_stopTheWorld ? ggggc_yield() : 0)
+
+/* available to explicitly perform garbage collection, which is usually a
+ * mistake and only used for debugging purposes */
+void ggggc_collect(void);
+#define GGC_COLLECT() ggggc_collect()
 
 /* to handle global variables, GGC_PUSH them then GGC_GLOBALIZE */
 void ggggc_globalize(void);

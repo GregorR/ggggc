@@ -49,6 +49,12 @@
 
 #endif
 
+/* Due to our break tables, we must have at least three words in an object. This
+ * is because we need one word at the end of a free space to store the size of
+ * the next space, and two words to store a break table entry. */
+#undef GGGGC_MINIMUM_OBJECT_SIZE
+#define GGGGC_MINIMUM_OBJECT_SIZE 3
+
 /* write barriers */
 #if GGGGC_GENERATIONS > 1
 #define GGGGC_WP(object, member, value) do { \

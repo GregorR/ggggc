@@ -213,6 +213,10 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(ggc_size_t size)
     struct GGGGC_Descriptor *ret, *ddd = NULL;
     ggc_size_t ddSize;
 
+    /* check for minimum size */
+    if (size < GGGGC_MINIMUM_OBJECT_SIZE)
+        size = GGGGC_MINIMUM_OBJECT_SIZE;
+
     /* check if we already have a descriptor */
     if (ggggc_descriptorDescriptors[size])
         return ggggc_descriptorDescriptors[size];
@@ -274,6 +278,12 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_si
 {
     struct GGGGC_Descriptor *dd, *ret;
     ggc_size_t dPWords, dSize;
+
+    /* check for minimum size */
+    /* FIXME: Theoretically if our minimum size straddled a word length, this
+     * would cause us to read past the end of pointers */
+    if (size < GGGGC_MINIMUM_OBJECT_SIZE)
+        size = GGGGC_MINIMUM_OBJECT_SIZE;
 
     /* the size of the descriptor */
     if (pointers)
@@ -344,6 +354,9 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(ggc_size_t size)
     /* get rid of non-pointers */
     pointers[0] &= ~(
         ((ggc_size_t)1<<(((ggc_size_t) (void *) &((struct GGGGC_Header *) 0)->descriptor__ptr)/sizeof(ggc_size_t))) |
+#ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
+        ((ggc_size_t)1<<(((ggc_size_t) (void *) &((struct GGGGC_Header *) 0)->ggggc_memoryCorruptionCheck)/sizeof(ggc_size_t))) |
+#endif
         ((ggc_size_t)1<<((((ggc_size_t) (void *) &((GGC_voidpArray) 0)->length)/sizeof(ggc_size_t))))
         );
 

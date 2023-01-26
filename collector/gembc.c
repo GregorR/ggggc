@@ -491,22 +491,28 @@ void ggggc_collect0(unsigned char gen)
     memoryCorruptionCheck("pre-collection");
 #endif
 
-#if GGGGC_GENERATIONS == 1
-    /* with only one generation, we only want a full collection */
-    ggggc_collectFull(
-#ifdef GGGGC_FEATURE_FINALIZERS
-        &survivingFinalizers, &survivingFinalizersTail, &readyFinalizers
-#endif
-    );
-
-#else
     /************************************************************
      * COLLECTION
      ***********************************************************/
-#if GGGGC_GENERATIONS > 2
 collect:
-#endif
 
+    /* possibly jump to a full collection */
+    if (
+#if GGGGC_GENERATIONS > 1
+        gen >= GGGGC_GENERATIONS - 1
+#else
+        1
+#endif
+    ) {
+        ggggc_collectFull(
+#ifdef GGGGC_FEATURE_FINALIZERS
+            &survivingFinalizers, &survivingFinalizersTail, &readyFinalizers
+#endif
+        );
+        goto postCollect;
+    }
+
+#if GGGGC_GENERATIONS > 1
     /* add our roots to the to-search list */
     for (pslCur = ggggc_rootPointerStackList; pslCur; pslCur = pslCur->next) {
         for (psCur = pslCur->pointerStack; psCur; psCur = psCur->next) {
@@ -612,25 +618,7 @@ collect:
 #ifdef GGGGC_DEBUG_REPORT_COLLECTIONS
                 report(gen, "promotion");
 #endif
-#if GGGGC_GENERATIONS > 2
-                if (gen >= GGGGC_GENERATIONS - 1) {
-                    ggggc_collectFull(
-#ifdef GGGGC_FEATURE_FINALIZERS
-                        &survivingFinalizers, &survivingFinalizersTail,
-                        &readyFinalizers
-#endif
-                    );
-                    break;
-                } else goto collect;
-#else
-                ggggc_collectFull(
-#ifdef GGGGC_FEATURE_FINALIZERS
-                    &survivingFinalizers, &survivingFinalizersTail,
-                    &readyFinalizers
-#endif
-                );
-                break;
-#endif
+                goto collect;
             }
 
             /* copy to the new object */
@@ -679,6 +667,8 @@ collect:
 #endif /* GGGGC_FEATURE_FINALIZERS */
     }
 #endif /* GGGGC_GENERATIONS > 1 */
+
+postCollect:
 
 #ifdef GGGGC_FEATURE_FINALIZERS
     PRESERVE_FINALIZERS();
@@ -1297,6 +1287,14 @@ void ggggc_postCompact(struct GGGGC_Pool *pool)
         obj += descriptor->size;
     }
 #endif
+}
+
+/* run a full collection of every generation */
+void ggggc_collect()
+{
+    unsigned char gen;
+    for (gen = 0; gen < GGGGC_GENERATIONS; gen++)
+        ggggc_collect0(gen);
 }
 
 /* explicitly yield to the collector */
