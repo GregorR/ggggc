@@ -24,7 +24,9 @@ GGGGCBENCHOBJS=gc_bench/GCBench.ggggc.o
 LISTSOBJS=lists.o
 MAPSOBJS=maps.o
 
-all: bt btgc btggggc btggggcth badlll gcbench ggggcbench lists maps
+GRAPHOBJS=graph.o
+
+all: bt btgc btggggc btggggcth badlll gcbench ggggcbench lists maps graph
 
 bt: $(BTOBJS)
 	$(LD) $(CFLAGS) $(LDFLAGS) $(BTOBJS) $(LIBS) -o bt
@@ -56,6 +58,9 @@ lists: $(LISTSOBJS)
 maps: $(MAPSOBJS)
 	$(LD) $(CFLAGS) $(LDFLAGS) $(MAPSOBJS) $(GGGGC_LIBS) $(LIBS) -o maps
 
+graph: $(GRAPHOBJS)
+	$(LD) $(CFLAGS) $(LDFLAGS) $(GRAPHOBJS) $(GGGGC_LIBS) $(LIBS) -o graph
+
 .SUFFIXES: .c .o
 
 .c.o:
@@ -72,3 +77,4 @@ clean:
 	rm -f $(GGGGCBENCHOBJS) ggggcbench
 	rm -f $(LISTSOBJS) lists
 	rm -f $(MAPSOBJS) maps
+	rm -f $(GRAPHOBJS) graph
