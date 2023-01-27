@@ -3,7 +3,7 @@
 /* publics */
 ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_pointerStackGlobals;
 #ifdef GGGGC_FEATURE_JITPSTACK
-ggc_thread_local void **ggc_jitPointerStack, **ggc_jitPointerStackTop;
+ggc_thread_local void **ggc_jitPointerStack, **ggc_jitPointerStackEnd;
 #endif
 
 /* internals */

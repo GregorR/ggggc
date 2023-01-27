@@ -530,8 +530,8 @@ collect:
             TOSEARCH_ADD(jpsCur);
 #else
             int wordIdx;
-            size_t tags = *((size_t *) *jpsCur);
-            for (wordIdx = 0; wordIdx < sizeof(size_t); wordIdx++) {
+            size_t tags = *((ggc_size_t *) jpsCur);
+            for (wordIdx = 0; wordIdx < sizeof(ggc_size_t); wordIdx++) {
                 unsigned char tag = tags & 0xFF;
                 tags >>= 8;
                 if (tag == 0xFF) {
@@ -540,7 +540,7 @@ collect:
                 }
                 jpsCur++;
                 /* Lowest bit indicates pointer */
-                if ((tag & 0x1) == 0)
+                if ((tag & 0x1) == 0 && *jpsCur)
                     TOSEARCH_ADD(jpsCur);
             }
 #endif /* GGGGC_FEATURE_EXTTAG */
@@ -872,8 +872,8 @@ void ggggc_collectFull(COLLECT_FULL_ARGS)
             TOSEARCH_ADD(jpsCur);
 #else
             int wordIdx;
-            size_t tags = *((size_t *) *jpsCur);
-            for (wordIdx = 0; wordIdx < sizeof(size_t); wordIdx++) {
+            size_t tags = *((ggc_size_t *) jpsCur);
+            for (wordIdx = 0; wordIdx < sizeof(ggc_size_t); wordIdx++) {
                 unsigned char tag = tags & 0xFF;
                 tags >>= 8;
                 if (tag == 0xFF) {
@@ -882,7 +882,7 @@ void ggggc_collectFull(COLLECT_FULL_ARGS)
                 }
                 jpsCur++;
                 /* Lowest bit indicates pointer */
-                if ((tag & 0x1) == 0)
+                if ((tag & 0x1) == 0 && *jpsCur)
                     TOSEARCH_ADD(jpsCur);
             }
 #endif /* GGGGC_FEATURE_EXTTAG */
@@ -992,8 +992,8 @@ void ggggc_collectFull(COLLECT_FULL_ARGS)
                 FOLLOW_COMPACTED_OBJECT(*jpsCur);
 #else
             int wordIdx;
-            size_t tags = *((size_t *) *jpsCur);
-            for (wordIdx = 0; wordIdx < sizeof(size_t); wordIdx++) {
+            size_t tags = *((ggc_size_t *) jpsCur);
+            for (wordIdx = 0; wordIdx < sizeof(ggc_size_t); wordIdx++) {
                 unsigned char tag = tags & 0xFF;
                 tags >>= 8;
                 if (tag == 0xFF) {
