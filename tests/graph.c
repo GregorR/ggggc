@@ -94,11 +94,17 @@ static void graph()
 
     nodes = GGC_NEW_PA(Node, NODECT);
 
+#ifdef GGGGC_FEATURE_TAGGING
+#define IS_TAGGED(p) ((ggc_size_t) (p) & (sizeof(ggc_size_t)-1))
+#else
+#define IS_TAGGED(p) 0
+#endif
+
     for (i = 0; i < ITERCT; i++) {
         /* first create a new link */
         int j = prand() % NODECT;
         node = GGC_RAP(nodes, j);
-        if (!node) {
+        if (!node || IS_TAGGED(node)) {
             node = GGC_NEW(Node);
             GGC_WAP(nodes, j, node);
 #ifdef GGGGC_FEATURE_FINALIZERS
@@ -112,7 +118,7 @@ static void graph()
 
         j = prand() % NODECT;
         next = GGC_RAP(nodes, j);
-        if (!next) {
+        if (!next || IS_TAGGED(next)) {
             next = GGC_NEW(Node);
             GGC_WAP(nodes, j, next);
 #ifdef GGGGC_FEATURE_FINALIZERS
@@ -131,7 +137,16 @@ static void graph()
 
         /* then delete an old node */
         j = prand() % NODECT;
+#ifndef GGGGC_FEATURE_TAGGING
         GGC_WAP(nodes, j, GGC_NULL);
+#else
+        {
+            Node null = (Node) (void *) (ggc_size_t) 1;
+            GGC_WAP(nodes, j, null);
+        }
+        node = (Node) (void *) (ggc_size_t) 0x12345679;
+        next = (Node) (void *) (ggc_size_t) -1;
+#endif
 
         if (i % 1000 == 0) {
             /* stress test it by forcing collection now and then */

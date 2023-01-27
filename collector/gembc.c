@@ -527,7 +527,8 @@ collect:
     for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
         for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
 #ifndef GGGGC_FEATURE_EXTTAG
-            TOSEARCH_ADD(jpsCur);
+            if (!IS_TAGGED(*((void *) jpsCur)))
+                TOSEARCH_ADD(jpsCur);
 #else
             int wordIdx;
             size_t tags = *((ggc_size_t *) jpsCur);
@@ -869,7 +870,8 @@ void ggggc_collectFull(COLLECT_FULL_ARGS)
     for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
         for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
 #ifndef GGGGC_FEATURE_EXTTAG
-            TOSEARCH_ADD(jpsCur);
+            if (!IS_TAGGED(*(void **) jpsCur))
+                TOSEARCH_ADD(jpsCur);
 #else
             int wordIdx;
             size_t tags = *((ggc_size_t *) jpsCur);
@@ -978,7 +980,7 @@ void ggggc_collectFull(COLLECT_FULL_ARGS)
         for (psCur = pslCur->pointerStack; psCur; psCur = psCur->next) {
             ggc_size_t ***pointers = (ggc_size_t ***) psCur->pointers;
             for (i = 0; i < psCur->size; i++) {
-                if (*pointers[i])
+                if (*pointers[i] && !IS_TAGGED(*pointers[i]))
                     FOLLOW_COMPACTED_OBJECT(*pointers[i]);
             }
         }
