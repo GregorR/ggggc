@@ -1236,7 +1236,8 @@ void ggggc_postCompact(struct GGGGC_Pool *pool)
 #ifndef GGGGC_FEATURE_EXTTAG
                 if (curWord % GGGGC_BITS_PER_WORD == 0)
                     curDescription = descriptor->pointers[curDescriptorWord++];
-                if ((curDescription & 1) && obj[curWord])
+                if ((curDescription & 1) && obj[curWord] &&
+                    !IS_TAGGED(obj[curWord]))
 #else
                 if ((descriptor->tags[curWord] & 1) == 0 && obj[curWord])
 #endif
