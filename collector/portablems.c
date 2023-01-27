@@ -324,13 +324,11 @@ void ggggc_collect0(unsigned char gen)
     /* first, make sure we stop the world */
     while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0) {
         /* somebody else is collecting */
-        while (!ggggc_stopTheWorld) {}
         GGC_YIELD();
-        return;
     }
 
     /* if nobody ever initialized the barrier, do so */
-    if (ggggc_threadCount == 0) {
+    if (ggggc_threadCount == (ggc_size_t) -1) {
         ggggc_threadCount = 1;
         ggc_barrier_init(&ggggc_worldBarrier, ggggc_threadCount);
     }
@@ -359,7 +357,7 @@ void ggggc_collect0(unsigned char gen)
             for (i = 0; i < psCur->size; i++) {
                 struct GGGGC_Header **h = (struct GGGGC_Header **)
                     psCur->pointers[i];
-                if (*h)
+                if (h && *h)
                     mark(*h);
             }
         }

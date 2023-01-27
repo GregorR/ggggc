@@ -78,7 +78,7 @@ int ggc_thread_create(
     /* update our thread barrier */
     while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0)
         GGC_YIELD();
-    if (ggggc_threadCount == 0) ggggc_threadCount++;
+    if (ggggc_threadCount == (ggc_size_t) -1) ggggc_threadCount = 1;
     else ggc_barrier_destroy(&ggggc_worldBarrier);
     ggc_barrier_init(&ggggc_worldBarrier, ++ggggc_threadCount);
     ggc_mutex_unlock(&ggggc_worldBarrierLock);
