@@ -4,7 +4,7 @@ particularly useful for generated code (e.g. JITs) to interact with GGGGC.
 
 Use the macro `GGGGC_FEATURE_JITPSTACK` to enable JIT pointer stacks. Allocate
 as much space as you'd like for each thread that will run JIT code, and set the
-thread-local `ggc_jitPointerStack` and `ggc_jitPointerStackTop` to the *high
+thread-local `ggc_jitPointerStack` and `ggc_jitPointerStackEnd` to the *high
 end* of that space. Then, when executing code, decrease `ggc_jitPointerStack` to
 request more stack space, and increase it to release stack space. Generally
 speaking, you should make the JIT pointer stack a distinct register, and

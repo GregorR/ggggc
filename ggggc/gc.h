@@ -428,7 +428,7 @@ extern ggc_thread_local struct GGGGC_PointerStack *ggggc_pointerStack, *ggggc_po
 
 #ifdef GGGGC_FEATURE_JITPSTACK
 /* and a pointer stack for JIT purposes */
-extern ggc_thread_local void **ggc_jitPointerStack, **ggc_jitPointerStackTop;
+extern ggc_thread_local void **ggc_jitPointerStack, **ggc_jitPointerStackEnd;
 #endif
 
 /* macros to push and pop pointers from the pointer stack */

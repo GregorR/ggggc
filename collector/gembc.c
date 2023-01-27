@@ -468,7 +468,7 @@ void ggggc_collect0(unsigned char gen)
 
 #ifdef GGGGC_FEATURE_JITPSTACK
     jitPointerStackNode.cur = ggc_jitPointerStack;
-    jitPointerStackNode.top = ggc_jitPointerStackTop;
+    jitPointerStackNode.top = ggc_jitPointerStackEnd;
     jitPointerStackNode.next = ggggc_blockedThreadJITPointerStacks;
     ggggc_rootJITPointerStackList = &jitPointerStackNode;
 #endif
@@ -1321,7 +1321,7 @@ int ggggc_yield()
 
 #ifdef GGGGC_FEATURE_JITPSTACK
         jitPointerStackNode.cur = ggc_jitPointerStack;
-        jitPointerStackNode.top = ggc_jitPointerStackTop;
+        jitPointerStackNode.top = ggc_jitPointerStackEnd;
         jitPointerStackNode.next = ggggc_rootJITPointerStackList;
         ggggc_rootJITPointerStackList = &jitPointerStackNode;
 #endif
