@@ -1,7 +1,7 @@
 /*
  * Highly portable, simple mark and sweep collector
  *
- * Copyright (c) 2022 Gregor Richards
+ * Copyright (c) 2022, 2023 Gregor Richards
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -32,21 +32,6 @@ struct FreeListNode {
 };
 static ggc_thread_local struct FreeListNode *freeList = NULL;
 
-/* add a node to the free list in memory order (FIXME: coalesce) */
-static void ggggc_free(struct FreeListNode *node)
-{
-    struct FreeListNode **cur;
-
-    cur = &freeList;
-    for (cur = &freeList;; cur = &(*cur)->next) {
-        if (*cur == NULL || *cur > node) {
-            node->next = *cur;
-            *cur = node;
-            break;
-        }
-    }
-}
-
 /* create a pool and add it to the free list */
 static struct GGGGC_Pool *ggggc_newPoolFree(int mustSucceed)
 {
@@ -61,7 +46,8 @@ static struct GGGGC_Pool *ggggc_newPoolFree(int mustSucceed)
     node = (struct FreeListNode *) (pool->start);
     node->zero = 0;
     node->size = pool->end - pool->start;
-    ggggc_free(node);
+    node->next = freeList;
+    freeList = node;
 
     return pool;
 }
@@ -225,6 +211,9 @@ static void mark(struct GGGGC_Header *obj)
 static void sweep(struct GGGGC_Pool *pool)
 {
     ggc_size_t survivors = 0, total = 0;
+    struct FreeListNode *lastFree = NULL;
+
+    freeList = NULL;
 
     for (; pool; pool = pool->next) {
         union {
@@ -232,7 +221,6 @@ static void sweep(struct GGGGC_Pool *pool)
             struct GGGGC_Header *obj;
             struct FreeListNode *fl;
         } cur;
-        struct FreeListNode *lastFree = NULL;
         ggc_size_t *end;
 
         pool->survivors = 0;
@@ -247,14 +235,7 @@ static void sweep(struct GGGGC_Pool *pool)
             struct FreeListNode *nextFree;
             ggc_size_t descriptorI;
 
-            if (cur.fl->zero == 0) {
-                /* it's a free-list entry already */
-                lastFree = cur.fl;
-                cur.w += cur.fl->size;
-                continue;
-            }
-
-            /* it's an allocated object */
+            /* it's either a freelist entry already or an allocated object */
             descriptorI = (ggc_size_t) (void *) cur.obj->descriptor__ptr;
             if (descriptorI & 1) {
                 /* it's marked, so still in use */
@@ -266,40 +247,52 @@ static void sweep(struct GGGGC_Pool *pool)
                 continue;
             }
 
-            /* it's a free object (FIXME: what if the descriptor was freed?) */
-            descriptor = (struct GGGGC_Descriptor *) (void *) descriptorI;
-            cur.fl->zero = 0;
-            cur.fl->size = descriptor->size;
+            /* it's free */
+            /* the size is in the same location as a descriptor's size, so we
+             * use the zero space for the size temporarily, then put the size in
+             * the correct place in a later pass. */
+            if (cur.fl->zero == 0) {
+                /* it was already free */
+                cur.fl->zero = cur.fl->size;
+            } else {
+                /* it was allocated */
+                descriptor = (struct GGGGC_Descriptor *) (void *) descriptorI;
+                cur.fl->zero = descriptor->size;
+            }
 
             /* free this object */
             if (lastFree) {
-                if (cur.w == ((ggc_size_t *) lastFree) + lastFree->size) {
-                    /* coalesce */
-                    lastFree->size += descriptor->size;
+                if (cur.w == ((ggc_size_t *) lastFree) + lastFree->zero) {
+                    /* coalesce (remember, size is currently in the zero slot) */
+                    lastFree->zero += cur.fl->zero;
                 } else {
                     /* free separately */
-                    cur.fl->next = lastFree->next;
                     lastFree->next = cur.fl;
                     lastFree = cur.fl;
                 }
             } else {
-                ggggc_free(cur.fl);
-                lastFree = cur.fl;
+                freeList = lastFree = cur.fl;
             }
 
-            /* possibly coalesce it with the next object */
-            nextFree = (struct FreeListNode *) (void *)
-                (((ggc_size_t) lastFree) + lastFree->size);
-            if (lastFree->next == nextFree)
-                lastFree->next = nextFree->next;
-
             /* and continue */
-            cur.w = ((ggc_size_t *) lastFree) + lastFree->size;
+            cur.w = ((ggc_size_t *) lastFree) + lastFree->zero;
         }
 
         /* now count */
         survivors += pool->survivors;
         total += pool->end - pool->start;
+    }
+
+    lastFree->next = NULL;
+
+    /* fix up the free list */
+    for (lastFree = freeList; lastFree; lastFree = lastFree->next) {
+        if (lastFree->zero) {
+            lastFree->size = lastFree->zero;
+            lastFree->zero = 0;
+        } else {
+            abort();
+        }
     }
 
     /* possibly expand our heap */

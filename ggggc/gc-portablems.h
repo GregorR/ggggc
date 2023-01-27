@@ -23,6 +23,11 @@
 
 #define GGGGC_USE_PORTABLE_ALLOCATOR 1
 
+/* our freelist entries are three words, to make them easily distinguishable
+ * from objects (the first word is zero) */
+#undef GGGGC_MINIMUM_OBJECT_SIZE
+#define GGGGC_MINIMUM_OBJECT_SIZE 3
+
 /* portablems does not have generations */
 #undef GGGGC_GENERATIONS
 #define GGGGC_GENERATIONS 1
