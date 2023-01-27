@@ -85,14 +85,13 @@ retry:
         ret = (struct GGGGC_Header *) pool->free;
         pool->free += size;
 
-        ret->descriptor__ptr = NULL;
+        /* and clear the rest (necessary since this goes to the untrusted mutator) */
+        memset(ret, 0, size * sizeof(ggc_size_t));
+
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
         /* set its canary */
         ret->ggggc_memoryCorruptionCheck = GGGGC_MEMORY_CORRUPTION_VAL;
 #endif
-
-        /* and clear the rest (necessary since this goes to the untrusted mutator) */
-        memset(ret + 1, 0, size * sizeof(ggc_size_t) - sizeof(struct GGGGC_Header));
 
     } else if (pool->next) {
         ggggc_pool0 = pool = pool->next;
@@ -706,6 +705,7 @@ postCollect:
 #ifdef GGGGC_DEBUG_REPORT_COLLECTIONS
     report(gen, "post-collection");
 #endif
+
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
     for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
         for (poolCur = plCur->pool; poolCur; poolCur = poolCur->next) {
