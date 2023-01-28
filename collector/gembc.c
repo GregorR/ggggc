@@ -331,7 +331,8 @@ static void memoryCorruptionCheckObj(const char *when, struct GGGGC_Header *obj)
             {
                 /* it's a pointer */
                 struct GGGGC_Header *nobj = (struct GGGGC_Header *) objVp[curWord];
-                if (nobj && nobj->ggggc_memoryCorruptionCheck != GGGGC_MEMORY_CORRUPTION_VAL) {
+                if (nobj && !IS_TAGGED(nobj) &&
+                    nobj->ggggc_memoryCorruptionCheck != GGGGC_MEMORY_CORRUPTION_VAL) {
                     fprintf(stderr, "GGGGC: Memory corruption (%s nested)!\n", when);
                     abort();
                 }
@@ -383,7 +384,7 @@ static void memoryCorruptionCheck(const char *when)
             ggc_size_t i;
             for (i = 0; i < psCur->size; i++) {
                 struct GGGGC_Header *obj = *((struct GGGGC_Header **) psCur->pointers[i]);
-                if (obj)
+                if (obj && !IS_TAGGED(obj))
                     memoryCorruptionCheckObj(when, obj);
             }
         }
