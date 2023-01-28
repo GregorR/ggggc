@@ -475,9 +475,11 @@ void ggggc_collect0(unsigned char gen)
     /* clear our freelist */
     clearFreeList();
 
+#ifdef GGGGC_FEATURE_FINALIZERS
     /* run any finalizers */
     if (readyFinalizers)
         ggggc_runFinalizers(readyFinalizers);
+#endif
 }
 
 /* run full garbage collection (in gembc, just collect0) */
