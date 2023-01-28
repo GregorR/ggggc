@@ -201,7 +201,8 @@ void *ggggc_mallocPointerArray(ggc_size_t sz)
 void *ggggc_mallocDataArray(ggc_size_t nmemb, ggc_size_t size)
 {
     ggc_size_t sz = ((nmemb*size)+sizeof(ggc_size_t)-1)/sizeof(ggc_size_t);
-    struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorDA(sz + 1 + sizeof(struct GGGGC_Header)/sizeof(ggc_size_t));
+    struct GGGGC_Descriptor *descriptor = ggggc_allocateDescriptorDA(
+        sz + 1 + GGGGC_WORD_SIZEOF(struct GGGGC_Header));
     struct GGGGC_Array *ret = (struct GGGGC_Array *) ggggc_malloc(descriptor);
     ret->length = nmemb;
     return ret;
@@ -310,8 +311,8 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_si
     }
 
 #else /* !GGGGC_FEATURE_EXTTAG */
-    memset(ret->tags, 1, size);
     if (pointers) {
+        memset(ret->tags, 1, size);
         ggc_size_t pi, si, curP, curM;
         pi = -1;
         curM = 0;
@@ -325,6 +326,8 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_si
             curM <<= 1;
         }
         ret->tags[0] = 0; /* first word is always the descriptor pointer */
+    } else {
+        ret->tags[1] = 1;
     }
 
 #endif /* GGGGC_FEATURE_EXTTAG */
