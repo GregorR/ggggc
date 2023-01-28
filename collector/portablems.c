@@ -145,6 +145,9 @@ void *ggggc_malloc(struct GGGGC_Descriptor *descriptor)
 static void stopTheWorld(
     struct GGGGC_PoolList *pool0Node,
     struct GGGGC_PointerStackList *pointerStackNode
+#ifdef GGGGC_FEATURE_JITPSTACK
+    , struct GGGGC_JITPointerStackList *jitPointerStackNode
+#endif
 ) {
     /* first, make sure we stop the world */
     while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0) {
@@ -167,6 +170,13 @@ static void stopTheWorld(
     pointerStackNode->next = ggggc_blockedThreadPointerStacks;
     ggggc_rootPointerStackList = pointerStackNode;
     ggc_mutex_unlock(&ggggc_rootsLock);
+
+#ifdef GGGGC_FEATURE_JITPSTACK
+    jitPointerStackNode->cur = ggc_jitPointerStack;
+    jitPointerStackNode->top = ggc_jitPointerStackEnd;
+    jitPointerStackNode->next = ggggc_blockedThreadJITPointerStacks;
+    ggggc_rootJITPointerStackList = jitPointerStackNode;
+#endif
 
     /* stop the world */
     ggggc_stopTheWorld = 1;
@@ -536,15 +546,24 @@ void ggggc_collect0(unsigned char gen)
     struct GGGGC_PointerStackList pointerStackNode, *pslCur;
     struct GGGGC_PointerStack *psCur;
     ggc_size_t i;
-
+#ifdef GGGGC_FEATURE_JITPSTACK
+    struct GGGGC_JITPointerStackList jitPointerStackNode, *jpslCur;
+    void **jpsCur;
+#endif
 #ifdef GGGGC_FEATURE_FINALIZERS
     struct GGGGC_PoolList *plCur;
     GGGGC_FinalizerEntry readyFinalizers = NULL;
 #endif
 
     /* gen is used to indicate "we already stopped the world" */
-    if (!gen)
-        stopTheWorld(&pool0Node, &pointerStackNode);
+    if (!gen) {
+        stopTheWorld(
+            &pool0Node, &pointerStackNode
+#ifdef GGGGC_FEATURE_JITPSTACK
+            , &jitPointerStackNode
+#endif
+        );
+    }
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
     memoryCorruptionCheck("pre-collection");
@@ -561,6 +580,32 @@ void ggggc_collect0(unsigned char gen)
             }
         }
     }
+
+#ifdef GGGGC_FEATURE_JITPSTACK
+    for (jpslCur = ggggc_rootJITPointerStackList; jpslCur; jpslCur = jpslCur->next) {
+        for (jpsCur = jpslCur->cur; jpsCur < jpslCur->top; jpsCur++) {
+#ifndef GGGGC_FEATURE_EXTTAG
+            if (*jpsCur && !IS_TAGGED(*((void *) jpsCur)))
+                mark(*jpsCur);
+#else
+            int wordIdx;
+            size_t tags = *((ggc_size_t *) jpsCur);
+            for (wordIdx = 0; wordIdx < sizeof(ggc_size_t); wordIdx++) {
+                unsigned char tag = tags & 0xFF;
+                tags >>= 8;
+                if (tag == 0xFF) {
+                    /* End-of-tags tag */
+                    break;
+                }
+                jpsCur++;
+                /* Lowest bit indicates pointer */
+                if ((tag & 0x1) == 0 && *jpsCur)
+                    mark(*jpsCur);
+            }
+#endif /* GGGGC_FEATURE_EXTTAG */
+        }
+    }
+#endif /* GGGGC_FEATURE_JITPSTACK */
 
 #ifdef GGGGC_FEATURE_FINALIZERS
     /* look for finalized objects */
@@ -600,7 +645,7 @@ void ggggc_collect0(unsigned char gen)
     }
     if (readyFinalizers)
         mark(&readyFinalizers->header);
-#endif
+#endif /* GGGGC_FEATURE_FINALIZERS */
 
     /* indicate that we're now ready to sweep */
     ggc_barrier_wait_raw(&ggggc_worldBarrier);
@@ -640,6 +685,9 @@ int ggggc_yield()
 {
     struct GGGGC_PoolList pool0Node;
     struct GGGGC_PointerStackList pointerStackNode;
+#ifdef GGGGC_FEATURE_JITPSTACK
+    struct GGGGC_JITPointerStackList jitPointerStackNode;
+#endif
 
     if (ggggc_stopTheWorld) {
         /* wait for the barrier once to stop the world */
@@ -653,6 +701,14 @@ int ggggc_yield()
         pointerStackNode.pointerStack = ggggc_pointerStack;
         pointerStackNode.next = ggggc_rootPointerStackList;
         ggggc_rootPointerStackList = &pointerStackNode;
+
+#ifdef GGGGC_FEATURE_JITPSTACK
+        jitPointerStackNode.cur = ggc_jitPointerStack;
+        jitPointerStackNode.top = ggc_jitPointerStackEnd;
+        jitPointerStackNode.next = ggggc_rootJITPointerStackList;
+        ggggc_rootJITPointerStackList = &jitPointerStackNode;
+#endif
+
         ggc_mutex_unlock(&ggggc_rootsLock);
 
         /* wait for the barrier once to allow marking */
