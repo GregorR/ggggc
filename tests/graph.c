@@ -84,7 +84,7 @@ static void graph()
 #endif
 #endif
 #undef GGGGC_ASSERT_ID
-#define GGGGC_ASSERT_ID(id) 0
+#define GGGGC_ASSERT_ID(id) ((void) 0)
 #define nodes frame->nodes
 #define edges frame->edges
 #define nedges frame->nedges
