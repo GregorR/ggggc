@@ -327,7 +327,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_si
         }
         ret->tags[0] = 0; /* first word is always the descriptor pointer */
     } else {
-        ret->tags[1] = 1;
+        ret->tags[0] = 1;
     }
 
 #endif /* GGGGC_FEATURE_EXTTAG */
