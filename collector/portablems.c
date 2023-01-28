@@ -141,6 +141,87 @@ void *ggggc_malloc(struct GGGGC_Descriptor *descriptor)
     return ret;
 }
 
+/* generalized stop-the-world */
+static void stopTheWorld(
+    struct GGGGC_PoolList *pool0Node,
+    struct GGGGC_PointerStackList *pointerStackNode
+) {
+    /* first, make sure we stop the world */
+    while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0) {
+        /* somebody else is collecting */
+        GGC_YIELD();
+    }
+
+    /* if nobody ever initialized the barrier, do so */
+    if (ggggc_threadCount == (ggc_size_t) -1) {
+        ggggc_threadCount = 1;
+        ggc_barrier_init(&ggggc_worldBarrier, ggggc_threadCount);
+    }
+
+    /* initialize our roots */
+    ggc_mutex_lock_raw(&ggggc_rootsLock);
+    pool0Node->pool = ggggc_gen0;
+    pool0Node->next = ggggc_blockedThreadPool0s;
+    ggggc_rootPool0List = pool0Node;
+    pointerStackNode->pointerStack = ggggc_pointerStack;
+    pointerStackNode->next = ggggc_blockedThreadPointerStacks;
+    ggggc_rootPointerStackList = pointerStackNode;
+    ggc_mutex_unlock(&ggggc_rootsLock);
+
+    /* stop the world */
+    ggggc_stopTheWorld = 1;
+    ggc_barrier_wait_raw(&ggggc_worldBarrier);
+    ggggc_stopTheWorld = 0;
+
+    /* wait for them to fill roots */
+    ggc_barrier_wait_raw(&ggggc_worldBarrier);
+}
+
+/* generalized restart-the-world */
+static void restartTheWorld()
+{
+    /* free the other threads */
+    ggc_barrier_wait_raw(&ggggc_worldBarrier);
+    ggc_mutex_unlock(&ggggc_worldBarrierLock);
+}
+
+/* getting the pool from an object is only needed by finalizers */
+#ifdef GGGGC_FEATURE_FINALIZERS
+struct GGGGC_Pool *ggggc_poolOf(void *obj)
+{
+    struct GGGGC_PoolList *plCur, pool0Node;
+    struct GGGGC_PointerStackList pointerStackNode;
+
+    /* hopefully it's a local pool, so we can simply find it */
+    struct GGGGC_Pool *pool;
+    for (pool = ggggc_gen0; pool; pool = pool->next) {
+        if (obj >= (void *) pool->start && obj < (void *) pool->end)
+            return pool;
+    }
+
+    /* Not a local pool. We have to stop the world to scan all the other
+     * threads' pools, and in portablems, the only way to do that is a complete
+     * collection. */
+    stopTheWorld(&pool0Node, &pointerStackNode);
+
+    for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
+        for (pool = plCur->pool; pool; pool = pool->next) {
+            if (obj >= (void *) pool->start && obj < (void *) pool->end)
+                goto done;
+        }
+    }
+
+    /* didn't find it! */
+    abort();
+
+done:
+    /* we have to finish collection */
+    ggggc_collect0(1);
+
+    return pool;
+}
+#endif
+
 static struct ToSearch toSearchList;
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
@@ -331,12 +412,15 @@ static void mark(struct GGGGC_Header *obj)
     }
 }
 
+/* used by both sweep and clearFreeList */
+static ggc_thread_local ggc_size_t survivors, total;
+
 /* sweep this heap */
 static void sweep(struct GGGGC_Pool *pool)
 {
-    ggc_size_t survivors = 0, total = 0;
     struct FreeListNode *lastFree = NULL;
 
+    survivors = total = 0;
     freeList = NULL;
 
     for (; pool; pool = pool->next) {
@@ -409,11 +493,16 @@ static void sweep(struct GGGGC_Pool *pool)
 
     if (lastFree)
         lastFree->next = NULL;
+}
 
-    /* fix up the free list */
-    for (lastFree = freeList; lastFree; lastFree = lastFree->next) {
-        lastFree->size = lastFree->zero;
-        lastFree->zero = 0;
+/* clear the free list after sweeping */
+void clearFreeList()
+{
+    struct GGGGC_Pool *pool;
+    struct FreeListNode *fln;
+    for (fln = freeList; fln; fln = fln->next) {
+        fln->size = fln->zero;
+        fln->zero = 0;
     }
 
     /* possibly expand our heap */
@@ -434,43 +523,19 @@ static void sweep(struct GGGGC_Pool *pool)
 /* run garbage collection */
 void ggggc_collect0(unsigned char gen)
 {
-    struct GGGGC_PoolList pool0Node, *plCur;
-    struct GGGGC_Pool *poolCur;
+    struct GGGGC_PoolList pool0Node;
     struct GGGGC_PointerStackList pointerStackNode, *pslCur;
     struct GGGGC_PointerStack *psCur;
-    struct ToSearch *toSearch;
-    unsigned char genCur;
     ggc_size_t i;
 
-    /* first, make sure we stop the world */
-    while (ggc_mutex_trylock(&ggggc_worldBarrierLock) != 0) {
-        /* somebody else is collecting */
-        GGC_YIELD();
-    }
+#ifdef GGGGC_FEATURE_FINALIZERS
+    struct GGGGC_PoolList *plCur;
+    GGGGC_FinalizerEntry readyFinalizers = NULL;
+#endif
 
-    /* if nobody ever initialized the barrier, do so */
-    if (ggggc_threadCount == (ggc_size_t) -1) {
-        ggggc_threadCount = 1;
-        ggc_barrier_init(&ggggc_worldBarrier, ggggc_threadCount);
-    }
-
-    /* initialize our roots */
-    ggc_mutex_lock_raw(&ggggc_rootsLock);
-    pool0Node.pool = ggggc_gen0;
-    pool0Node.next = ggggc_blockedThreadPool0s;
-    ggggc_rootPool0List = &pool0Node;
-    pointerStackNode.pointerStack = ggggc_pointerStack;
-    pointerStackNode.next = ggggc_blockedThreadPointerStacks;
-    ggggc_rootPointerStackList = &pointerStackNode;
-    ggc_mutex_unlock(&ggggc_rootsLock);
-
-    /* stop the world */
-    ggggc_stopTheWorld = 1;
-    ggc_barrier_wait_raw(&ggggc_worldBarrier);
-    ggggc_stopTheWorld = 0;
-
-    /* wait for them to fill roots */
-    ggc_barrier_wait_raw(&ggggc_worldBarrier);
+    /* gen is used to indicate "we already stopped the world" */
+    if (!gen)
+        stopTheWorld(&pool0Node, &pointerStackNode);
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
     memoryCorruptionCheck("pre-collection");
@@ -488,6 +553,46 @@ void ggggc_collect0(unsigned char gen)
         }
     }
 
+#ifdef GGGGC_FEATURE_FINALIZERS
+    /* look for finalized objects */
+    for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
+        struct GGGGC_Pool *pool;
+        for (pool = plCur->pool; pool; pool = pool->next) {
+            GGGGC_FinalizerEntry survivingFinalizers = NULL, finalizer,
+                nextFinalizer;
+            finalizer = (GGGGC_FinalizerEntry) pool->finalizers;
+            for (; finalizer; finalizer = nextFinalizer) {
+                struct GGGGC_Header *obj =
+                    (struct GGGGC_Header *) finalizer->obj__ptr;
+                nextFinalizer = finalizer->next__ptr;
+                if (((ggc_size_t) (void *) obj->descriptor__ptr) & 1) {
+                    /* It's marked. This object survives. */
+                    finalizer->next__ptr = survivingFinalizers;
+                    survivingFinalizers = finalizer;
+
+                } else {
+                    /* Unmarked. Finalize this. */
+                    finalizer->next__ptr = readyFinalizers;
+                    readyFinalizers = finalizer;
+
+                }
+            }
+            pool->finalizers = (void *) survivingFinalizers;
+        }
+    }
+
+    /* now mark all finalizers, so they aren't swept before being finalized */
+    for (plCur = ggggc_rootPool0List; plCur; plCur = plCur->next) {
+        struct GGGGC_Pool *pool;
+        for (pool = plCur->pool; pool; pool = pool->next) {
+            if (pool->finalizers)
+                mark(pool->finalizers);
+        }
+    }
+    if (readyFinalizers)
+        mark(&readyFinalizers->header);
+#endif
+
     /* indicate that we're now ready to sweep */
     ggc_barrier_wait_raw(&ggggc_worldBarrier);
 
@@ -503,9 +608,16 @@ void ggggc_collect0(unsigned char gen)
     memoryCorruptionCheck("post-collection");
 #endif
 
-    /* free the other threads */
-    ggc_barrier_wait_raw(&ggggc_worldBarrier);
-    ggc_mutex_unlock(&ggggc_worldBarrierLock);
+    restartTheWorld();
+
+    /* clear our freelist */
+    clearFreeList();
+
+#ifdef GGGGC_FEATURE_FINALIZERS
+    /* run any finalizers */
+    if (readyFinalizers)
+        ggggc_runFinalizers(readyFinalizers);
+#endif
 }
 
 /* run full garbage collection (in gembc, just collect0) */
@@ -545,6 +657,9 @@ int ggggc_yield()
 
         /* and continue */
         ggc_barrier_wait_raw(&ggggc_worldBarrier);
+
+        /* we can clear our freelist independently */
+        clearFreeList();
     }
 
     return 0;

@@ -20,7 +20,7 @@ doTests() {
 
     cd tests
     make clean
-    make btggggc btggggcth badlll ggggcbench lists maps \
+    make btggggc btggggcth badlll ggggcbench lists maps graph \
         CC="$2" ECFLAGS="-O3 -g $3 -DGGGGC_FEATURE_$1" GGGGC_LIBS="$GGGGC_LIBS"
 
     eRun ./btggggc 16
@@ -29,6 +29,7 @@ doTests() {
     eRun ./ggggcbench
     eRun ./lists
     eRun ./maps
+    eRun ./graph
     )
 }
 
