@@ -11,3 +11,4 @@ tests/gcbench
 tests/ggggcbench
 tests/lists
 tests/maps
+tests/graph
