@@ -27,13 +27,13 @@ GGC_END_TYPE(Node,
     GGC_PTR(Node, edges)
     )
 
-static unsigned long next = 1;
+static unsigned long seed = 1;
 
 #define PRAND_MAX 32767
 static int prand()
 {
-    next = next * 1103515245 + 12345;
-    return (unsigned)(next/65536) % 32768;
+    seed = seed * 1103515245 + 12345;
+    return (unsigned)(seed/65536) % 32768;
 }
 
 #define NODECT 1024
@@ -137,13 +137,16 @@ static void graph()
 
         /* then delete an old node */
         j = prand() % NODECT;
-#ifndef GGGGC_FEATURE_TAGGING
-        GGC_WAP(nodes, j, GGC_NULL);
-#else
         {
+#ifndef GGGGC_FEATURE_TAGGING
+            Node null = (Node) NULL;
+#else
             Node null = (Node) (void *) (ggc_size_t) 1;
+#endif
             GGC_WAP(nodes, j, null);
         }
+
+#ifdef GGGGC_FEATURE_TAGGING
         node = (Node) (void *) (ggc_size_t) 0x12345679;
         next = (Node) (void *) (ggc_size_t) -1;
 #endif

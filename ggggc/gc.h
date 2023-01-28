@@ -72,10 +72,6 @@ typedef char ggggc_size_t_check
 /* various sizes and masks */
 #define GGGGC_WORD_SIZEOF(x) ((sizeof(x) + sizeof(ggc_size_t) - 1) / sizeof(ggc_size_t))
 #define GGGGC_POOL_BYTES ((ggc_size_t) 1 << GGGGC_POOL_SIZE)
-#define GGGGC_POOL_OUTER_MASK ((ggc_size_t) -1 << GGGGC_POOL_SIZE)
-#define GGGGC_POOL_INNER_MASK (~GGGGC_POOL_OUTER_MASK)
-#define GGGGC_POOL_OF(ptr) ((struct GGGGC_Pool *) ((ggc_size_t) (ptr) & GGGGC_POOL_OUTER_MASK))
-#define GGGGC_GEN_OF(ptr) (GGGGC_POOL_OF(ptr)->gen)
 #define GGGGC_CARD_BYTES ((ggc_size_t) 1 << GGGGC_CARD_SIZE)
 #define GGGGC_CARD_OUTER_MASK ((ggc_size_t) -1 << GGGGC_CARD_SIZE)
 #define GGGGC_CARD_INNER_MASK (~GGGGC_CARD_OUTER_MASK)
@@ -103,6 +99,21 @@ typedef char ggggc_size_t_check
 #undef GGGGC_COLLECTOR_F
 #undef GGGGC_COLLECTOR_F2
 #undef GGGGC_STRINGIFY
+
+/* pool access */
+#ifndef GGGGC_USE_PORTABLE_ALLOCATOR
+/* pools are aligned */
+#define GGGGC_POOL_OUTER_MASK ((ggc_size_t) -1 << GGGGC_POOL_SIZE)
+#define GGGGC_POOL_INNER_MASK (~GGGGC_POOL_OUTER_MASK)
+#define GGGGC_POOL_OF(ptr) ((struct GGGGC_Pool *) ((ggc_size_t) (ptr) & GGGGC_POOL_OUTER_MASK))
+
+#else
+/* need a helper function to find a pool */
+struct GGGGC_Pool *ggggc_poolOf(void *ptr);
+#define GGGGC_POOL_OF(ptr) (ggggc_poolOf((void *) (ptr)))
+
+#endif
+#define GGGGC_GEN_OF(ptr) (GGGGC_POOL_OF(ptr)->gen)
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
 #define GGGGC_MEMORY_CORRUPTION_VAL 0x0DEFACED
