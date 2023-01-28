@@ -222,6 +222,16 @@ done:
 }
 #endif
 
+/* check if a value is user-tagged as a non-GC pointer. It's done here, while
+ * adding to the to-check list, instead of while removing from the to-check
+ * list, because the descriptor may be tagged by the GC, and we can only
+ * distinguish the descriptor from other pointers at this point. */
+#ifdef GGGGC_FEATURE_TAGGING
+#define IS_TAGGED(p) ((ggc_size_t) (p) & (sizeof(ggc_size_t)-1))
+#else
+#define IS_TAGGED(p) 0
+#endif
+
 static struct ToSearch toSearchList;
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
@@ -392,9 +402,8 @@ static void mark(struct GGGGC_Header *obj)
 #endif
                 {
                     /* it's a pointer */
-                    if (objVp[curWord]) {
+                    if (objVp[curWord] && !IS_TAGGED(objVp[curWord]))
                         TOSEARCH_ADD(objVp[curWord]);
-                    }
                 }
 #ifndef GGGGC_FEATURE_EXTTAG
                 curDescription >>= 1;
@@ -547,7 +556,7 @@ void ggggc_collect0(unsigned char gen)
             for (i = 0; i < psCur->size; i++) {
                 struct GGGGC_Header **h = (struct GGGGC_Header **)
                     psCur->pointers[i];
-                if (h && *h)
+                if (h && *h && !IS_TAGGED(*h))
                     mark(*h);
             }
         }
