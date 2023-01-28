@@ -40,7 +40,7 @@ static void mallocBump()
 
     while (offset > 4 * sizeof(void *) && offset < prevOffset) {
         /* try to give some space to malloc */
-        void **next = malloc(offset >> 2);
+        void **next = (void **) malloc(offset >> 2);
         if (!next) break;
         next[0] = list;
         list = next;
