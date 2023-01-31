@@ -2,6 +2,11 @@ GGGGC is a precise, generational, moving garbage collector for C. It is not as
 general-purpose as a conservative collector (e.g. libgc), but is a good
 starting place for implementing new virtual machines.
 
+GGGGC is hugely portable. The generational collector requires at least a 32-bit
+system, but the portable mark and sweep collector works on 16-bit systems, and
+even 8-bit systems with 16-bit addressing. Fairly small adjustments are
+necessary to work in extremely constrained environments.
+
 GGGGC is also intended to be a garbage collector for learning. The details of
 collection itself are separated from the murkier details of OS-level memory
 management and C/C++ issues, making it a clean environment for studying how
