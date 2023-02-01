@@ -18,6 +18,35 @@
 
 #include <stdio.h>
 
+static void doPush(const char *suffix, int size, int autoPop)
+{
+    int ct;
+    printf("#define GGC_PUSH_%s%d(",
+           suffix, size);
+    for (ct = 0; ct < size; ct++) {
+        if (ct != 0) printf(", ");
+        printf("ggggc_ptr_%c", 'a' + ct);
+    }
+    printf(") \\\n"
+           "struct GGGGC_PointerStack%d ggggc_localPointerStack; \\\n"
+           "%s"
+           "do { \\\n"
+           "    struct GGGGC_PointerStack *ggggc_pstack_cur = \\\n"
+           "        &ggggc_localPointerStack.ps; \\\n"
+           "    ggggc_pstack_cur->next = ggggc_pointerStack; \\\n"
+           "    ggggc_pstack_cur->size = %d; \\\n",
+           size, autoPop ? "GGGGC_LOCAL_PUSH \\\n" : "", size);
+
+    for (ct = 0; ct < size; ct++) {
+        printf("    ggggc_pstack_cur->pointers[%d] = &(ggggc_ptr_%c); \\\n", ct, 'a' + ct);
+    }
+
+    printf("    ggggc_pstack_cur->pointers[%d] = NULL; \\\n"
+           "    ggggc_pointerStack = ggggc_pstack_cur; \\\n"
+           "    GGC_YIELD(); \\\n"
+           "} while(0)\n", size);
+}
+
 int main()
 {
     int size, ct;
@@ -38,30 +67,12 @@ int main()
         printf("struct GGGGC_PointerStack%d {\n"
                "    struct GGGGC_PointerStack ps;\n"
                "    void *pointers[%d];\n"
-               "};\n"
-               "#define GGC_PUSH_%d(",
-               size, size + 1, size);
-        for (ct = 0; ct < size; ct++) {
-            if (ct != 0) printf(", ");
-            printf("ggggc_ptr_%c", 'a' + ct);
-        }
-        printf(") \\\n"
-               "struct GGGGC_PointerStack%d ggggc_localPointerStack; \\\n"
-               "GGGGC_LOCAL_PUSH \\\n"
-               "do { \\\n"
-               "    struct GGGGC_PointerStack *ggggc_pstack_cur = \\\n"
-               "        &ggggc_localPointerStack.ps; \\\n"
-               "    ggggc_pstack_cur->next = ggggc_pointerStack; \\\n"
-               "    ggggc_pstack_cur->size = %d; \\\n",
+               "};\n",
                size, size);
-        for (ct = 0; ct < size; ct++) {
-            printf("    ggggc_pstack_cur->pointers[%d] = &(ggggc_ptr_%c); \\\n", ct, 'a' + ct);
-        }
-        printf("    ggggc_pstack_cur->pointers[%d] = NULL; \\\n"
-               "    ggggc_pointerStack = ggggc_pstack_cur; \\\n"
-               "    GGC_YIELD(); \\\n"
-               "} while(0)\n"
-               "#endif\n", size);
+
+        doPush("", size, 1);
+        doPush("MANUAL_", size, 0);
+        printf("#endif\n");
     }
     printf("#define GGC_PUSH_N(n, pptrs) \\\n"
            "GGGGC_LOCAL_PUSH \\\n"

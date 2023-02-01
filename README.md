@@ -125,7 +125,15 @@ collector (`GGC_NEW`) before pushing pointers. For example:
 
 Pushing pointers is *vital* to the correctness of GGGGC. If you fail to push
 your pointers correctly, your program will seg fault, behave strangely, or
-otherwise fail.
+otherwise fail. Pushed pointers are automatically popped when compiling with GCC
+or C++, and nasty hacks are used to make it *usually* pop even when compiling
+with neither, but if you're not using GCC (or a compatible compiler like clang),
+you're highly advised to use C++ to make this reliable.
+
+If you'd like to control the popping process yourself, you can use
+`GGC_PUSH_MANUAL_*` and `GGC_POP_MANUAL`. Be careful to use `GGC_POP_MANUAL`
+with `GGC_PUSH_MANUAL_*`, as `GGC_POP` is a macro to ensure popping from a
+normal `GGC_PUSH_*` in a non-GCC, non-C++ system.
 
 You must be careful in C to not store pointers to GC'd objects in temporary
 locations through function calls; in particular, do not call functions within

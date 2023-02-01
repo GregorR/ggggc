@@ -6,11 +6,23 @@
 #else
 struct GGGGC_PointerStack1 {
     struct GGGGC_PointerStack ps;
-    void *pointers[2];
+    void *pointers[1];
 };
 #define GGC_PUSH_1(ggggc_ptr_a) \
 struct GGGGC_PointerStack1 ggggc_localPointerStack; \
 GGGGC_LOCAL_PUSH \
+do { \
+    struct GGGGC_PointerStack *ggggc_pstack_cur = \
+        &ggggc_localPointerStack.ps; \
+    ggggc_pstack_cur->next = ggggc_pointerStack; \
+    ggggc_pstack_cur->size = 1; \
+    ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+    ggggc_pstack_cur->pointers[1] = NULL; \
+    ggggc_pointerStack = ggggc_pstack_cur; \
+    GGC_YIELD(); \
+} while(0)
+#define GGC_PUSH_MANUAL_1(ggggc_ptr_a) \
+struct GGGGC_PointerStack1 ggggc_localPointerStack; \
 do { \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         &ggggc_localPointerStack.ps; \
@@ -27,11 +39,24 @@ do { \
 #else
 struct GGGGC_PointerStack2 {
     struct GGGGC_PointerStack ps;
-    void *pointers[3];
+    void *pointers[2];
 };
 #define GGC_PUSH_2(ggggc_ptr_a, ggggc_ptr_b) \
 struct GGGGC_PointerStack2 ggggc_localPointerStack; \
 GGGGC_LOCAL_PUSH \
+do { \
+    struct GGGGC_PointerStack *ggggc_pstack_cur = \
+        &ggggc_localPointerStack.ps; \
+    ggggc_pstack_cur->next = ggggc_pointerStack; \
+    ggggc_pstack_cur->size = 2; \
+    ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+    ggggc_pstack_cur->pointers[1] = &(ggggc_ptr_b); \
+    ggggc_pstack_cur->pointers[2] = NULL; \
+    ggggc_pointerStack = ggggc_pstack_cur; \
+    GGC_YIELD(); \
+} while(0)
+#define GGC_PUSH_MANUAL_2(ggggc_ptr_a, ggggc_ptr_b) \
+struct GGGGC_PointerStack2 ggggc_localPointerStack; \
 do { \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         &ggggc_localPointerStack.ps; \
@@ -49,11 +74,25 @@ do { \
 #else
 struct GGGGC_PointerStack3 {
     struct GGGGC_PointerStack ps;
-    void *pointers[4];
+    void *pointers[3];
 };
 #define GGC_PUSH_3(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c) \
 struct GGGGC_PointerStack3 ggggc_localPointerStack; \
 GGGGC_LOCAL_PUSH \
+do { \
+    struct GGGGC_PointerStack *ggggc_pstack_cur = \
+        &ggggc_localPointerStack.ps; \
+    ggggc_pstack_cur->next = ggggc_pointerStack; \
+    ggggc_pstack_cur->size = 3; \
+    ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+    ggggc_pstack_cur->pointers[1] = &(ggggc_ptr_b); \
+    ggggc_pstack_cur->pointers[2] = &(ggggc_ptr_c); \
+    ggggc_pstack_cur->pointers[3] = NULL; \
+    ggggc_pointerStack = ggggc_pstack_cur; \
+    GGC_YIELD(); \
+} while(0)
+#define GGC_PUSH_MANUAL_3(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c) \
+struct GGGGC_PointerStack3 ggggc_localPointerStack; \
 do { \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         &ggggc_localPointerStack.ps; \
@@ -72,11 +111,26 @@ do { \
 #else
 struct GGGGC_PointerStack4 {
     struct GGGGC_PointerStack ps;
-    void *pointers[5];
+    void *pointers[4];
 };
 #define GGC_PUSH_4(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d) \
 struct GGGGC_PointerStack4 ggggc_localPointerStack; \
 GGGGC_LOCAL_PUSH \
+do { \
+    struct GGGGC_PointerStack *ggggc_pstack_cur = \
+        &ggggc_localPointerStack.ps; \
+    ggggc_pstack_cur->next = ggggc_pointerStack; \
+    ggggc_pstack_cur->size = 4; \
+    ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+    ggggc_pstack_cur->pointers[1] = &(ggggc_ptr_b); \
+    ggggc_pstack_cur->pointers[2] = &(ggggc_ptr_c); \
+    ggggc_pstack_cur->pointers[3] = &(ggggc_ptr_d); \
+    ggggc_pstack_cur->pointers[4] = NULL; \
+    ggggc_pointerStack = ggggc_pstack_cur; \
+    GGC_YIELD(); \
+} while(0)
+#define GGC_PUSH_MANUAL_4(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d) \
+struct GGGGC_PointerStack4 ggggc_localPointerStack; \
 do { \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         &ggggc_localPointerStack.ps; \
@@ -96,11 +150,27 @@ do { \
 #else
 struct GGGGC_PointerStack5 {
     struct GGGGC_PointerStack ps;
-    void *pointers[6];
+    void *pointers[5];
 };
 #define GGC_PUSH_5(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e) \
 struct GGGGC_PointerStack5 ggggc_localPointerStack; \
 GGGGC_LOCAL_PUSH \
+do { \
+    struct GGGGC_PointerStack *ggggc_pstack_cur = \
+        &ggggc_localPointerStack.ps; \
+    ggggc_pstack_cur->next = ggggc_pointerStack; \
+    ggggc_pstack_cur->size = 5; \
+    ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+    ggggc_pstack_cur->pointers[1] = &(ggggc_ptr_b); \
+    ggggc_pstack_cur->pointers[2] = &(ggggc_ptr_c); \
+    ggggc_pstack_cur->pointers[3] = &(ggggc_ptr_d); \
+    ggggc_pstack_cur->pointers[4] = &(ggggc_ptr_e); \
+    ggggc_pstack_cur->pointers[5] = NULL; \
+    ggggc_pointerStack = ggggc_pstack_cur; \
+    GGC_YIELD(); \
+} while(0)
+#define GGC_PUSH_MANUAL_5(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e) \
+struct GGGGC_PointerStack5 ggggc_localPointerStack; \
 do { \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         &ggggc_localPointerStack.ps; \
@@ -121,11 +191,28 @@ do { \
 #else
 struct GGGGC_PointerStack6 {
     struct GGGGC_PointerStack ps;
-    void *pointers[7];
+    void *pointers[6];
 };
 #define GGC_PUSH_6(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f) \
 struct GGGGC_PointerStack6 ggggc_localPointerStack; \
 GGGGC_LOCAL_PUSH \
+do { \
+    struct GGGGC_PointerStack *ggggc_pstack_cur = \
+        &ggggc_localPointerStack.ps; \
+    ggggc_pstack_cur->next = ggggc_pointerStack; \
+    ggggc_pstack_cur->size = 6; \
+    ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+    ggggc_pstack_cur->pointers[1] = &(ggggc_ptr_b); \
+    ggggc_pstack_cur->pointers[2] = &(ggggc_ptr_c); \
+    ggggc_pstack_cur->pointers[3] = &(ggggc_ptr_d); \
+    ggggc_pstack_cur->pointers[4] = &(ggggc_ptr_e); \
+    ggggc_pstack_cur->pointers[5] = &(ggggc_ptr_f); \
+    ggggc_pstack_cur->pointers[6] = NULL; \
+    ggggc_pointerStack = ggggc_pstack_cur; \
+    GGC_YIELD(); \
+} while(0)
+#define GGC_PUSH_MANUAL_6(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f) \
+struct GGGGC_PointerStack6 ggggc_localPointerStack; \
 do { \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         &ggggc_localPointerStack.ps; \
@@ -147,11 +234,29 @@ do { \
 #else
 struct GGGGC_PointerStack7 {
     struct GGGGC_PointerStack ps;
-    void *pointers[8];
+    void *pointers[7];
 };
 #define GGC_PUSH_7(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g) \
 struct GGGGC_PointerStack7 ggggc_localPointerStack; \
 GGGGC_LOCAL_PUSH \
+do { \
+    struct GGGGC_PointerStack *ggggc_pstack_cur = \
+        &ggggc_localPointerStack.ps; \
+    ggggc_pstack_cur->next = ggggc_pointerStack; \
+    ggggc_pstack_cur->size = 7; \
+    ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+    ggggc_pstack_cur->pointers[1] = &(ggggc_ptr_b); \
+    ggggc_pstack_cur->pointers[2] = &(ggggc_ptr_c); \
+    ggggc_pstack_cur->pointers[3] = &(ggggc_ptr_d); \
+    ggggc_pstack_cur->pointers[4] = &(ggggc_ptr_e); \
+    ggggc_pstack_cur->pointers[5] = &(ggggc_ptr_f); \
+    ggggc_pstack_cur->pointers[6] = &(ggggc_ptr_g); \
+    ggggc_pstack_cur->pointers[7] = NULL; \
+    ggggc_pointerStack = ggggc_pstack_cur; \
+    GGC_YIELD(); \
+} while(0)
+#define GGC_PUSH_MANUAL_7(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g) \
+struct GGGGC_PointerStack7 ggggc_localPointerStack; \
 do { \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         &ggggc_localPointerStack.ps; \
@@ -174,11 +279,30 @@ do { \
 #else
 struct GGGGC_PointerStack8 {
     struct GGGGC_PointerStack ps;
-    void *pointers[9];
+    void *pointers[8];
 };
 #define GGC_PUSH_8(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h) \
 struct GGGGC_PointerStack8 ggggc_localPointerStack; \
 GGGGC_LOCAL_PUSH \
+do { \
+    struct GGGGC_PointerStack *ggggc_pstack_cur = \
+        &ggggc_localPointerStack.ps; \
+    ggggc_pstack_cur->next = ggggc_pointerStack; \
+    ggggc_pstack_cur->size = 8; \
+    ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+    ggggc_pstack_cur->pointers[1] = &(ggggc_ptr_b); \
+    ggggc_pstack_cur->pointers[2] = &(ggggc_ptr_c); \
+    ggggc_pstack_cur->pointers[3] = &(ggggc_ptr_d); \
+    ggggc_pstack_cur->pointers[4] = &(ggggc_ptr_e); \
+    ggggc_pstack_cur->pointers[5] = &(ggggc_ptr_f); \
+    ggggc_pstack_cur->pointers[6] = &(ggggc_ptr_g); \
+    ggggc_pstack_cur->pointers[7] = &(ggggc_ptr_h); \
+    ggggc_pstack_cur->pointers[8] = NULL; \
+    ggggc_pointerStack = ggggc_pstack_cur; \
+    GGC_YIELD(); \
+} while(0)
+#define GGC_PUSH_MANUAL_8(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h) \
+struct GGGGC_PointerStack8 ggggc_localPointerStack; \
 do { \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         &ggggc_localPointerStack.ps; \
@@ -202,11 +326,31 @@ do { \
 #else
 struct GGGGC_PointerStack9 {
     struct GGGGC_PointerStack ps;
-    void *pointers[10];
+    void *pointers[9];
 };
 #define GGC_PUSH_9(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h, ggggc_ptr_i) \
 struct GGGGC_PointerStack9 ggggc_localPointerStack; \
 GGGGC_LOCAL_PUSH \
+do { \
+    struct GGGGC_PointerStack *ggggc_pstack_cur = \
+        &ggggc_localPointerStack.ps; \
+    ggggc_pstack_cur->next = ggggc_pointerStack; \
+    ggggc_pstack_cur->size = 9; \
+    ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+    ggggc_pstack_cur->pointers[1] = &(ggggc_ptr_b); \
+    ggggc_pstack_cur->pointers[2] = &(ggggc_ptr_c); \
+    ggggc_pstack_cur->pointers[3] = &(ggggc_ptr_d); \
+    ggggc_pstack_cur->pointers[4] = &(ggggc_ptr_e); \
+    ggggc_pstack_cur->pointers[5] = &(ggggc_ptr_f); \
+    ggggc_pstack_cur->pointers[6] = &(ggggc_ptr_g); \
+    ggggc_pstack_cur->pointers[7] = &(ggggc_ptr_h); \
+    ggggc_pstack_cur->pointers[8] = &(ggggc_ptr_i); \
+    ggggc_pstack_cur->pointers[9] = NULL; \
+    ggggc_pointerStack = ggggc_pstack_cur; \
+    GGC_YIELD(); \
+} while(0)
+#define GGC_PUSH_MANUAL_9(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h, ggggc_ptr_i) \
+struct GGGGC_PointerStack9 ggggc_localPointerStack; \
 do { \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         &ggggc_localPointerStack.ps; \
@@ -231,11 +375,32 @@ do { \
 #else
 struct GGGGC_PointerStack10 {
     struct GGGGC_PointerStack ps;
-    void *pointers[11];
+    void *pointers[10];
 };
 #define GGC_PUSH_10(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h, ggggc_ptr_i, ggggc_ptr_j) \
 struct GGGGC_PointerStack10 ggggc_localPointerStack; \
 GGGGC_LOCAL_PUSH \
+do { \
+    struct GGGGC_PointerStack *ggggc_pstack_cur = \
+        &ggggc_localPointerStack.ps; \
+    ggggc_pstack_cur->next = ggggc_pointerStack; \
+    ggggc_pstack_cur->size = 10; \
+    ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+    ggggc_pstack_cur->pointers[1] = &(ggggc_ptr_b); \
+    ggggc_pstack_cur->pointers[2] = &(ggggc_ptr_c); \
+    ggggc_pstack_cur->pointers[3] = &(ggggc_ptr_d); \
+    ggggc_pstack_cur->pointers[4] = &(ggggc_ptr_e); \
+    ggggc_pstack_cur->pointers[5] = &(ggggc_ptr_f); \
+    ggggc_pstack_cur->pointers[6] = &(ggggc_ptr_g); \
+    ggggc_pstack_cur->pointers[7] = &(ggggc_ptr_h); \
+    ggggc_pstack_cur->pointers[8] = &(ggggc_ptr_i); \
+    ggggc_pstack_cur->pointers[9] = &(ggggc_ptr_j); \
+    ggggc_pstack_cur->pointers[10] = NULL; \
+    ggggc_pointerStack = ggggc_pstack_cur; \
+    GGC_YIELD(); \
+} while(0)
+#define GGC_PUSH_MANUAL_10(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h, ggggc_ptr_i, ggggc_ptr_j) \
+struct GGGGC_PointerStack10 ggggc_localPointerStack; \
 do { \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         &ggggc_localPointerStack.ps; \
@@ -261,11 +426,33 @@ do { \
 #else
 struct GGGGC_PointerStack11 {
     struct GGGGC_PointerStack ps;
-    void *pointers[12];
+    void *pointers[11];
 };
 #define GGC_PUSH_11(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h, ggggc_ptr_i, ggggc_ptr_j, ggggc_ptr_k) \
 struct GGGGC_PointerStack11 ggggc_localPointerStack; \
 GGGGC_LOCAL_PUSH \
+do { \
+    struct GGGGC_PointerStack *ggggc_pstack_cur = \
+        &ggggc_localPointerStack.ps; \
+    ggggc_pstack_cur->next = ggggc_pointerStack; \
+    ggggc_pstack_cur->size = 11; \
+    ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+    ggggc_pstack_cur->pointers[1] = &(ggggc_ptr_b); \
+    ggggc_pstack_cur->pointers[2] = &(ggggc_ptr_c); \
+    ggggc_pstack_cur->pointers[3] = &(ggggc_ptr_d); \
+    ggggc_pstack_cur->pointers[4] = &(ggggc_ptr_e); \
+    ggggc_pstack_cur->pointers[5] = &(ggggc_ptr_f); \
+    ggggc_pstack_cur->pointers[6] = &(ggggc_ptr_g); \
+    ggggc_pstack_cur->pointers[7] = &(ggggc_ptr_h); \
+    ggggc_pstack_cur->pointers[8] = &(ggggc_ptr_i); \
+    ggggc_pstack_cur->pointers[9] = &(ggggc_ptr_j); \
+    ggggc_pstack_cur->pointers[10] = &(ggggc_ptr_k); \
+    ggggc_pstack_cur->pointers[11] = NULL; \
+    ggggc_pointerStack = ggggc_pstack_cur; \
+    GGC_YIELD(); \
+} while(0)
+#define GGC_PUSH_MANUAL_11(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h, ggggc_ptr_i, ggggc_ptr_j, ggggc_ptr_k) \
+struct GGGGC_PointerStack11 ggggc_localPointerStack; \
 do { \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         &ggggc_localPointerStack.ps; \
@@ -292,11 +479,34 @@ do { \
 #else
 struct GGGGC_PointerStack12 {
     struct GGGGC_PointerStack ps;
-    void *pointers[13];
+    void *pointers[12];
 };
 #define GGC_PUSH_12(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h, ggggc_ptr_i, ggggc_ptr_j, ggggc_ptr_k, ggggc_ptr_l) \
 struct GGGGC_PointerStack12 ggggc_localPointerStack; \
 GGGGC_LOCAL_PUSH \
+do { \
+    struct GGGGC_PointerStack *ggggc_pstack_cur = \
+        &ggggc_localPointerStack.ps; \
+    ggggc_pstack_cur->next = ggggc_pointerStack; \
+    ggggc_pstack_cur->size = 12; \
+    ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+    ggggc_pstack_cur->pointers[1] = &(ggggc_ptr_b); \
+    ggggc_pstack_cur->pointers[2] = &(ggggc_ptr_c); \
+    ggggc_pstack_cur->pointers[3] = &(ggggc_ptr_d); \
+    ggggc_pstack_cur->pointers[4] = &(ggggc_ptr_e); \
+    ggggc_pstack_cur->pointers[5] = &(ggggc_ptr_f); \
+    ggggc_pstack_cur->pointers[6] = &(ggggc_ptr_g); \
+    ggggc_pstack_cur->pointers[7] = &(ggggc_ptr_h); \
+    ggggc_pstack_cur->pointers[8] = &(ggggc_ptr_i); \
+    ggggc_pstack_cur->pointers[9] = &(ggggc_ptr_j); \
+    ggggc_pstack_cur->pointers[10] = &(ggggc_ptr_k); \
+    ggggc_pstack_cur->pointers[11] = &(ggggc_ptr_l); \
+    ggggc_pstack_cur->pointers[12] = NULL; \
+    ggggc_pointerStack = ggggc_pstack_cur; \
+    GGC_YIELD(); \
+} while(0)
+#define GGC_PUSH_MANUAL_12(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h, ggggc_ptr_i, ggggc_ptr_j, ggggc_ptr_k, ggggc_ptr_l) \
+struct GGGGC_PointerStack12 ggggc_localPointerStack; \
 do { \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         &ggggc_localPointerStack.ps; \
@@ -324,11 +534,35 @@ do { \
 #else
 struct GGGGC_PointerStack13 {
     struct GGGGC_PointerStack ps;
-    void *pointers[14];
+    void *pointers[13];
 };
 #define GGC_PUSH_13(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h, ggggc_ptr_i, ggggc_ptr_j, ggggc_ptr_k, ggggc_ptr_l, ggggc_ptr_m) \
 struct GGGGC_PointerStack13 ggggc_localPointerStack; \
 GGGGC_LOCAL_PUSH \
+do { \
+    struct GGGGC_PointerStack *ggggc_pstack_cur = \
+        &ggggc_localPointerStack.ps; \
+    ggggc_pstack_cur->next = ggggc_pointerStack; \
+    ggggc_pstack_cur->size = 13; \
+    ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+    ggggc_pstack_cur->pointers[1] = &(ggggc_ptr_b); \
+    ggggc_pstack_cur->pointers[2] = &(ggggc_ptr_c); \
+    ggggc_pstack_cur->pointers[3] = &(ggggc_ptr_d); \
+    ggggc_pstack_cur->pointers[4] = &(ggggc_ptr_e); \
+    ggggc_pstack_cur->pointers[5] = &(ggggc_ptr_f); \
+    ggggc_pstack_cur->pointers[6] = &(ggggc_ptr_g); \
+    ggggc_pstack_cur->pointers[7] = &(ggggc_ptr_h); \
+    ggggc_pstack_cur->pointers[8] = &(ggggc_ptr_i); \
+    ggggc_pstack_cur->pointers[9] = &(ggggc_ptr_j); \
+    ggggc_pstack_cur->pointers[10] = &(ggggc_ptr_k); \
+    ggggc_pstack_cur->pointers[11] = &(ggggc_ptr_l); \
+    ggggc_pstack_cur->pointers[12] = &(ggggc_ptr_m); \
+    ggggc_pstack_cur->pointers[13] = NULL; \
+    ggggc_pointerStack = ggggc_pstack_cur; \
+    GGC_YIELD(); \
+} while(0)
+#define GGC_PUSH_MANUAL_13(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h, ggggc_ptr_i, ggggc_ptr_j, ggggc_ptr_k, ggggc_ptr_l, ggggc_ptr_m) \
+struct GGGGC_PointerStack13 ggggc_localPointerStack; \
 do { \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         &ggggc_localPointerStack.ps; \
@@ -357,11 +591,36 @@ do { \
 #else
 struct GGGGC_PointerStack14 {
     struct GGGGC_PointerStack ps;
-    void *pointers[15];
+    void *pointers[14];
 };
 #define GGC_PUSH_14(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h, ggggc_ptr_i, ggggc_ptr_j, ggggc_ptr_k, ggggc_ptr_l, ggggc_ptr_m, ggggc_ptr_n) \
 struct GGGGC_PointerStack14 ggggc_localPointerStack; \
 GGGGC_LOCAL_PUSH \
+do { \
+    struct GGGGC_PointerStack *ggggc_pstack_cur = \
+        &ggggc_localPointerStack.ps; \
+    ggggc_pstack_cur->next = ggggc_pointerStack; \
+    ggggc_pstack_cur->size = 14; \
+    ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+    ggggc_pstack_cur->pointers[1] = &(ggggc_ptr_b); \
+    ggggc_pstack_cur->pointers[2] = &(ggggc_ptr_c); \
+    ggggc_pstack_cur->pointers[3] = &(ggggc_ptr_d); \
+    ggggc_pstack_cur->pointers[4] = &(ggggc_ptr_e); \
+    ggggc_pstack_cur->pointers[5] = &(ggggc_ptr_f); \
+    ggggc_pstack_cur->pointers[6] = &(ggggc_ptr_g); \
+    ggggc_pstack_cur->pointers[7] = &(ggggc_ptr_h); \
+    ggggc_pstack_cur->pointers[8] = &(ggggc_ptr_i); \
+    ggggc_pstack_cur->pointers[9] = &(ggggc_ptr_j); \
+    ggggc_pstack_cur->pointers[10] = &(ggggc_ptr_k); \
+    ggggc_pstack_cur->pointers[11] = &(ggggc_ptr_l); \
+    ggggc_pstack_cur->pointers[12] = &(ggggc_ptr_m); \
+    ggggc_pstack_cur->pointers[13] = &(ggggc_ptr_n); \
+    ggggc_pstack_cur->pointers[14] = NULL; \
+    ggggc_pointerStack = ggggc_pstack_cur; \
+    GGC_YIELD(); \
+} while(0)
+#define GGC_PUSH_MANUAL_14(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h, ggggc_ptr_i, ggggc_ptr_j, ggggc_ptr_k, ggggc_ptr_l, ggggc_ptr_m, ggggc_ptr_n) \
+struct GGGGC_PointerStack14 ggggc_localPointerStack; \
 do { \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         &ggggc_localPointerStack.ps; \
@@ -391,11 +650,37 @@ do { \
 #else
 struct GGGGC_PointerStack15 {
     struct GGGGC_PointerStack ps;
-    void *pointers[16];
+    void *pointers[15];
 };
 #define GGC_PUSH_15(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h, ggggc_ptr_i, ggggc_ptr_j, ggggc_ptr_k, ggggc_ptr_l, ggggc_ptr_m, ggggc_ptr_n, ggggc_ptr_o) \
 struct GGGGC_PointerStack15 ggggc_localPointerStack; \
 GGGGC_LOCAL_PUSH \
+do { \
+    struct GGGGC_PointerStack *ggggc_pstack_cur = \
+        &ggggc_localPointerStack.ps; \
+    ggggc_pstack_cur->next = ggggc_pointerStack; \
+    ggggc_pstack_cur->size = 15; \
+    ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+    ggggc_pstack_cur->pointers[1] = &(ggggc_ptr_b); \
+    ggggc_pstack_cur->pointers[2] = &(ggggc_ptr_c); \
+    ggggc_pstack_cur->pointers[3] = &(ggggc_ptr_d); \
+    ggggc_pstack_cur->pointers[4] = &(ggggc_ptr_e); \
+    ggggc_pstack_cur->pointers[5] = &(ggggc_ptr_f); \
+    ggggc_pstack_cur->pointers[6] = &(ggggc_ptr_g); \
+    ggggc_pstack_cur->pointers[7] = &(ggggc_ptr_h); \
+    ggggc_pstack_cur->pointers[8] = &(ggggc_ptr_i); \
+    ggggc_pstack_cur->pointers[9] = &(ggggc_ptr_j); \
+    ggggc_pstack_cur->pointers[10] = &(ggggc_ptr_k); \
+    ggggc_pstack_cur->pointers[11] = &(ggggc_ptr_l); \
+    ggggc_pstack_cur->pointers[12] = &(ggggc_ptr_m); \
+    ggggc_pstack_cur->pointers[13] = &(ggggc_ptr_n); \
+    ggggc_pstack_cur->pointers[14] = &(ggggc_ptr_o); \
+    ggggc_pstack_cur->pointers[15] = NULL; \
+    ggggc_pointerStack = ggggc_pstack_cur; \
+    GGC_YIELD(); \
+} while(0)
+#define GGC_PUSH_MANUAL_15(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h, ggggc_ptr_i, ggggc_ptr_j, ggggc_ptr_k, ggggc_ptr_l, ggggc_ptr_m, ggggc_ptr_n, ggggc_ptr_o) \
+struct GGGGC_PointerStack15 ggggc_localPointerStack; \
 do { \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         &ggggc_localPointerStack.ps; \
@@ -426,11 +711,38 @@ do { \
 #else
 struct GGGGC_PointerStack16 {
     struct GGGGC_PointerStack ps;
-    void *pointers[17];
+    void *pointers[16];
 };
 #define GGC_PUSH_16(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h, ggggc_ptr_i, ggggc_ptr_j, ggggc_ptr_k, ggggc_ptr_l, ggggc_ptr_m, ggggc_ptr_n, ggggc_ptr_o, ggggc_ptr_p) \
 struct GGGGC_PointerStack16 ggggc_localPointerStack; \
 GGGGC_LOCAL_PUSH \
+do { \
+    struct GGGGC_PointerStack *ggggc_pstack_cur = \
+        &ggggc_localPointerStack.ps; \
+    ggggc_pstack_cur->next = ggggc_pointerStack; \
+    ggggc_pstack_cur->size = 16; \
+    ggggc_pstack_cur->pointers[0] = &(ggggc_ptr_a); \
+    ggggc_pstack_cur->pointers[1] = &(ggggc_ptr_b); \
+    ggggc_pstack_cur->pointers[2] = &(ggggc_ptr_c); \
+    ggggc_pstack_cur->pointers[3] = &(ggggc_ptr_d); \
+    ggggc_pstack_cur->pointers[4] = &(ggggc_ptr_e); \
+    ggggc_pstack_cur->pointers[5] = &(ggggc_ptr_f); \
+    ggggc_pstack_cur->pointers[6] = &(ggggc_ptr_g); \
+    ggggc_pstack_cur->pointers[7] = &(ggggc_ptr_h); \
+    ggggc_pstack_cur->pointers[8] = &(ggggc_ptr_i); \
+    ggggc_pstack_cur->pointers[9] = &(ggggc_ptr_j); \
+    ggggc_pstack_cur->pointers[10] = &(ggggc_ptr_k); \
+    ggggc_pstack_cur->pointers[11] = &(ggggc_ptr_l); \
+    ggggc_pstack_cur->pointers[12] = &(ggggc_ptr_m); \
+    ggggc_pstack_cur->pointers[13] = &(ggggc_ptr_n); \
+    ggggc_pstack_cur->pointers[14] = &(ggggc_ptr_o); \
+    ggggc_pstack_cur->pointers[15] = &(ggggc_ptr_p); \
+    ggggc_pstack_cur->pointers[16] = NULL; \
+    ggggc_pointerStack = ggggc_pstack_cur; \
+    GGC_YIELD(); \
+} while(0)
+#define GGC_PUSH_MANUAL_16(ggggc_ptr_a, ggggc_ptr_b, ggggc_ptr_c, ggggc_ptr_d, ggggc_ptr_e, ggggc_ptr_f, ggggc_ptr_g, ggggc_ptr_h, ggggc_ptr_i, ggggc_ptr_j, ggggc_ptr_k, ggggc_ptr_l, ggggc_ptr_m, ggggc_ptr_n, ggggc_ptr_o, ggggc_ptr_p) \
+struct GGGGC_PointerStack16 ggggc_localPointerStack; \
 do { \
     struct GGGGC_PointerStack *ggggc_pstack_cur = \
         &ggggc_localPointerStack.ps; \

@@ -447,6 +447,8 @@ extern ggc_thread_local void **ggc_jitPointerStack, **ggc_jitPointerStackEnd;
     ggggc_pointerStack = ggggc_pointerStack->next; \
 } while(0)
 
+#define GGC_POP_MANUAL() GGGGC_POP()
+
 #if defined(__GNUC__) && !defined(GGGGC_NO_GNUC_CLEANUP)
 static inline void ggggc_pop(void *i) {
     GGGGC_POP();
