@@ -223,7 +223,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorDescriptor(ggc_size_t size)
         return ggggc_descriptorDescriptors[size];
 
     /* need one description bit for every word in the object */
-    ddSize = GGGGC_WORD_SIZEOF(struct GGGGC_Descriptor) + GGGGC_DESCRIPTOR_WORDS_REQ(size);
+    ddSize = GGGGC_WORD_SIZEOF(struct GGGGC_Descriptor) + GGGGC_DESCRIPTOR_WORDS_REQ(size) - 1;
 
     /* get our descriptor-descriptor-descriptor first */
     if (ddSize != size)
@@ -291,7 +291,7 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_si
         dPWords = GGGGC_DESCRIPTOR_WORDS_REQ(size);
     else
         dPWords = 1;
-    dSize = GGGGC_WORD_SIZEOF(struct GGGGC_Descriptor) + dPWords;
+    dSize = GGGGC_WORD_SIZEOF(struct GGGGC_Descriptor) + dPWords - 1;
 
     /* get a descriptor-descriptor for the descriptor we're about to allocate */
     dd = ggggc_allocateDescriptorDescriptor(dSize);
