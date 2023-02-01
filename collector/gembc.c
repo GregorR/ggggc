@@ -281,22 +281,6 @@ static struct ToSearch toSearchList;
         finalizer = nextFinalizer; \
     } \
 } while(0)
-
-/* preserve the surviving finalizers */
-#define PRESERVE_FINALIZERS() do { \
-    if (survivingFinalizers) { \
-        poolCur = GGGGC_POOL_OF(survivingFinalizers); \
-        survivingFinalizersTail->next__ptr = (GGGGC_FinalizerEntry) poolCur->finalizers; \
-        poolCur->finalizers = survivingFinalizers; \
-    } \
-} while (0)
-
-/* preserve ALL finalizers */
-#define PRESERVE_ALL_FINALIZERS() do { \
-    PRESERVE_FINALIZERS(); \
-    survivingFinalizers = readyFinalizers; \
-    PRESERVE_FINALIZERS(); \
-} while(0)
 #endif /* GGGGC_FEATURE_FINALIZERS */
 
 #ifdef GGGGC_DEBUG_MEMORY_CORRUPTION
@@ -607,8 +591,17 @@ collect:
             nobj = (struct GGGGC_Header *) ggggc_mallocGen1(descriptor->size, gen + 1);
             if (!nobj) {
 #ifdef GGGGC_FEATURE_FINALIZERS
-                PRESERVE_ALL_FINALIZERS();
-                survivingFinalizers = survivingFinalizersTail = readyFinalizers = NULL;
+                /* preserve all finalizers */
+                if (survivingFinalizers) {
+                    poolCur = GGGGC_POOL_OF(survivingFinalizers);
+                    poolCur->finalizers = survivingFinalizers;
+                    survivingFinalizersTail->next__ptr = readyFinalizers;
+                } else if (readyFinalizers) {
+                    poolCur = GGGGC_POOL_OF(readyFinalizers);
+                    poolCur->finalizers = readyFinalizers;
+                }
+                survivingFinalizers = survivingFinalizersTail =
+                    readyFinalizers = NULL;
 #endif
 
                 /* failed to allocate, need to collect gen+1 too */
@@ -670,7 +663,11 @@ collect:
 postCollect:
 
 #ifdef GGGGC_FEATURE_FINALIZERS
-    PRESERVE_FINALIZERS();
+    /* preserve surviving finalizers */
+    if (survivingFinalizers) {
+        poolCur = GGGGC_POOL_OF(survivingFinalizers);
+        poolCur->finalizers = survivingFinalizers;
+    }
 #endif
 
     /* heuristically expand too-small generations */
@@ -727,7 +724,8 @@ postCollect:
 
 #ifdef GGGGC_FEATURE_FINALIZERS
     /* run our finalizers */
-    if (readyFinalizers) ggggc_runFinalizers(readyFinalizers);
+    if (readyFinalizers)
+        ggggc_runFinalizers(readyFinalizers);
 #endif
 }
 

@@ -177,7 +177,7 @@ int main()
 #ifdef GGGGC_FEATURE_FINALIZERS
     GGC_COLLECT();
     if (outstanding != 0) {
-        fprintf(stderr, "Outstanding finalizers!\n");
+        fprintf(stderr, "%d outstanding finalizers!\n", outstanding);
         return 1;
     }
 #endif
