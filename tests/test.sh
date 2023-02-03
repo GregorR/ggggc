@@ -21,7 +21,9 @@ doTests() {
     cd tests
     make clean
     make btggggc btggggcth badlll ggggcbench lists maps graph \
-        CC="$2" ECFLAGS="-O3 -g $3 -DGGGGC_FEATURE_$1" GGGGC_LIBS="$GGGGC_LIBS"
+        CC="$2" ECFLAGS="-O3 -g $4 $3 -DGGGGC_FEATURE_$1" GGGGC_LIBS="$GGGGC_LIBS"
+    make graphpp \
+        ECFLAGS="-O3 -g $3 -DGGGGC_FEATURE_$1 -std=c++11" GGGGC_LIBS="$GGGGC_LIBS"
 
     eRun ./btggggc 16
     eRun ./btggggcth 16
@@ -30,6 +32,7 @@ doTests() {
     eRun ./lists
     eRun ./maps
     eRun ./graph
+    eRun ./graphpp
     )
 }
 
@@ -46,9 +49,9 @@ else
     FEATURES="FINALIZERS TAGGING EXTTAG JITPSTACK"
     for feature in '' $FEATURES
     do
-        doTests "$feature" gcc '-O0 -g -Wall -Werror -std=c99 -pedantic -Wno-array-bounds -Wno-unused-function -Werror=shadow -DGGGGC_DEBUG_MEMORY_CORRUPTION'
-        doTests "$feature" gcc ''
-        doTests "$feature" g++ ''
+        doTests "$feature" gcc '-O0 -g -Wall -Werror -pedantic -Wno-array-bounds -Wno-unused-function -Werror=shadow -DGGGGC_DEBUG_MEMORY_CORRUPTION' '-std=c99'
+        doTests "$feature" gcc
+        doTests "$feature" g++
         #doTests "$feature" gcc '-DGGGGC_NO_GNUC_FEATURES'
         doTests "$feature" g++ '-DGGGGC_NO_GNUC_FEATURES'
 

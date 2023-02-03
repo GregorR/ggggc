@@ -12,3 +12,4 @@ tests/ggggcbench
 tests/lists
 tests/maps
 tests/graph
+tests/graphpp

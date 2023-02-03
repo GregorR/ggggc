@@ -69,9 +69,6 @@ done through `GGC_RD` and `GGC_WD`. For instance:
     if (GGC_RP(list, fooMember) != NULL)
         GGC_WP(list, fooMember, NULL);
 
-In C++, these barriers are also implemented through operator overloading, so
-fields may be accessed with, e.g., `list->fooMember`.
-
 Each GGGGC type also has an array type, simply named the same as the user type
 with `Array` at the end, e.g. `ListOfFoosAndIntsArray`. Arrays of GC'd pointers
 are created with `GGC_NEW_PA`. Arrays have a `length` member, which should not
@@ -139,6 +136,40 @@ You must be careful in C to not store pointers to GC'd objects in temporary
 locations through function calls; in particular, do not call functions within
 the arguments of other functions, as those function calls may yield and destroy
 your pointers.
+
+
+GGGGC from C++
+==============
+
+Many of the most annoying aspects of using a precise GC can be automated in C++,
+and if `ggggc/gc.h` is included in C++ mode, all of these automations are
+available.
+
+In C++, write (and read) barriers are implemented through operator overloading,
+so fields may be accessed with, e.g., `list->fooMember`.
+
+To automate pushing and popping values to/from the stack, in C++, the `GGC<>`,
+`GGCAP<>`, and `GGCAD<>` types are provided. `GGC` is a class template, usable
+only in the stack (i.e., arguments and variables of functions) that contains a
+pointer and automatically pushes it to and pops it from the pointer stack, while
+additionally providing access to all the fields of the underlying object with
+`->`. For instance, the `ListOfFoosAndInts` code above can be rewritten in C++
+as follows:
+
+```
+int addList(GGC<ListOfFoosAndInts> list) {
+    GGC<ListOfFoosAndInts> newObj;
+    int sum = 0;
+    if (list->next)
+        sum += addList(list->next);
+}
+```
+
+`GGCAP<>` and `GGCAD<>` are subclasses of `GGC<>` that provide convenience
+methods for using arrays. In each case, both the element type and the array type
+are parameters: for instance, `GGCAP<Foo, FooArray>` or
+`GGCAD<int, GGC_int_Array>`. Elements can be read with `[]` (like a typical
+array), but to write, you must use `array.put(index, value)`.
 
 
 Configuration

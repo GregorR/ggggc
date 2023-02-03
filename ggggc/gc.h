@@ -269,8 +269,6 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
 
 #ifdef __cplusplus
 #define GGC_MDATA(type, name) \
-        ; \
-        \
         union { \
             type name ## __data; \
             struct { \
@@ -292,8 +290,6 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
             } name; \
         }
 #define GGC_MPTR(type, name) \
-        ; \
-        \
         union { \
             type name ## __ptr; \
             struct { \
@@ -488,6 +484,140 @@ static const int ggggc_localPush = 0;
 #endif
 
 #include "push.h"
+
+/* on C++, we provide an indirector for pointers */
+#ifdef __cplusplus
+}
+
+template<typename T> class GGC {
+    protected:
+        T ptr;
+        struct GGGGC_PointerStack1 ps;
+
+    public:
+        inline GGC<T>(T to) : ptr{to} {
+            ps.ps.next = ggggc_pointerStack;
+            ps.ps.size = 1;
+            ps.ps.pointers[0] = (void *) &ptr;
+            ps.pointers[0] = nullptr;
+            ggggc_pointerStack = &ps.ps;
+        }
+
+        inline GGC<T>(const GGC<T> &other) : GGC<T>(other.ptr) {}
+
+        inline GGC<T>() : GGC<T>(nullptr) {}
+
+        inline ~GGC<T>() {
+            if (ggggc_pointerStack != &ps.ps)
+                abort();
+            ggggc_pointerStack = ggggc_pointerStack->next;
+        }
+
+        inline GGC<T> &operator=(T other) {
+            ptr = other;
+            return *this;
+        }
+
+        inline GGC<T> &operator=(const GGC<T> &other) {
+            ptr = other.ptr;
+            return *this;
+        }
+
+        inline T operator->() const {
+            return ptr;
+        }
+
+        inline T get() const {
+            return ptr;
+        }
+
+        inline operator T &() {
+            return ptr;
+        }
+
+        inline bool operator==(T other) const {
+            return ptr == other;
+        }
+
+        inline bool operator==(const GGC<T> &other) const {
+            return ptr == other.ptr;
+        }
+
+        inline operator bool() const {
+            return !!ptr;
+        }
+
+        inline bool operator!() const {
+            return !ptr;
+        }
+};
+
+template<typename O, typename T> class GGCAP : public GGC<T> {
+    public:
+        inline GGCAP<O, T>(T other) : GGC<T>(other) {}
+        inline GGCAP<O, T>(const GGC<T> &other) : GGC<T>(other) {}
+        inline GGCAP<O, T>() : GGC<T>() {}
+
+        inline GGCAP<O, T> &operator=(T other) {
+            GGC<T>::operator=(other);
+            return *this;
+        }
+
+        inline GGCAP<O, T> &operator=(const GGC<T> &other) {
+            GGC<T>::operator=(other);
+            return *this;
+        }
+
+        inline O get(ggc_size_t idx) {
+            const T &p = *this;
+            return GGC_RAP(p, idx);
+        }
+
+        inline O operator[](ggc_size_t idx) {
+            return get(idx);
+        }
+
+        inline const O &put(ggc_size_t idx, const O &val) {
+            const T &p = *this;
+            GGC_WAP(p, idx, val);
+            return val;
+        }
+};
+
+template<typename O, typename T> class GGCAD : public GGC<T> {
+    public:
+        inline GGCAD<O, T>(T other) : GGC<T>(other) {}
+        inline GGCAD<O, T>(const GGC<T> &other) : GGC<T>(other) {}
+        inline GGCAD<O, T>() : GGC<T>() {}
+
+        inline GGCAD<O, T> &operator=(T other) {
+            GGC<T>::operator=(other);
+            return *this;
+        }
+
+        inline GGCAD<O, T> &operator=(const GGC<T> &other) {
+            GGC<T>::operator=(other);
+            return *this;
+        }
+
+        inline O get(ggc_size_t idx) {
+            const T &p = *this;
+            return GGC_RAD(p, idx);
+        }
+
+        inline O operator[](ggc_size_t idx) {
+            return get(idx);
+        }
+
+        inline const O &put(ggc_size_t idx, const O &val) {
+            const T &p = *this;
+            GGC_WAD(p, idx, val);
+            return val;
+        }
+};
+
+extern "C" {
+#endif
 
 /* the type passed to threads, which allows both GC and non-GC args */
 GGC_TYPE(GGC_ThreadArg)

@@ -1,4 +1,5 @@
 CC=gcc
+CXX=g++
 ECFLAGS=
 OCFLAGS=$(ECFLAGS) -O2
 CFLAGS=$(OCFLAGS) -g -DGC -I..
@@ -26,7 +27,7 @@ MAPSOBJS=maps.o
 
 GRAPHOBJS=graph.o
 
-all: bt btgc btggggc btggggcth badlll gcbench ggggcbench lists maps graph
+all: bt btgc btggggc btggggcth badlll gcbench ggggcbench lists maps graph graphpp
 
 bt: $(BTOBJS)
 	$(LD) $(CFLAGS) $(LDFLAGS) $(BTOBJS) $(LIBS) -o bt
@@ -61,6 +62,9 @@ maps: $(MAPSOBJS)
 graph: $(GRAPHOBJS)
 	$(LD) $(CFLAGS) $(LDFLAGS) $(GRAPHOBJS) $(GGGGC_LIBS) $(LIBS) -o graph
 
+graphpp: graph.cc
+	$(CXX) $(CFLAGS) $(LDFLAGS) $< $(GGGGC_LIBS) $(LIBS) -o $@
+
 .SUFFIXES: .c .o
 
 .c.o:
@@ -78,3 +82,4 @@ clean:
 	rm -f $(LISTSOBJS) lists
 	rm -f $(MAPSOBJS) maps
 	rm -f $(GRAPHOBJS) graph
+	rm -f graphpp
