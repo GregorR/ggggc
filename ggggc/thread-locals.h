@@ -5,8 +5,11 @@
 /* no threads = no thread locals either */
 #define ggc_thread_local
 
-#elif __STDC_VERSION__ >= 201112L
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 #define ggc_thread_local _Thread_local
+
+#elif defined(__cplusplus) && __cplusplus >= 201103L
+#define ggc_thread_local thread_local
 
 #elif defined(__GNUC__)
 #define ggc_thread_local __thread
