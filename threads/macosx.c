@@ -95,4 +95,4 @@ BLOCKING(
     pthread_join(thread, NULL)
 )
 
-#include "gen-barriers.c"
+#include "../gen-barriers.c"

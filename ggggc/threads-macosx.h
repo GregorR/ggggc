@@ -46,7 +46,7 @@ int ggc_sem_wait(ggc_sem_t *sem);
 int ggc_sem_wait_raw(ggc_sem_t *sem);
 int ggc_thread_create(
         ggc_thread_t *thread,
-        oid (*func)(struct GGC_ThreadArg__ggggc_struct *),
+        void (*func)(struct GGC_ThreadArg__ggggc_struct *),
         struct GGC_ThreadArg__ggggc_struct *arg);
 int ggc_thread_join(ggc_thread_t thread);
 

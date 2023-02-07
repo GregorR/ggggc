@@ -102,4 +102,4 @@ BLOCKING(
     WaitForSingleObject(thread, INFINITE)
 )
 
-#include "gen-barriers.c"
+#include "../gen-barriers.c"

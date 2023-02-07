@@ -75,5 +75,5 @@ BLOCKING(
 )
 
 #if !_POSIX_BARRIERS
-#include "gen-barriers.c"
+#include "../gen-barriers.c"
 #endif

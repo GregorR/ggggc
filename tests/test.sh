@@ -3,9 +3,13 @@ cd "`dirname $0`"/..
 set -e
 
 GGGGC_LIBS="../libggggc.a -pthread"
+DEFCC=gcc
+DEFCXX=g++
 if [ `uname` = "Darwin" ]
 then
     GGGGC_LIBS=../libggggc.a
+    DEFCC='clang++ -std=c++11 -Wno-deprecated'
+    DEFCXX="$DEFCC"
 fi
 
 eRun() {
@@ -23,7 +27,7 @@ doTests() {
     make btggggc btggggcth badlll ggggcbench lists maps graph \
         CC="$2" ECFLAGS="-O3 -g $4 $3 -DGGGGC_FEATURE_$1" GGGGC_LIBS="$GGGGC_LIBS"
     make graphpp \
-        ECFLAGS="-O3 -g $3 -DGGGGC_FEATURE_$1 -std=c++11" GGGGC_LIBS="$GGGGC_LIBS"
+        CXX="$DEFCXX" ECFLAGS="-O3 -g $3 -DGGGGC_FEATURE_$1 -std=c++11" GGGGC_LIBS="$GGGGC_LIBS"
 
     eRun ./btggggc 16
     eRun ./btggggcth 16
@@ -49,20 +53,22 @@ else
     FEATURES="FINALIZERS TAGGING EXTTAG JITPSTACK"
     for feature in '' $FEATURES
     do
-        doTests "$feature" gcc '-O0 -g -Wall -Werror -pedantic -Wno-array-bounds -Wno-unused-function -Werror=shadow -DGGGGC_DEBUG_MEMORY_CORRUPTION' '-std=c99'
-        doTests "$feature" gcc
-        doTests "$feature" g++
-        #doTests "$feature" gcc '-DGGGGC_NO_GNUC_FEATURES'
-        doTests "$feature" g++ '-DGGGGC_NO_GNUC_FEATURES'
+        STD="-std=c99"
+        if [ "$DEFCC" != "gcc" ] ; then STD="" ; fi
+        doTests "$feature" "$DEFCC" '-O0 -g -Wall -Werror -pedantic -Wno-array-bounds -Wno-unused-function -Wno-nested-anon-types -Wno-c99-extensions -Werror=shadow -DGGGGC_DEBUG_MEMORY_CORRUPTION' $STD
+        doTests "$feature" "$DEFCC"
+        doTests "$feature" "$DEFCXX"
+        #doTests "$feature" "$DEFCC" '-DGGGGC_NO_GNUC_FEATURES'
+        doTests "$feature" "$DEFCXX" '-DGGGGC_NO_GNUC_FEATURES'
 
-        doTests "$feature" gcc '-DGGGGC_DEBUG_TINY_HEAP'
+        doTests "$feature" "$DEFCC" '-DGGGGC_DEBUG_TINY_HEAP'
 
-        doTests "$feature" gcc '-DGGGGC_GENERATIONS=1'
-        doTests "$feature" gcc '-DGGGGC_GENERATIONS=5'
-        doTests "$feature" gcc '-DGGGGC_COLLECTOR=portablems'
+        doTests "$feature" "$DEFCC" '-DGGGGC_GENERATIONS=1'
+        doTests "$feature" "$DEFCC" '-DGGGGC_GENERATIONS=5'
+        doTests "$feature" "$DEFCC" '-DGGGGC_COLLECTOR=portablems'
 
-        doTests "$feature" gcc '-DGGGGC_USE_MALLOC'
-        doTests "$feature" gcc '-DGGGGC_USE_SBRK -DGGGGC_NO_THREADS'
+        doTests "$feature" "$DEFCC" '-DGGGGC_USE_MALLOC'
+        doTests "$feature" "$DEFCC" '-DGGGGC_USE_SBRK -DGGGGC_NO_THREADS'
     done
 
 fi
