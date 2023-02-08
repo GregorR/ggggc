@@ -28,7 +28,7 @@ class GGGGC_LockInitLockConstructor {
 #endif
         lockInitLock = CreateMutex(NULL, 0, NULL);
     }
-#if defined(__cplusplus)
+#if !defined(__GNUC__) && defined(__cplusplus)
 };
 #endif
 
