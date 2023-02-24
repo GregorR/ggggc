@@ -279,7 +279,7 @@ static type ## __descriptorSlotConstructor type ## __descriptorSlotConstructorIn
                     ); \
                     return GGC_RD(that, name); \
                 } \
-                inline void operator=(type &x) { \
+                inline void operator=(type x) { \
                     ggggc_current_struct *that = (ggggc_current_struct *) (void *) ( \
                         (char *) (void *) this - \
                         (size_t) (void *) &(((ggggc_current_struct *) NULL)->name ## __data) \
