@@ -552,18 +552,18 @@ template<typename T> class GGC {
         }
 };
 
-template<typename O, typename T> class GGCAP : public GGC<T> {
+template<typename O, typename T> class GGCPA : public GGC<T> {
     public:
-        inline GGCAP<O, T>(T other) : GGC<T>(other) {}
-        inline GGCAP<O, T>(const GGC<T> &other) : GGC<T>(other) {}
-        inline GGCAP<O, T>() : GGC<T>() {}
+        inline GGCPA<O, T>(T other) : GGC<T>(other) {}
+        inline GGCPA<O, T>(const GGC<T> &other) : GGC<T>(other) {}
+        inline GGCPA<O, T>() : GGC<T>() {}
 
-        inline GGCAP<O, T> &operator=(T other) {
+        inline GGCPA<O, T> &operator=(T other) {
             GGC<T>::operator=(other);
             return *this;
         }
 
-        inline GGCAP<O, T> &operator=(const GGC<T> &other) {
+        inline GGCPA<O, T> &operator=(const GGC<T> &other) {
             GGC<T>::operator=(other);
             return *this;
         }
@@ -584,18 +584,18 @@ template<typename O, typename T> class GGCAP : public GGC<T> {
         }
 };
 
-template<typename O, typename T> class GGCAD : public GGC<T> {
+template<typename O, typename T> class GGCDA : public GGC<T> {
     public:
-        inline GGCAD<O, T>(T other) : GGC<T>(other) {}
-        inline GGCAD<O, T>(const GGC<T> &other) : GGC<T>(other) {}
-        inline GGCAD<O, T>() : GGC<T>() {}
+        inline GGCDA<O, T>(T other) : GGC<T>(other) {}
+        inline GGCDA<O, T>(const GGC<T> &other) : GGC<T>(other) {}
+        inline GGCDA<O, T>() : GGC<T>() {}
 
-        inline GGCAD<O, T> &operator=(T other) {
+        inline GGCDA<O, T> &operator=(T other) {
             GGC<T>::operator=(other);
             return *this;
         }
 
-        inline GGCAD<O, T> &operator=(const GGC<T> &other) {
+        inline GGCDA<O, T> &operator=(const GGC<T> &other) {
             GGC<T>::operator=(other);
             return *this;
         }

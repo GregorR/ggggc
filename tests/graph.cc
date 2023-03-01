@@ -48,10 +48,10 @@ static void finalize(void *ignore)
 }
 #endif
 
-static void graph(GGCAP<Node, NodeArray> nodes)
+static void graph(GGCPA<Node, NodeArray> nodes)
 {
     int i;
-    GGCAP<Node, NodeArray> edges, nedges;
+    GGCPA<Node, NodeArray> edges, nedges;
     GGC<Node> next, node;
 
 #ifdef GGGGC_FEATURE_TAGGING
@@ -127,7 +127,7 @@ static void graph(GGCAP<Node, NodeArray> nodes)
 
 int main()
 {
-    GGCAP<Node, NodeArray> nodes{GGC_NEW_PA(Node, NODECT)};
+    GGCPA<Node, NodeArray> nodes{GGC_NEW_PA(Node, NODECT)};
 
     graph(nodes);
 
