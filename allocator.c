@@ -335,6 +335,47 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_si
     return ret;
 }
 
+#ifdef GGGGC_FEATURE_EXTTAG
+/* descriptor allocator when deeper tag information than presence of pointers
+ * is provided */
+struct GGGGC_Descriptor *ggggc_allocateDescriptorT(ggc_size_t size, const unsigned char *tags)
+{
+    struct GGGGC_Descriptor *dd, *ret;
+    ggc_size_t dPWords, dSize;
+
+    /* check for minimum size */
+    /* FIXME: Theoretically if our minimum size straddled a word length, this
+     * would cause us to read past the end of pointers */
+    if (size < GGGGC_MINIMUM_OBJECT_SIZE)
+        size = GGGGC_MINIMUM_OBJECT_SIZE;
+
+    /* the size of the descriptor */
+    if (tags)
+        dPWords = GGGGC_DESCRIPTOR_WORDS_REQ(size);
+    else
+        dPWords = 1;
+    dSize = GGGGC_WORD_SIZEOF(struct GGGGC_Descriptor) + dPWords - 1;
+
+    /* get a descriptor-descriptor for the descriptor we're about to allocate */
+    dd = ggggc_allocateDescriptorDescriptor(dSize);
+
+    /* use that to allocate the descriptor */
+    ret = (struct GGGGC_Descriptor *) ggggc_mallocRaw(&dd, dd->size);
+    ret->header.descriptor__ptr = dd;
+    ret->size = size;
+
+    /* and set it up */
+    if (tags) {
+        memcpy(ret->tags, tags, size);
+        ret->tags[0] = 0; /* first word is always the descriptor pointer */
+    } else {
+        ret->tags[0] = 1;
+    }
+
+    return ret;
+}
+#endif
+
 /* descriptor allocator for pointer arrays */
 struct GGGGC_Descriptor *ggggc_allocateDescriptorPA(ggc_size_t size)
 {

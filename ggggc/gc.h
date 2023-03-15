@@ -167,6 +167,9 @@ struct GGGGC_Descriptor {
                               pointers". */
 #endif
 };
+
+typedef struct GGGGC_Descriptor *GGC_Descriptor;
+
 #define GGGGC_DESCRIPTOR_DESCRIPTION (((ggc_size_t)1<<(((ggc_size_t) (void *) &((struct GGGGC_Header *) 0)->descriptor__ptr)/sizeof(ggc_size_t)))|\
                                       ((ggc_size_t)1<<(((ggc_size_t) (void *) &((struct GGGGC_Descriptor *) 0)->user__ptr)/sizeof(ggc_size_t)))) 
 #ifndef GGGGC_FEATURE_EXTTAG
@@ -370,6 +373,9 @@ void *ggggc_mallocSlot(struct GGGGC_DescriptorSlot *slot);
 #define GGC_NEW(type) ((type) ggggc_mallocSlot(&type ## __descriptorSlot))
 #endif
 
+/* allocator if what you have is a descriptor */
+#define GGC_NEW_FROM_DESCRIPTOR(descriptor) (ggggc_malloc((descriptor)))
+
 /* allocate a pointer array (size is in words) */
 void *ggggc_mallocPointerArray(ggc_size_t sz);
 #define GGC_NEW_PA(type, size) \
@@ -387,11 +393,13 @@ struct GGGGC_Descriptor *ggggc_allocateDescriptor(ggc_size_t size, ggc_size_t po
 /* descriptor allocator when more than one word is required to describe the
  * pointers */
 struct GGGGC_Descriptor *ggggc_allocateDescriptorL(ggc_size_t size, const ggc_size_t *pointers);
+#define GGC_NEW_DESCRIPTOR(size, pointers) (ggggc_allocateDescriptorL((size), (pointers)))
 
 #ifdef GGGGC_FEATURE_EXTTAG
 /* descriptor allocator when deeper tag information than presence of pointers
  * is provided */
 struct GGGGC_Descriptor *ggggc_allocateDescriptorT(ggc_size_t size, const unsigned char *tags);
+#define GGC_NEW_DESCRIPTOR_WITH_TAGS(size, tags) (ggggc_allocateDescriptorT((size), (tags)))
 #endif
 
 /* descriptor allocator for pointer arrays */
