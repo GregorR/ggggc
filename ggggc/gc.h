@@ -498,11 +498,10 @@ static const int ggggc_localPush = 0;
 }
 
 template<typename T> class GGC {
-    protected:
+    public:
         T ptr;
         struct GGGGC_PointerStack1 ps;
 
-    public:
         inline GGC<T>(T to) : ptr{to} {
             ps.ps.next = ggggc_pointerStack;
             ps.ps.size = 1;
