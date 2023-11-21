@@ -366,15 +366,16 @@ void *ggggc_malloc(struct GGGGC_Descriptor *descriptor);
 /* combined malloc + allocateDescriptorSlot */
 void *ggggc_mallocSlot(struct GGGGC_DescriptorSlot *slot);
 
+/* allocators directly from a descriptor (slot) */
+#define GGC_NEW_FROM_DESCRIPTOR(descriptor) (ggggc_malloc((descriptor)))
+#define GGC_NEW_FROM_DESCRIPTOR_SLOT(slot) (ggggc_mallocSlot(slot))
+
 /* general allocator */
 #ifdef GGGGC_DESCRIPTORS_CONSTRUCTED
-#define GGC_NEW(type) ((type) ggggc_malloc(type ## __descriptorSlot.descriptor))
+#define GGC_NEW(type) ((type) GGC_NEW_FROM_DESCRIPTOR(type ## __descriptorSlot.descriptor))
 #else
-#define GGC_NEW(type) ((type) ggggc_mallocSlot(&type ## __descriptorSlot))
+#define GGC_NEW(type) ((type) GGC_NEW_FROM_DESCRIPTOR_SLOT(&type ## __descriptorSlot))
 #endif
-
-/* allocator if what you have is a descriptor */
-#define GGC_NEW_FROM_DESCRIPTOR(descriptor) (ggggc_malloc((descriptor)))
 
 /* allocate a pointer array (size is in words) */
 void *ggggc_mallocPointerArray(ggc_size_t sz);

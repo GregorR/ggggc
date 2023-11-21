@@ -457,7 +457,14 @@ void ggggc_finalize(void *obj, ggc_finalizer_t finalizer)
     GGC_PUSH_3(obj, entry, next);
 
     /* allocate the entry */
-    entry = GGC_NEW(GGGGC_FinalizerEntry);
+    /* NOTE: This is the ONLY GC_NEW in the entire garbage collector, since
+     * finalizer entries are the only high-level data type needed by the
+     * collector itself. But, as a consequence, we can't count on descriptors
+     * being pre-constructed, since the constructors for descriptors may not
+     * have actually run yet. As such, we use GGC_NEW_FROM_DESCRIPTOR_SLOT here,
+     * which will allocate the descriptor if needed, instead of just GGC_NEW. */
+    entry = (GGGGC_FinalizerEntry)
+        GGC_NEW_FROM_DESCRIPTOR_SLOT(&GGGGC_FinalizerEntry__descriptorSlot);
 
     /* set it up */
     GGC_WP(entry, obj, obj);
